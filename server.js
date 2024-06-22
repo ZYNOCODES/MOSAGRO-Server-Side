@@ -2,11 +2,15 @@ require('dotenv').config();
 
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
-const Productroutes = require('./route/ProductRoutes');
 const body = require('body-parser');
 const ErrorHandler = require('./controller/ErrorController');
+//security
+const cors = require('cors');
 const limiter = require('./middleware/RateLimiting');
+const validateRequest = require('./middleware/Sanitize');
+//routes
+const Productroutes = require('./route/ProductRoutes');
+const Authroutes = require('./route/AuthRoutes');
 
 //express app
 const app = express();
@@ -16,9 +20,11 @@ app.use(cors());
 app.use(body.json({limit: '50mb'}));
 app.use(body.urlencoded({limit: '50mb', extended: true}));
 app.use(limiter);
+app.use(validateRequest);
 
 //routes
 app.use('/Product', Productroutes); 
+app.use('/Auth', Authroutes);
 
 //error handling
 app.use(ErrorHandler);
