@@ -9,8 +9,9 @@ const cors = require('cors');
 const limiter = require('./middleware/RateLimiting');
 const validateRequest = require('./middleware/Sanitize');
 //routes
-const Productroutes = require('./route/ProductRoutes');
 const Authroutes = require('./route/AuthRoutes');
+const Productroutes = require('./route/ProductRoutes');
+const Brandroutes = require('./route/BrandRoutes');
 
 //express app
 const app = express();
@@ -25,6 +26,7 @@ app.use(validateRequest);
 //routes
 app.use('/Product', Productroutes); 
 app.use('/Auth', Authroutes);
+app.use('/Brand', Brandroutes);
 
 //error handling
 app.use(ErrorHandler);

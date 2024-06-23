@@ -2,30 +2,40 @@ const Product = require('../model/ProductModel');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const { ProductCode } = require('../util/Codification.js');
+const BrandService = require('../service/BrandService.js');
+const ProductService = require('../service/ProductService.js');
 
 //create a new product
 const CreateProduct = asyncErrorHandler(async (req, res, next) => {
-    const { name, size, category, brand } = req.body;
+    const { Name, Subname, Size, Brand, Image, BoxItems } = req.body;
     // check if all required fields are provided
-    if(!name){
+    if(!Name || !Size || !Brand || !Image || !BoxItems){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
+    //check if brand already exists
+    const brand = await BrandService.findBrandById(Brand);
+    if(!brand){
+        const err = new CustomError('Brand not found', 400);
+        return next(err);
+    }
     //generate codification for a product
-    const code = await ProductCode(category, name, size);
+    const code = await ProductCode(brand.code, Subname, Size);
     //check if the product already exist with that code
-    if(code = null){
+    if(code == null){
         const err = new CustomError('An existing product use that code. check the product list', 400);
         return next(err);
     }
 
     //create a new product
-    const newProduct = new Product.create({
-        name : name,
+    const newProduct = await Product.create({
         code : code,
-        size : size,
-        category : category,
-        brand : brand
+        name : Name,
+        subName : Subname,
+        size : Size,
+        brand : Brand,
+        image : Image,
+        boxItems : BoxItems
     });
     
     //check if product created successfully
@@ -46,8 +56,8 @@ const GetAllProducts = asyncErrorHandler(async (req, res, next) => {
 });
 //fetch specific product with code
 const GetProduct = asyncErrorHandler(async (req, res, next) => {
-    const { code } = req.params;
-    const product = await Product.findOne({code: code});
+    const { id } = req.params;
+    const product = await Product.findOne({_id: id});
     if(!product){
         const err = new CustomError('Product not found', 400);
         return next(err);
@@ -56,30 +66,50 @@ const GetProduct = asyncErrorHandler(async (req, res, next) => {
 });
 //update a product
 const UpdateProduct = asyncErrorHandler(async (req, res, next) => {
-    const { code } = req.params;
-    const { name } = req.body;
-    const product = await Product.findOne({code: code});
-    if(!product){
+    const { id } = req.params;
+    const { Name, Subname, Size, Brand, BoxItems } = req.body;
+
+    // Check if at least one field is provided
+    if (!Name && !Subname && !Size && !Brand && !BoxItems) {
+        const err = new CustomError('One of the fields is required at least', 400);
+        return next(err);
+    }
+
+    // Check if Product exists
+    const product = await ProductService.findProductById(id);
+    if (!product) {
         const err = new CustomError('Product not found', 400);
         return next(err);
     }
-    if(name) product.name = name;
-    const updatedProduct = await product.save();
-    if(!updatedProduct){
-        const err = new CustomError('Error while updating product', 400);
+
+    // Prepare update fields
+    const updateFields = {};
+    if (Name) updateFields.name = Name;
+    if (Subname) updateFields.subname = Subname;
+    if (Size) updateFields.size = Size;
+    if (Brand) updateFields.brand = Brand;
+    if (BoxItems) updateFields.boxItems = BoxItems;
+    
+    // Update Product
+    const updatedProduct = await Product.updateOne({ _id: id }, { $set: updateFields });
+
+    // Check if Product updated successfully
+    if (!updatedProduct) {
+        const err = new CustomError('Error while updating Product, try again.', 400);
         return next(err);
     }
-    res.status(200).json({message: 'Product updated successfully'});
+
+    res.status(200).json({ message: 'Product updated successfully' });
 });
 //delete a product
 const DeleteProduct = asyncErrorHandler(async (req, res, next) => {
-    const { code } = req.params;
-    const product = await Product.findOne({code: code});
+    const { id } = req.params;
+    const product = await Product.findOne({_id: id});
     if(!product){
         const err = new CustomError('Product not found', 400);
         return next(err);
     }
-    const deletedProduct = await product.remove();
+    const deletedProduct = await Product.deleteOne({_id: id});
     if(!deletedProduct){
         const err = new CustomError('Error while deleting product', 400);
         return next(err);

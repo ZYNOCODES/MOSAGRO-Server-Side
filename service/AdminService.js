@@ -1,7 +1,7 @@
 const Admin = require('../model/AdminModel');
 
 const findAdminById = async (id) => {
-    return await Admin.findByPk(id);
+    return await Admin.findById(id);
 };
 
 const findAdminByEmail = async (Email) => {

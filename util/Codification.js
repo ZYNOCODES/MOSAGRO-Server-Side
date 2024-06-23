@@ -8,10 +8,9 @@ const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const { getCurrentDateTime } = require('../util/DateTime.js');
 
 //Product codification
-const ProductCode = async (CategoryCode, SubName, Size) => {
+const ProductCode = async (BrandCode, SubName, Size) => {
     //2 degits random 
-    const degits = Math.random().toString(36).substring(2, 4).toUpperCase();
-    const code = CategoryCode + SubName + Size + degits;
+    const code = BrandCode + SubName + Size;
     //check if the product already exist with that code
     const existCodeProduct = await Product.findOne({code: code});
     if(existCodeProduct){
@@ -74,22 +73,10 @@ const BrandCode = async (Name) => {
     return code;
 }
 
-//Category codification
-const CategoryCode = async (BrandCode, Name) => {
-    const code = BrandCode + Name;
-    //check if the category already exist with that code
-    const existCodeCategory = await Category.findOne({code: code});
-    if(existCodeCategory){
-        return null;
-    }
-    return code;
-}
-
 module.exports = {
     ProductCode,
     UserCode,
     StoreCode,
     ReceiptCode,
     BrandCode,
-    CategoryCode
 };

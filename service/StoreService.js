@@ -1,7 +1,7 @@
 const Store = require('../model/StoreModel');
 
 const findStoreById = async (id) => {
-    return await Store.findByPk(id);
+    return await Store.findById(id);
 };
 
 const findStoreByEmail = async (Email) => {
