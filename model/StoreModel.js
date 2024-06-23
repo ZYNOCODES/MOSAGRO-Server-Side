@@ -5,10 +5,6 @@ const storeSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    username: {
-        type: String,
-        required: true
-    },
     password: {
         type: String,
         required: true
@@ -39,6 +35,26 @@ const storeSchema = new mongoose.Schema({
     },
     storeLocation: {
         type: String,
+        required: false
+    },
+    wilaya:{
+        type: String,
+        required: true
+    },
+    commune:{
+        type: String,
+        required: true
+    },
+    r_commerce:{
+        type: String,
+        required: true
+    },
+    status:{
+        type: String,
+        required: true
+    },
+    subscriptions:{
+        type: Array,
         required: false
     },
 },{

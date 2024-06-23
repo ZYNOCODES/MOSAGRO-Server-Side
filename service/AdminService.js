@@ -4,13 +4,18 @@ const findAdminById = async (id) => {
     return await Admin.findByPk(id);
 };
 
-const findAdminByName = async (Username) => {
+const findAdminByEmail = async (Email) => {
     return await Admin.findOne({            
-        username: Username
+        email: Email
     });
 };
-
+const findAdminByPhone = async (Phone) => {
+    return await Admin.findOne({            
+        phoneNumber: Phone
+    });
+};
 module.exports = {
     findAdminById,
-    findAdminByName,
+    findAdminByEmail,
+    findAdminByPhone,
 }

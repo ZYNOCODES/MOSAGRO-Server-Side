@@ -5,10 +5,6 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    username: {
-        type: String,
-        required: true
-    },
     password: {
         type: String,
         required: true
@@ -29,8 +25,24 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: false
     },
-    address: {
+    storeAddresses: {
+        type: Array,
+        required: true
+    },
+    wilaya:{
         type: String,
+        required: true
+    },
+    commune:{
+        type: String,
+        required: true
+    },
+    r_commerce:{
+        type: String,
+        required: true
+    },
+    stores:{
+        type: Array,
         required: false
     },
 },{

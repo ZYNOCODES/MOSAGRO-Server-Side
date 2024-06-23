@@ -16,7 +16,7 @@ const {
 //login
 const SignIn = asyncErrorHandler(async (req, res, next) => {
     const {UserName, Password} = req.body;
-    console.log(UserName);
+    
     //check if UserName or Password is empty
     if(!UserName || !Password){
         const err = new CustomError('All fields are required', 400);
@@ -24,13 +24,28 @@ const SignIn = asyncErrorHandler(async (req, res, next) => {
     }
 
     //check if User exist
-    const User = await UserService.findUserByName(UserName);
-    const Store = await StoreService.findStoreByName(UserName);
-    const Admin = await AdminService.findAdminByName(UserName);
-    if(!User && !Store && !Admin){
+    let User, Store, Admin;
+    if(validator.isMobilePhone(UserName)){
+        User = await UserService.findUserByPhone(UserName);
+        Store = await StoreService.findStoreByPhone(UserName);
+        Admin = await AdminService.findAdminByPhone(UserName);
+        if(!User && !Store && !Admin){
+            const err = new CustomError('Username or password incorrect', 400);
+            return next(err);
+        }
+    }else if(validator.isEmail(UserName)){
+        User = await UserService.findUserByEmail(UserName);
+        Store = await StoreService.findStoreByEmail(UserName);
+        Admin = await AdminService.findAdminByEmail(UserName);
+        if(!User && !Store && !Admin){
+            const err = new CustomError('Username or password incorrect', 400);
+            return next(err);
+        }
+    }else{
         const err = new CustomError('Username or password incorrect', 400);
         return next(err);
     }
+
     let USER = null;
     if(Admin){
         USER = Admin;
@@ -58,48 +73,47 @@ const SignIn = asyncErrorHandler(async (req, res, next) => {
 
 //SignUp
 const SignUp = asyncErrorHandler(async (req, res, next) => {
-    const {UserName, Password, Email, FirstName, LastName, PhoneNumber, 
-        Address, storeName, storeLocation, AuthType} = req.body;
+    const {Email, Password, FirstName, LastName, PhoneNumber, 
+        Wilaya, Commune, R_Commerce, Address, storeName, storeLocation, 
+        AuthType} = req.body;
 
     //check if all required fields are provided for Admin type
-    if(AuthType == "Admin") 
-        if( !UserName || !Password || !FirstName || !LastName || !PhoneNumber){
-            const err = new CustomError('All fields are required for admin', 400);
+    const requiredFields = {
+        Admin: [Password, FirstName, LastName, PhoneNumber],
+        Store: [Password, FirstName, LastName, PhoneNumber, Address, storeName, storeLocation, Wilaya, Commune, R_Commerce],
+        User: [Password, FirstName, LastName, PhoneNumber, Address, Wilaya, Commune, R_Commerce]
+    };
+    if (requiredFields[AuthType].some(field => !field)) {
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+    
+    //check if phone already exist
+    const [admin, store, user] = await Promise.all([
+        AdminService.findAdminByPhone(PhoneNumber),
+        StoreService.findStoreByPhone(PhoneNumber),
+        UserService.findUserByPhone(PhoneNumber)
+    ]);
+    if(admin || store || user){
+        const err = new CustomError('Phone number already exist', 400);
+        return next(err);
+    }
+
+    //check if email already exist
+    if (Email) {
+        if (!validator.isEmail(Email)) {
+            const err = new CustomError('Email is not valid', 400);
             return next(err);
         }
-    //check if all required fields are provided for Store type
-    if(AuthType == "Store")
-        if( !UserName || !Password || !Email || !FirstName || !LastName || !PhoneNumber
-            || !Address || !storeName || !storeLocation
-        ){
-            const err = new CustomError('All fields are required for store', 400);
-            return next(err);
-        }
-    //check if all required fields are provided for User type
-    if(AuthType == "User") 
-        if( !UserName || !Password || !Email || !FirstName || !LastName || !PhoneNumber
-            || !Address
-        ){
-            const err = new CustomError('All fields are required for user', 400);
-            return next(err);
-        }
-    //check if User already exist
-    if(AuthType === "Admin"){
-        const Admin = await AdminService.findAdminByName(UserName);
-        if(Admin){
-            const err = new CustomError('Username already exist', 400);
-            return next(err);
-        }
-    }else if(AuthType === "Store"){
-        const Store = await StoreService.findStoreByName(UserName);
-        if(Store){
-            const err = new CustomError('Username already exist', 400);
-            return next(err);
-        }
-    }else if(AuthType === "User"){
-        const User = await UserService.findUserByName(UserName);
-        if(User){
-            const err = new CustomError('Username already exist', 400);
+
+        const [adminByEmail, storeByEmail, userByEmail] = await Promise.all([
+            AdminService.findAdminByEmail(Email),
+            StoreService.findStoreByEmail(Email),
+            UserService.findUserByEmail(Email)
+        ]);
+
+        if (adminByEmail || storeByEmail || userByEmail) {
+            const err = new CustomError('Email already exist', 400);
             return next(err);
         }
     }
@@ -110,13 +124,14 @@ const SignUp = asyncErrorHandler(async (req, res, next) => {
     //create new User
     if(AuthType === "Admin"){
         const newAdmin = await Admin.create({
-            username: UserName, password: hash, firstName: FirstName, lastName: LastName, phoneNumber: PhoneNumber,        
+            email: Email, password: hash, firstName: FirstName, lastName: LastName, phoneNumber: PhoneNumber,        
         });
         if(!newAdmin){
             const err = new CustomError('Error while creating new admin', 400);
             return next(err);
         }
     }else if(AuthType === "Store"){
+        const status = "En attente";
         //generate codification for a user
         const postalCode = "26";
         const type = "S";
@@ -127,8 +142,11 @@ const SignUp = asyncErrorHandler(async (req, res, next) => {
             return next(err);
         }
         const newStore = await Store.create({
-            username: UserName, password: hash, email: Email, firstName: FirstName, lastName: LastName, phoneNumber: PhoneNumber,
-            storeAddress: Address, storeName: storeName, storeLocation: storeLocation, code: code
+            email: Email, password: hash,
+            firstName: FirstName, lastName: LastName, phoneNumber: PhoneNumber,
+            storeAddress: Address, storeName: storeName, storeLocation: storeLocation, 
+            code: code, wilaya: Wilaya, commune: Commune, r_commerce: R_Commerce,
+            status: status
         });
         if(!newStore){
             const err = new CustomError('Error while creating new store', 400);
@@ -145,8 +163,10 @@ const SignUp = asyncErrorHandler(async (req, res, next) => {
             return next(err);
         }
         const newUser = await User.create({
-            username: UserName, password: hash, email: Email, firstName: FirstName, lastName: LastName, phoneNumber: PhoneNumber,
-            storeAddress: Address, code: code
+            email: Email, password: hash,
+            firstName: FirstName, lastName: LastName, phoneNumber: PhoneNumber,
+            storeAddresses: [Address], code: code, wilaya: Wilaya, commune: Commune, 
+            r_commerce: R_Commerce
         });
         if(!newUser){
             const err = new CustomError('Error while creating new user', 400);

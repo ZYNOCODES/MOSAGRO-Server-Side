@@ -4,13 +4,18 @@ const findStoreById = async (id) => {
     return await Store.findByPk(id);
 };
 
-const findStoreByName = async (Username) => {
+const findStoreByEmail = async (Email) => {
     return await Store.findOne({            
-        username: Username
+        email: Email
     });
 };
-
+const findStoreByPhone = async (Phone) => {
+    return await Store.findOne({            
+        phoneNumber: Phone
+    });
+};
 module.exports = {
     findStoreById,
-    findStoreByName,
+    findStoreByEmail,
+    findStoreByPhone,
 }
