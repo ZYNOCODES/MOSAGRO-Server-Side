@@ -51,6 +51,8 @@ const storeSchema = new mongoose.Schema({
     },
     status:{
         type: String,
+        enum: ['En attente', 'Active', 'Suspended'],
+        default: 'En attente',
         required: true
     },
     subscriptions:{

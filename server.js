@@ -12,6 +12,11 @@ const validateRequest = require('./middleware/Sanitize');
 const Authroutes = require('./route/AuthRoutes');
 const Productroutes = require('./route/ProductRoutes');
 const Brandroutes = require('./route/BrandRoutes');
+const SubscriptionStoreRoutes = require('./route/SubscriptionStoreRoutes');
+const SubscriptionRoutes = require('./route/SubscriptionRoutes');
+const StoreRoutes = require('./route/StoreRoutes');
+const UserRoutes = require('./route/UserRoutes');
+const StockRoutes = require('./route/StockRoutes');
 
 //express app
 const app = express();
@@ -27,6 +32,12 @@ app.use(validateRequest);
 app.use('/Product', Productroutes); 
 app.use('/Auth', Authroutes);
 app.use('/Brand', Brandroutes);
+app.use('/SubscriptionStore', SubscriptionStoreRoutes);
+app.use('/Subscription', SubscriptionRoutes);
+app.use('/Store', StoreRoutes);
+app.use('/User', UserRoutes);
+app.use('/Stock', StockRoutes);
+
 
 //error handling
 app.use(ErrorHandler);

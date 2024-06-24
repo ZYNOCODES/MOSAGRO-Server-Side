@@ -1,12 +1,16 @@
-const mongoose = require('mongoose');
+const express = require('express');
+const {
+    GetAllUsers,
+    AddStoreToMyList
+} = require('../controller/UserController');
+const router = express.Router();
+const requireAuth = require('../middleware/RequireAuth');
 
-const UserSchema = new mongoose.Schema({
-    
-},{
-    timestamps: true,
-    collection: 'user'
-});
+//secure routes below
+router.use(requireAuth);
+//fetch all Users
+router.get('/', GetAllUsers);
+//add stores to my store collection
+router.patch('/:id/AddStore', AddStoreToMyList);
 
-const User = mongoose.model('user', UserSchema);
-
-module.exports = User;
+module.exports = router;

@@ -1,0 +1,29 @@
+const mongoose = require('mongoose');
+
+const subscriptionStoreSchema = new mongoose.Schema({
+    store:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'store',
+        required: true
+    },
+    subscription:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'subscription',
+        required: true
+    },
+    startDate: {
+        type: Date,
+        required: true
+    },
+    expiryDate: {
+        type: Date,
+        required: true
+    },
+},{
+    timestamps: false,
+    collection: 'subscriptionStore'
+});
+
+const subscription = mongoose.model('subscriptionStore', subscriptionStoreSchema);
+
+module.exports = subscription;

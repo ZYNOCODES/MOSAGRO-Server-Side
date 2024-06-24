@@ -9,9 +9,12 @@ const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const bcrypt = require('../util/bcrypt.js');
 const Codification = require('../util/Codification.js');
 const validator = require('validator');
+const SubscriptionStore = require('../model/SubscriptionStoreModel');
 const {
     createToken
 } = require('../util/JWT.js');
+const moment = require('moment');
+require('moment-timezone');
 
 //login
 const SignIn = asyncErrorHandler(async (req, res, next) => {
@@ -24,20 +27,20 @@ const SignIn = asyncErrorHandler(async (req, res, next) => {
     }
 
     //check if User exist
-    let User, Store, Admin;
+    let existUser, existStore, existAdmin;
     if(validator.isMobilePhone(UserName)){
-        User = await UserService.findUserByPhone(UserName);
-        Store = await StoreService.findStoreByPhone(UserName);
-        Admin = await AdminService.findAdminByPhone(UserName);
-        if(!User && !Store && !Admin){
+        existUser = await UserService.findUserByPhone(UserName);
+        existStore = await StoreService.findStoreByPhone(UserName);
+        existAdmin = await AdminService.findAdminByPhone(UserName);
+        if(!existUser && !existStore && !existAdmin){
             const err = new CustomError('Username or password incorrect', 400);
             return next(err);
         }
     }else if(validator.isEmail(UserName)){
-        User = await UserService.findUserByEmail(UserName);
-        Store = await StoreService.findStoreByEmail(UserName);
-        Admin = await AdminService.findAdminByEmail(UserName);
-        if(!User && !Store && !Admin){
+        existUser = await UserService.findUserByEmail(UserName);
+        existStore = await StoreService.findStoreByEmail(UserName);
+        existAdmin = await AdminService.findAdminByEmail(UserName);
+        if(!existUser && !existStore && !existAdmin){
             const err = new CustomError('Username or password incorrect', 400);
             return next(err);
         }
@@ -47,14 +50,14 @@ const SignIn = asyncErrorHandler(async (req, res, next) => {
     }
 
     let USER = null;
-    if(Admin){
-        USER = Admin;
+    if(existAdmin){
+        USER = existAdmin;
         USER.type = "Admin";
-    }else if(Store){
-        USER = Store;
+    }else if(existStore){
+        USER = existStore;
         USER.type = "Store";
-    }else if(User){
-        USER = User;
+    }else if(existUser){
+        USER = existUser;
         USER.type = "User";
     }
     //check if password is correct
@@ -63,9 +66,41 @@ const SignIn = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('Username or password incorrect', 400);
         return next(err);
     }
+    //check if status is already active for user.type == "Store"
+    if(USER.type == "Store"){
+        if(USER.status == "En attente"){
+            const err = new CustomError('Your account is not active yet. try again later', 400);
+            return next(err);
+        }else if(USER.status == "Suspended"){
+            const err = new CustomError('Your account is suspended, probably your subscription is expired', 400);
+            return next(err);
+        }else if(USER.status == "Active"){
+            const timezone = 'Africa/Algiers';
+            const currentTime = moment.tz(timezone);
+            //get subscription details
+            const subscription = await SubscriptionStore.findById(
+                USER.subscriptions[USER.subscriptions.length - 1]
+            );
+            if(!subscription){
+                const err = new CustomError('Subscription not found', 404);
+                return next(err);
+            }
+            //check if subscription has expired
+            if(currentTime.isSameOrAfter(subscription.expiryDate)){
+                //update Store status to suspended
+                const updatedStore = await Store.updateOne({ _id: USER._id }, { status: 'Suspended' });
+                if(!updatedStore){
+                    const err = new CustomError('Somthing went wrong. Login again', 400);
+                    return next(err);
+                }
+                const err = new CustomError('Subscription has expired', 400);
+                return next(err);
+            }
+        }
+    }
 
     //create token
-    const token = createToken(USER.id);
+    const token = createToken(USER._id, USER.type);
 
     //return User
     res.status(200).json({id: USER.id, token, type: USER.type});
