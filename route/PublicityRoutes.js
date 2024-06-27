@@ -2,7 +2,9 @@ const express = require('express');
 const {
     GetAllPublicitybyStore,
     AddPublicity,
-    RemovePublicity
+    RemovePublicity,
+    GetAllPublicPublicities,
+    ChangePublicityDistination
 } = require('../controller/PublicityController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
@@ -15,5 +17,9 @@ router.get('/:id', GetAllPublicitybyStore);
 router.post('/', AddPublicity);
 //remove Publicity
 router.patch('/:id', RemovePublicity);
+//fetch all public Publicities
+router.get('/', GetAllPublicPublicities);
+//update Publicity distination
+router.patch('/distination/:id', ChangePublicityDistination);
 
 module.exports = router;

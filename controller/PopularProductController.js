@@ -53,6 +53,15 @@ const AddPopularProduct = asyncErrorHandler(async (req, res, next) => {
     //get all popularProduct by id user
     const popularProduct = await PopularProduct.findOne({ store: id });
     if(popularProduct){
+        //check if product exist is user stock
+        const foundProduct = await Stock.findOne({
+            store: id,
+            _id: product
+        });
+        if(!foundProduct){
+            const err = new CustomError('Product not found in your stock', 404);
+            return next(err);
+        }
         //check if product is already in popularProduct
         if(popularProduct.products.includes(product)){
             const err = new CustomError('Product already in popular product list', 400);
@@ -66,6 +75,15 @@ const AddPopularProduct = asyncErrorHandler(async (req, res, next) => {
             return next(err);
         }
         return res.status(200).json({ message: 'Product added to popular product list'});
+    }
+    //check if product exist is user stock
+    const foundProduct = await Stock.findOne({
+        store: id,
+        _id: product
+    });
+    if(!foundProduct){
+        const err = new CustomError('Product not found in your stock', 404);
+        return next(err);
     }
     //create new popularProduct
     const newpopularProduct = await PopularProduct.create({

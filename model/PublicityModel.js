@@ -15,8 +15,19 @@ const publicitySchema = new mongoose.Schema({
         title: {
             type: String,
             required: false,
-        }
-    }]
+        },
+        distination: {
+            type: String,
+            enum: ['private', 'public'],
+            default: 'private',
+            required: true
+        },
+        display: {
+            type: Boolean,
+            required: true,
+            default: true,
+        },
+    }],
 },{
     timestamps: true,
     collection: 'publicity'
