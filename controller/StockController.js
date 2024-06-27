@@ -58,6 +58,9 @@ const FetchStockByStore = asyncErrorHandler(async (req, res, next) => {
     //fetch all stock by store
     const stocks = await Stock.find({
         store: Store
+    }).populate({
+        path:'product',
+        select: '_id name size image'
     });
     if(!stocks){
         const err = new CustomError('No stock found', 404);
