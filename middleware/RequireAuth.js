@@ -5,7 +5,6 @@ const Admin = require('../model/AdminModel');
 const SubscriptionStore = require('../model/SubscriptionStoreModel');
 const CustomError = require('../util/CustomError');
 const asyncErrorHandler = require('../util/asyncErrorHandler');
-const subscription = require('../model/SubscriptionStoreModel');
 const moment = require('moment');
 require('moment-timezone');
 
@@ -24,7 +23,7 @@ const requireAuth = asyncErrorHandler(async (req, res, next) => {
     const token = authorization.split(' ')[1];
 
     // Verify token
-let decodedToken;
+    let decodedToken;
     try {
         decodedToken = jwt.verify(token, process.env.SECRET_KEY);
     } catch (err) {
@@ -71,9 +70,12 @@ let decodedToken;
             const err = new CustomError('No subscription exists for this profile', 401);
             return next(err);
         }
+    }else{
+        const err = new CustomError('Authentication rejected', 404);
+        return next(err);
     }
     if(!req.user){
-        const err = new CustomError('Profil not found', 404);
+        const err = new CustomError('Authentication rejected', 404);
         return next(err);
     }
     // Continue to next middleware

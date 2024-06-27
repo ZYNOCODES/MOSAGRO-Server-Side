@@ -44,7 +44,7 @@ const AddStoreToMyList = asyncErrorHandler(async (req, res, next) => {
             const err = new CustomError('Error while adding store to your list. try again', 400);
             return next(err);
         }
-        return res.status(200).json({message: 'Store added to your list successfully'});
+        return res.status(200).json({message: 'Store added to your list successfully, wait for it to be approved from the awner.'});
     }
     // Check if store already in my list
     const isStoreInList = myStores.stores.some(item => item.store.equals(store._id));

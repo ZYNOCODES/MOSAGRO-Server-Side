@@ -55,10 +55,11 @@ const storeSchema = new mongoose.Schema({
         default: 'En attente',
         required: true
     },
-    subscriptions:{
-        type: Array,
-        required: false
-    },
+    subscriptions:[{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'subscriptionStore',
+        required: true
+    }]
 },{
     timestamps: true,
     collection: 'store'

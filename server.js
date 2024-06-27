@@ -17,6 +17,10 @@ const SubscriptionRoutes = require('./route/SubscriptionRoutes');
 const StoreRoutes = require('./route/StoreRoutes');
 const UserRoutes = require('./route/UserRoutes');
 const StockRoutes = require('./route/StockRoutes');
+const MyStoresRoutes = require('./route/MyStoresRoutes');
+const FavoriteRoutes = require('./route/FavoriteRoutes');
+const PopularProductRoutes = require('./route/PopularProductRoutes');
+const PublicityRoutes = require('./route/PublicityRoutes');
 
 //express app
 const app = express();
@@ -37,7 +41,10 @@ app.use('/Subscription', SubscriptionRoutes);
 app.use('/Store', StoreRoutes);
 app.use('/User', UserRoutes);
 app.use('/Stock', StockRoutes);
-
+app.use('/MyStores', MyStoresRoutes);
+app.use('/Favorite', FavoriteRoutes);
+app.use('/PopularProduct', PopularProductRoutes);
+app.use('/Publicity', PublicityRoutes);
 
 //error handling
 app.use(ErrorHandler);

@@ -3,13 +3,13 @@ const mongoose = require('mongoose');
 const myStoresSchema = new mongoose.Schema({
     user:{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'user',
         required: true
     },
     stores: [{
         store: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'Store',
+            ref: 'store',
             required: true
         },
         status: {

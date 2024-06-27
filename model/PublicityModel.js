@@ -1,7 +1,22 @@
 const mongoose = require('mongoose');
 
 const publicitySchema = new mongoose.Schema({
-    
+    store:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'store',
+        required: true
+    },
+    products: [{
+        product: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'stock',
+            required: true
+        },
+        title: {
+            type: String,
+            required: false,
+        }
+    }]
 },{
     timestamps: true,
     collection: 'publicity'

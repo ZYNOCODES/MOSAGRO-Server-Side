@@ -207,6 +207,9 @@ const SignUp = asyncErrorHandler(async (req, res, next) => {
             const err = new CustomError('Error while creating new user', 400);
             return next(err);
         }
+    }else{
+        const err = new CustomError('Auth type not found', 400);
+        return next(err);
     }
 
     //return User
