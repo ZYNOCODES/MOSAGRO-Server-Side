@@ -18,92 +18,100 @@ require('moment-timezone');
 
 //login
 const SignIn = asyncErrorHandler(async (req, res, next) => {
-    const {UserName, Password} = req.body;
+    const { UserName, Password, Type } = req.body;
     
-    //check if UserName or Password is empty
-    if(!UserName || !Password){
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
+    // Check if UserName or Password is empty
+    if (!UserName || !Password) {
+        return next(new CustomError('All fields are required', 400));
     }
 
-    //check if User exist
-    let existUser, existStore, existAdmin;
-    if(validator.isMobilePhone(UserName)){
-        existUser = await UserService.findUserByPhone(UserName);
-        existStore = await StoreService.findStoreByPhone(UserName);
-        existAdmin = await AdminService.findAdminByPhone(UserName);
-        if(!existUser && !existStore && !existAdmin){
-            const err = new CustomError('Username or password incorrect', 400);
-            return next(err);
-        }
-    }else if(validator.isEmail(UserName)){
-        existUser = await UserService.findUserByEmail(UserName);
-        existStore = await StoreService.findStoreByEmail(UserName);
-        existAdmin = await AdminService.findAdminByEmail(UserName);
-        if(!existUser && !existStore && !existAdmin){
-            const err = new CustomError('Username or password incorrect', 400);
-            return next(err);
-        }
-    }else{
-        const err = new CustomError('Username or password incorrect', 400);
-        return next(err);
+    // Check if Type is provided correctly
+    if (!Type || validator.isEmpty(Type) ||
+        !['ADMIN_API', 'STORE_API', 'CLIENT_API'].includes(Type)) {
+        return next(new CustomError('Authentication rejected.', 400));
     }
 
-    let USER = null;
-    if(existAdmin){
-        USER = existAdmin;
-        USER.type = "Admin";
-    }else if(existStore){
-        USER = existStore;
-        USER.type = "Store";
-    }else if(existUser){
-        USER = existUser;
-        USER.type = "User";
+    // Define user and functions to find users by phone or email
+    let user = null;
+
+    const findByPhone = async (phone) => {
+        switch (Type) {
+            case 'ADMIN_API':
+                return await AdminService.findAdminByPhone(phone);
+            case 'STORE_API':
+                return await StoreService.findStoreByPhone(phone);
+            case 'CLIENT_API':
+                return await UserService.findUserByPhone(phone);
+            default:
+                return null;
+        }
+    };
+
+    const findByEmail = async (email) => {
+        switch (Type) {
+            case 'ADMIN_API':
+                return await AdminService.findAdminByEmail(email);
+            case 'STORE_API':
+                return await StoreService.findStoreByEmail(email);
+            case 'CLIENT_API':
+                return await UserService.findUserByEmail(email);
+            default:
+                return null;
+        }
+    };
+
+    // Check if User exists by phone or email
+    if (validator.isMobilePhone(UserName)) {
+        user = await findByPhone(UserName);
+    } else if (validator.isEmail(UserName)) {
+        user = await findByEmail(UserName);
+    } else {
+        return next(new CustomError('Username or password incorrect', 400));
     }
-    //check if password is correct
-    const match = await bcrypt.comparePassword(Password, USER.password);
+
+    if (!user) {
+        return next(new CustomError('Username or password incorrect', 400));
+    }
+    
+    // Check if password is correct
+    const match = await bcrypt.comparePassword(Password, user.password);
     if(!match){
         const err = new CustomError('Username or password incorrect', 400);
         return next(err);
     }
-    //check if status is already active for user.type == "Store"
-    if(USER.type == "Store"){
-        if(USER.status == "En attente"){
-            const err = new CustomError('Your account is not active yet. try again later', 400);
-            return next(err);
-        }else if(USER.status == "Suspended"){
-            const err = new CustomError('Your account is suspended, probably your subscription is expired', 400);
-            return next(err);
-        }else if(USER.status == "Active"){
+
+    // Check if status is already active for store api
+    if (Type === 'STORE_API') {
+        if (['En attente', 'Suspended'].includes(user.status)) {
+            const errorMessage = user.status === 'En attente'
+                ? 'Your account is not active yet. Try again later.'
+                : 'Your account is suspended, probably your subscription is expired';
+            return next(new CustomError(errorMessage, 400));
+        } else if (user.status === 'Active') {
             const timezone = 'Africa/Algiers';
             const currentTime = moment.tz(timezone);
-            //get subscription details
-            const subscription = await SubscriptionStore.findById(
-                USER.subscriptions[USER.subscriptions.length - 1]
-            );
-            if(!subscription){
-                const err = new CustomError('Subscription not found', 404);
-                return next(err);
+            // Get subscription details
+            const subscription = await SubscriptionStore.findById(user.subscriptions[user.subscriptions.length - 1]);
+            if (!subscription) {
+                return next(new CustomError('Subscription not found', 404));
             }
-            //check if subscription has expired
-            if(currentTime.isSameOrAfter(subscription.expiryDate)){
-                //update Store status to suspended
-                const updatedStore = await Store.updateOne({ _id: USER._id }, { status: 'Suspended' });
-                if(!updatedStore){
-                    const err = new CustomError('Somthing went wrong. Login again', 400);
-                    return next(err);
+            // Check if subscription has expired
+            if (currentTime.isSameOrAfter(subscription.expiryDate)) {
+                // Update Store status to suspended
+                const updatedStore = await Store.updateOne({ _id: user._id }, { status: 'Suspended' });
+                if (!updatedStore) {
+                    return next(new CustomError('Something went wrong. Login again', 400));
                 }
-                const err = new CustomError('Subscription has expired', 400);
-                return next(err);
+                return next(new CustomError('Subscription has expired', 400));
             }
         }
     }
+    
+    // Create token
+    const token = createToken(user._id, Type);
 
-    //create token
-    const token = createToken(USER._id, USER.type);
-
-    //return User
-    res.status(200).json({id: USER.id, token, type: USER.type});
+    // Return user
+    res.status(200).json({ id: user.id, token, type: Type });
 });
 
 //SignUp

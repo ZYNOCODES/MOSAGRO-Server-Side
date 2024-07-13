@@ -99,7 +99,6 @@ const AddStoreToMyList = asyncErrorHandler(async (req, res, next) => {
 const DeleteStoreFromMyStores = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const { store } = req.body;
-    console.log(store);
     if (!id || !store) {
         const err = new CustomError('All fields are required', 400);
         return next(err);

@@ -38,11 +38,11 @@ const requireAuth = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
     // Add User to request
-    if(type == 'User'){
+    if(type == 'CLIENT_API'){
         req.user = await User.findById(id);
-    }else if(type == 'Admin'){
+    }else if(type == 'ADMIN_API'){
         req.user = await Admin.findById(id);
-    }else if(type == 'Store'){
+    }else if(type == 'STORE_API'){
         req.user = await Store.findById(id);
         // Check if the store was found
         if (!req.user) {

@@ -29,7 +29,7 @@ const app = express();
 app.use(cors());
 app.use(body.json({limit: '50mb'}));
 app.use(body.urlencoded({limit: '50mb', extended: true}));
-app.use(limiter);
+//app.use(limiter);
 app.use(validateRequest);
 
 //routes
