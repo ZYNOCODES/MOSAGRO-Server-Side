@@ -19,7 +19,7 @@ const GetAllMyStoresbyUser = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
     //get all MyStores by id user and get only stores.status == 'approved' 
-    const myStores = await MyStores.find({ 
+    const myStores = await MyStores.findOne({ 
         user: id, 
         stores: {
             $elemMatch: {
@@ -30,13 +30,11 @@ const GetAllMyStoresbyUser = asyncErrorHandler(async (req, res, next) => {
         path: 'stores.store',
         select: 'storeName storeAddress wilaya'
     });
-
-    //filter myStores by status
-    myStores.forEach(item => {
-        item.stores = item.stores.filter(store => store.status === 'approved');
-    });
     
-    if(myStores.length <= 0){
+    //filter myStores by status
+    myStores.stores = myStores.stores.filter(store => store.status === 'approved');
+    
+    if(myStores.stores.length <= 0){
         const err = new CustomError('No approved store found for you', 404);
         return next(err);
     }
