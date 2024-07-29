@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../model/UserModel');
 const MyStores = require('../model/MyStoresModel');
 const CustomError = require('../util/CustomError.js');
@@ -14,12 +15,26 @@ const GetAllUsers = asyncErrorHandler(async (req, res, next) => {
     }
     res.status(200).json(Users);
 });
+//fetch specific user by id
+const GetUserById = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    if(!id || !mongoose.Types.ObjectId.isValid(id)){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+    const user = await User.findById(id);
+    if(!user){
+        const err = new CustomError('User not found', 404);
+        return next(err);
+    }
+    res.status(200).json(user);
+});
 //add stores to my store collection
 const AddStoreToMyList = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const { Store } = req.body;
     //check if all feals are filled
-    if(!Store){
+    if(!Store || !id || !mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(Store)){
         const err = new CustomError('Please fill all fields', 400);
         return next(err);
     }
@@ -71,5 +86,6 @@ const AddStoreToMyList = asyncErrorHandler(async (req, res, next) => {
 
 module.exports = {
     GetAllUsers,
+    GetUserById,
     AddStoreToMyList
 }

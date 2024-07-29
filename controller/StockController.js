@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Stock = require('../model/StockModel');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
@@ -7,9 +8,11 @@ const ProductService = require('../service/ProductService.js');
 
 //Create a new stock
 const CreateStock = asyncErrorHandler(async (req, res, next) => {
-    const { Product, Store, Price, Quantity } = req.body;
+    const { Product, Store, BuyingPrice, SellingPrice, Quantity } = req.body;
     // check if all required fields are provided
-    if(!Product || !Store || !Price || !Quantity){
+    if(!Product || !Store || !BuyingPrice || !SellingPrice || !Quantity ||
+        !mongoose.Types.ObjectId.isValid(Product) || !mongoose.Types.ObjectId.isValid(Store)
+    ){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
@@ -36,7 +39,10 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
         product : Product,
         store : Store,
         quantity : Quantity,
-        price : [Price]
+        price : [{
+            buying : BuyingPrice,
+            selling : SellingPrice
+        }]
     });
     
     //check if stock created successfully
@@ -75,10 +81,15 @@ const FetchStockByStore = asyncErrorHandler(async (req, res, next) => {
 //update stock
 const UpdateStock = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { Price, Quantity } = req.body;
+    const { BuyingPrice, SellingPrice, Quantity } = req.body;
     // check if one required fields are provided
-    if(!Price && !Quantity){
+    if((!BuyingPrice && !SellingPrice) && !Quantity){
         const err = new CustomError('Price or Quantity is required to update', 400);
+        return next(err);
+    }
+    // check if price is provided
+    if((BuyingPrice && !SellingPrice) || (!BuyingPrice && SellingPrice)){
+        const err = new CustomError('Buying and Selling price is required to update', 400);
         return next(err);
     }
     //check if stock already exist
@@ -89,17 +100,17 @@ const UpdateStock = asyncErrorHandler(async (req, res, next) => {
     }
     //update stock
     //check if price already exist
-    if(Price) {
-        const price = stock.price.find((p) => p === Price);
-        if(price){
-            //place that price at the en of the array
-            const index = stock.price.indexOf(Price);
+    if (BuyingPrice && SellingPrice) {
+        const price = stock.price.find((p) => p.buying === BuyingPrice && p.selling === SellingPrice);
+        if (price) {
+            // Place that price at the end of the array
+            const index = stock.price.indexOf(price);
             if (index !== -1) {
                 const removedPrice = stock.price.splice(index, 1)[0]; 
                 stock.price.push(removedPrice);
             }
-        }else{
-            stock.price.push(Price);
+        } else {
+            stock.price.push({ buying: BuyingPrice, selling: SellingPrice });
         }
     }
     if(Quantity) stock.quantity = Quantity;

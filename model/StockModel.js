@@ -11,12 +11,16 @@ const stockSchema = new mongoose.Schema({
         ref: 'store',
         required: true
     },
-    price: [
-        {
+    price: [{
+        buying: {
+            type: String,
+            required: true
+        },
+        selling: {
             type: String,
             required: true
         }
-    ],
+    }],
     quantity: {
         type: Number,
         required: true

@@ -1,5 +1,4 @@
 const MyStores = require('../model/MyStoresModel');
-const Store = require('../model/StoreModel');
 const mongoose = require('mongoose');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');

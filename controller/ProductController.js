@@ -57,7 +57,7 @@ const GetAllProducts = asyncErrorHandler(async (req, res, next) => {
 //fetch specific product with code
 const GetProduct = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const product = await Product.findOne({_id: id});
+    const product = await Product.findById(id).populate('brand');
     if(!product){
         const err = new CustomError('Product not found', 400);
         return next(err);
