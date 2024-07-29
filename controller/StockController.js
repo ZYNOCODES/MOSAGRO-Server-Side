@@ -60,7 +60,11 @@ const FetchStockByStore = asyncErrorHandler(async (req, res, next) => {
         store: Store
     }).populate({
         path:'product',
-        select: '_id name size image'
+        select: '_id code name size image brand',
+        populate: {
+            path: 'brand',
+            select: 'name'
+        }
     });
     if(!stocks){
         const err = new CustomError('No stock found', 404);

@@ -111,7 +111,7 @@ const SignIn = asyncErrorHandler(async (req, res, next) => {
     const token = createToken(user._id, Type);
 
     // Return user
-    res.status(200).json({ id: user.id, token, type: Type });
+    res.status(200).json({token});
 });
 
 //SignUp

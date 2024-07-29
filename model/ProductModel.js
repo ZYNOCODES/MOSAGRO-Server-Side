@@ -18,7 +18,8 @@ const ProductSchema = new mongoose.Schema({
         required: true
     },
     brand:{
-        type: String,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'brand',
         required: true
     },
     image:{
