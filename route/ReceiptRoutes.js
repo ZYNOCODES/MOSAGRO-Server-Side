@@ -8,6 +8,7 @@ const {
     ValidateMyReceipt,
     UpdateReceiptExpextedDeliveryDate,
     DeleteReceipt,
+    GetAllReceiptsByClientForStore
 } = require('../controller/ReceiptController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
@@ -20,6 +21,8 @@ router.get('/:id', GetReceiptByID);
 router.get('/delivred/:id', GetAlldeliveredReceiptsByStore);
 //fetch all none delivred receipts
 router.get('/noneDelivred/:id', GetAllNonedeliveredReceiptsByStore);
+//fetch all receipts by client for store
+router.get('/clientForStore/:client/:store', GetAllReceiptsByClientForStore);
 //validate receipt
 router.patch('/validate/:id', ValidateMyReceipt);
 //delete receipt

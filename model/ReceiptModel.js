@@ -54,7 +54,7 @@ const receiptSchema = new mongoose.Schema({
         default: null
     },
     expextedDeliveryDate:{
-        type: Date,
+        type: String,
         required: false,
         default: null
     },

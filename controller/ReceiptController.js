@@ -134,7 +134,7 @@ const GetReceiptByID = asyncErrorHandler(async (req, res, next) => {
     if( !id || !mongoose.Types.ObjectId.isValid(id)){
         return next(new CustomError('All fields are required', 400));
     }
-    const existingreceipt = Receipt.findById(id);
+    const existingreceipt = await Receipt.findById(id);
     if(!existingreceipt){
         return next(new CustomError('Receipt not found', 404));
     }
@@ -177,15 +177,49 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
 //get all receipts by client
 const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    //check id 
+    //check required fields
     if( !id || !mongoose.Types.ObjectId.isValid(id)){
         return next(new CustomError('All fields are required', 400));
+    }
+    //check if client exist
+    const existingClient = await findUserById(id);
+    if(!existingClient){
+        return next(new CustomError('Client not found', 404));
     }
     const receipts = await Receipt.find({
         client: id
     });
     if(receipts.length <= 0){
         const err = new CustomError('No receipts found for you', 400);
+        return next(err);
+    }
+    res.status(200).json(receipts);
+});
+//get all receipts by client for a specific store
+const GetAllReceiptsByClientForStore = asyncErrorHandler(async (req, res, next) => {
+    const { client, store } = req.params;
+    //check required fields
+    if( !client || !store || 
+        !mongoose.Types.ObjectId.isValid(client) ||
+        !mongoose.Types.ObjectId.isValid(store)){
+        return next(new CustomError('All fields are required', 400));
+    }
+    //check if client exist
+    const existingClient = await findUserById(client);
+    if(!existingClient){
+        return next(new CustomError('Client not found', 404));
+    }
+    //check if store exist
+    const existingStore = await findStoreById(store);
+    if(!existingStore){
+        return next(new CustomError('Store not found', 404));
+    }
+    const receipts = await Receipt.find({
+        client: client,
+        store: store
+    });
+    if(receipts.length <= 0){
+        const err = new CustomError('No receipts found for this client', 400);
         return next(err);
     }
     res.status(200).json(receipts);
@@ -266,4 +300,5 @@ module.exports = {
     ValidateMyReceipt,
     UpdateReceiptExpextedDeliveryDate,
     DeleteReceipt,
+    GetAllReceiptsByClientForStore
 }
