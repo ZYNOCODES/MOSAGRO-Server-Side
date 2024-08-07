@@ -1,7 +1,11 @@
 const User = require('../model/UserModel');
 
-const findUserById = async (id) => {
-    return await User.findById(id);
+const findUserById = async (id, session) => {
+    if (session) {
+        return await User.findById(id).session(session);
+    }else{
+        return await User.findById(id);
+    }
 };
 
 const findUserByEmail = async (Email) => {

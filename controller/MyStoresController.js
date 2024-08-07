@@ -105,49 +105,59 @@ const AddStoreToMyList = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('Please fill all fields', 400);
         return next(err);
     }
-    //check if store exists
-    const store = await StoreService.findStoreById(Store);
-    if(!store){
-        const err = new CustomError('Store not found', 404);
-        return next(err);
-    }
-    //check if store exists in my list
-    const myStores = await MyStoreService.findMyStoresByUser(id);
-    if(!myStores){
-        //create new myStores
-        const newMyStores = await MyStores.create({
-            user: id,
-            stores: [{
-                store: store._id,
-                status: 'pending'
-            }]
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        //check if store exists
+        const store = await StoreService.findStoreById(Store, session);
+        if (!store) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Store not found', 404));
+        }
+        //check if store exists in my list
+        const myStores = await MyStoreService.findMyStoresByUser(id, session);
+        if(!myStores){
+            //create new myStores
+            await MyStores.create({
+                user: id,
+                stores: [{
+                    store: store._id,
+                    status: 'pending'
+                }]
+            }, { session });
+            await session.commitTransaction();
+            session.endSession();
+
+            return res.status(200).json({ message: 'Store added to your list successfully, wait for it to be approved by the owner.' });
+        }
+        // Check if store already in my list
+        const isStoreInList = myStores.stores.some(item => item.store.equals(store._id));
+        if (isStoreInList) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Store already in your list', 400));
+        }
+
+        // Add store to my list
+        myStores.stores.push({
+            store: store._id,
+            status: 'pending'
         });
-        if(!newMyStores){
-            const err = new CustomError('Error while adding store to your list. try again', 400);
-            return next(err);
-        }
-        return res.status(200).json({message: 'Store added to your list successfully, wait for it to be approved from the awner.'});
+        await myStores.save({ session });
+
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(200).json({ message: 'Store added to your list successfully, wait for it to be approved by the owner.' });
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        next(new CustomError('Error while adding store to your list. Try again', 400));
     }
-    // Check if store already in my list
-    const isStoreInList = myStores.stores.some(item => item.store.equals(store._id));
-    if (isStoreInList) {
-        const err = new CustomError('Store already in your list', 400);
-        return next(err);
-    }
-    //add store to my list
-    const updatedMyStores = await MyStores.findByIdAndUpdate(myStores._id, {
-        $push: {
-            stores: {
-                store: store._id,
-                status: 'pending'
-            }
-        }
-    });
-    if (!updatedMyStores) {
-        const err = new CustomError('Error while adding store to your list. Try again', 400);
-        return next(err);
-    }
-    res.status(200).json({message: 'Store added to your list successfully, wait for it to be approved from the awner.'});
+    
 });
 //approve user to access store by setting stores.status == 'approved'
 const ApproveUserToAccessStore = asyncErrorHandler(async (req, res, next) => {

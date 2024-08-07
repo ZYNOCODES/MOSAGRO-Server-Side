@@ -16,41 +16,53 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
-    //check if product already exist
-    const product = await ProductService.findProductById(Product);
-    if(!product){
-        const err = new CustomError('Product not found', 404);
-        return next(err);
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try{
+        //check if product already exist
+        const product = await ProductService.findProductById(Product, session);
+        if(!product){
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Product not found', 404));
+        }
+        //check if store already exist
+        const store = await StoreService.findStoreById(Store, session);
+        if(!store){
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Store not found', 404));
+        }
+        //check if stock is already exist
+        const stock = await StockService.findStockByStoreAndProduct(Store, Product, session);
+        if(stock){
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Stock already exists', 400));
+
+        }
+        //create a new stock
+        await Stock.create({
+            product : Product,
+            store : Store,
+            quantity : Quantity,
+            price : [{
+                buying : BuyingPrice,
+                selling : SellingPrice
+            }]
+        }, { session });
+        
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(200).json({message: 'Stock created successfully'});
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        next(new CustomError('Error while creating stock, try again.', 400));
     }
-    //check if store already exist
-    const store = await StoreService.findStoreById(Store);
-    if(!store){
-        const err = new CustomError('Store not found', 404);
-        return next(err);
-    }
-    //check if stock is already exist
-    const stock = await StockService.findStockByStoreAndProduct(Store, Product);
-    if(stock){
-        const err = new CustomError('Stock already exist', 400);
-        return next(err);
-    }
-    //create a new stock
-    const newStock = await Stock.create({
-        product : Product,
-        store : Store,
-        quantity : Quantity,
-        price : [{
-            buying : BuyingPrice,
-            selling : SellingPrice
-        }]
-    });
     
-    //check if stock created successfully
-    if(!newStock){
-        const err = new CustomError('Error while creating stock try again.', 400);
-        return next(err);
-    }
-    res.status(200).json({message: 'Stock created successfully'});
 });
 //fetch all stock by store
 const FetchStockByStore = asyncErrorHandler(async (req, res, next) => {

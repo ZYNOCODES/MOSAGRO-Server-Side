@@ -25,7 +25,7 @@ router.patch('/validate/:id', ValidateMyReceipt);
 //delete receipt
 router.delete('/:id', DeleteReceipt);
 //create receipt
-router.post('/', CreateReceipt);
+router.post('/:client', CreateReceipt);
 //update receipt expected delivery date
 router.patch('/updateExpectedDeliveryDate/:id', UpdateReceiptExpextedDeliveryDate);
 //fetch all receipts by client

@@ -3,12 +3,41 @@ const MyStores = require('../model/MyStoresModel');
 const findMyStoresById = async (id) => {
     return await MyStores.findById(id);
 };
-const findMyStoresByUser = async (userID) => {
-    return await MyStores.findOne({
-        user: userID
-    });
+const findMyStoresByUser = async (userID, session) => {
+    if (session)
+        return await MyStores.findOne({
+            user: userID
+        }).session(session);
+    else
+        return await MyStores.findOne({
+            user: userID
+        });
+};
+//check if user is owner of store
+const checkUserStore = async (userID, storeID, session) => {
+    if (session)
+        return await MyStores.findOne({
+            user: userID,
+            stores: {
+                $elemMatch: {
+                    store: storeID,
+                    status: 'approved'
+                }
+            }
+        }).session(session);
+    else
+        return await MyStores.findOne({
+            user: userID,
+            stores: {
+                $elemMatch: {
+                    store: storeID,
+                    status: 'approved'
+                }
+            }
+        });
 };
 module.exports = {
     findMyStoresById,
-    findMyStoresByUser
+    findMyStoresByUser,
+    checkUserStore
 }

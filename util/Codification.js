@@ -47,12 +47,12 @@ const StoreCode = async (PostalCode, type) => {
 };
 
 //Receipt codification
-const ReceiptCode = async (UserCode) => {
+const ReceiptCode = async (UserCode, session) => {
     //get current date and time
     const dateTime = getCurrentDateTime();
     const code = UserCode + dateTime;
     //check if the receipt already exist with that code
-    const existCodeReceipt = await Receipt.findOne({code: code});
+    const existCodeReceipt = await Receipt.findOne({code: code}).session(session);
     if(existCodeReceipt){
         return null;
     }

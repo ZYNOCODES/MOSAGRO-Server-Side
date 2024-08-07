@@ -34,8 +34,12 @@ const receiptSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    profit:{
+        type: Number,
+        required: true
+    },
     date:{
-        type: Date,
+        type: String,
         required: true
     },
     type:{
@@ -46,11 +50,13 @@ const receiptSchema = new mongoose.Schema({
     },
     deliveredLocation:{
         type: String,
-        required: false
+        required: false,
+        default: null
     },
     expextedDeliveryDate:{
         type: Date,
-        required: false
+        required: false,
+        default: null
     },
     delivered:{
         type: Boolean,

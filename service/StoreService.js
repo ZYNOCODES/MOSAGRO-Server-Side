@@ -1,7 +1,10 @@
 const Store = require('../model/StoreModel');
 
-const findStoreById = async (id) => {
-    return await Store.findById(id);
+const findStoreById = async (id, session) => {
+    if (session) 
+        return await Store.findById(id).session(session);
+    else
+        return await Store.findById(id);
 };
 
 const findStoreByEmail = async (Email) => {
