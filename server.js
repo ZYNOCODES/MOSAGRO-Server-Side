@@ -35,20 +35,20 @@ app.use(limiter);
 // app.use(validateRequest); this making a problem in requests
 
 //routes
-app.use('/Product', Productroutes); 
-app.use('/Auth', Authroutes);
-app.use('/Brand', Brandroutes);
-app.use('/SubscriptionStore', SubscriptionStoreRoutes);
-app.use('/Subscription', SubscriptionRoutes);
-app.use('/Store', StoreRoutes);
-app.use('/Admin', AdminRoutes);
-app.use('/User', UserRoutes);
-app.use('/Stock', StockRoutes);
-app.use('/MyStores', MyStoresRoutes);
-app.use('/Favorite', FavoriteRoutes);
-app.use('/PopularProduct', PopularProductRoutes);
-app.use('/Publicity', PublicityRoutes);
-app.use('/Receipt', ReceiptRoutes);
+app.use('/api/Product', Productroutes); 
+app.use('/api/Auth', Authroutes);
+app.use('/api/Brand', Brandroutes);
+app.use('/api/SubscriptionStore', SubscriptionStoreRoutes);
+app.use('/api/Subscription', SubscriptionRoutes);
+app.use('/api/Store', StoreRoutes);
+app.use('/api/Admin', AdminRoutes);
+app.use('/api/User', UserRoutes);
+app.use('/api/Stock', StockRoutes);
+app.use('/api/MyStores', MyStoresRoutes);
+app.use('/api/Favorite', FavoriteRoutes);
+app.use('/api/PopularProduct', PopularProductRoutes);
+app.use('/api/Publicity', PublicityRoutes);
+app.use('/api/Receipt', ReceiptRoutes);
 
 //error handling
 app.use(ErrorHandler);

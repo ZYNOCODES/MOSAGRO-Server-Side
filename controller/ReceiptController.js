@@ -36,7 +36,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
     
     // Check if all products have a quantity and price
     if (products.some(val => {
-        return (!mongoose.Types.ObjectId.isValid(val.product)) && 
+        return (!mongoose.Types.ObjectId.isValid(val.stock)) && 
                (!val.quantity || val.quantity <= 0 || !validator.isNumeric(val.quantity.toString())) && 
                (!val.price || val.price <= 0 || !validator.isNumeric(val.price.toString()));
     })) {
@@ -76,16 +76,39 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
         var totalProfit = 0;
         //check if the all products exist
         for (const item of products) {
-            const existingProduct = await Stock.findById(item.product).session(session);
+            const existingProduct = await Stock.findOne({
+                _id: item.stock,
+                store: store
+            }).populate({
+                path: 'product',
+                select: 'name'
+            }).session(session);
+            if (!existingProduct) {
+                await session.abortTransaction();
+                session.endSession();
+                return next(new CustomError(`Product not found, clear all products and try again.`, 404));
+            }
+            //check if the product quantity is enough
+            if (existingProduct.quantity < item.quantity) {
+                await session.abortTransaction();
+                session.endSession();
+                return next(
+                    new CustomError(
+                    `This quantity ${item.quantity} of ${existingProduct.product.name} is no availble`,
+                    400)
+                );
+            }
+            //update stock quantity
+            existingProduct.quantity -= item.quantity;
+            await existingProduct.save({ session });
+            
             //calculate profit
             totalProfit += (
                 item.price - existingProduct.price[existingProduct.price.length -1].buying
             ) * item.quantity;
-            if (!existingProduct) {
-                await session.abortTransaction();
-                session.endSession();
-                return next(new CustomError(`Product not found`, 404));
-            }
+            //add product id to the product object
+            item.product = existingProduct.product;
+
         }
         // Check if the total profit is not negative
         if (totalProfit < 0) {
@@ -114,7 +137,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
             deliveredLocation: type != 'delivery' ? null : deliveredLocation,
             delivered: false,
             status: 0
-        }], { session });
+        }], { session });        
 
         await session.commitTransaction();
         session.endSession();
@@ -130,11 +153,18 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
 //get specific Receipt
 const GetReceiptByID = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    //check id 
+    //check all required fields
     if( !id || !mongoose.Types.ObjectId.isValid(id)){
         return next(new CustomError('All fields are required', 400));
     }
-    const existingreceipt = await Receipt.findById(id);
+    const existingreceipt = await Receipt.findById(id)
+    .populate({
+        path: 'client',
+        select: 'firstName lastName phoneNumber email wilaya commune'
+    }).populate({
+        path: 'products.product',
+        select: 'name size boxItems'
+    });
     if(!existingreceipt){
         return next(new CustomError('Receipt not found', 404));
     }
@@ -147,9 +177,20 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
     if( !id || !mongoose.Types.ObjectId.isValid(id)){
         return next(new CustomError('All fields are required', 400));
     }
+    //check if store exist
+    const existingStore = await findStoreById(id);
+    if(!existingStore){
+        return next(new CustomError('Store not found', 404));
+    }
     const receipts = await Receipt.find({
         store: id,
         delivered: false
+    }).populate({
+        path: 'client',
+        select: 'firstName lastName phoneNumber'
+    }).populate({
+        path: 'products.product',
+        select: 'name size'
     });
     if(receipts.length <= 0){
         const err = new CustomError('No receipts found for you', 400);
@@ -160,13 +201,24 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
 //get all delivered receipts by store
 const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    //check id 
+    //check all required fields
     if( !id || !mongoose.Types.ObjectId.isValid(id)){
         return next(new CustomError('All fields are required', 400));
+    }
+    //check if store exist
+    const existingStore = await findStoreById(id);
+    if(!existingStore){
+        return next(new CustomError('Store not found', 404));
     }
     const receipts = await Receipt.find({
         store: id,
         delivered: true
+    }).populate({
+        path: 'client',
+        select: 'firstName lastName phoneNumber'
+    }).populate({
+        path: 'products.product',
+        select: 'name size'
     });
     if(receipts.length <= 0){
         const err = new CustomError('No delivered receipts found for you', 400);
