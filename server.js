@@ -22,6 +22,7 @@ const MyStoresRoutes = require('./route/MyStoresRoutes');
 const FavoriteRoutes = require('./route/FavoriteRoutes');
 const PopularProductRoutes = require('./route/PopularProductRoutes');
 const PublicityRoutes = require('./route/PublicityRoutes');
+const ReceiptRoutes = require('./route/ReceiptRoutes');
 
 //express app
 const app = express();
@@ -30,7 +31,7 @@ const app = express();
 app.use(cors());
 app.use(body.json({limit: '50mb'}));
 app.use(body.urlencoded({limit: '50mb', extended: true}));
-//app.use(limiter);
+app.use(limiter);
 app.use(validateRequest);
 
 //routes
@@ -47,6 +48,7 @@ app.use('/MyStores', MyStoresRoutes);
 app.use('/Favorite', FavoriteRoutes);
 app.use('/PopularProduct', PopularProductRoutes);
 app.use('/Publicity', PublicityRoutes);
+app.use('/Receipt', ReceiptRoutes);
 
 //error handling
 app.use(ErrorHandler);

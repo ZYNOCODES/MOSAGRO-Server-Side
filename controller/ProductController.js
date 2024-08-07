@@ -106,7 +106,7 @@ const DeleteProduct = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const product = await Product.findOne({_id: id});
     if(!product){
-        const err = new CustomError('Product not found', 400);
+        const err = new CustomError('Product not found', 404);
         return next(err);
     }
     const deletedProduct = await Product.deleteOne({_id: id});

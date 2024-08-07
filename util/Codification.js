@@ -3,8 +3,6 @@ const User = require('../model/UserModel');
 const Store = require('../model/StoreModel');
 const Receipt = require('../model/ReceiptModel');
 const Brand = require('../model/BrandModel');
-const Category = require('../model/CategoryModel');
-const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const { getCurrentDateTime } = require('../util/DateTime.js');
 
 //Product codification
