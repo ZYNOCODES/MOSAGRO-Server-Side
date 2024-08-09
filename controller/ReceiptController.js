@@ -290,7 +290,8 @@ const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
     }
     //update 
     const updatedreceipt = await Receipt.updateOne({ _id: id }, { 
-        delivered: true
+        delivered: true,
+        status: 3
     });
     // Check if receipt updated successfully
     if (!updatedreceipt) {

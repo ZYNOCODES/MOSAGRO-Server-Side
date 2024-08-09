@@ -23,6 +23,7 @@ const FavoriteRoutes = require('./route/FavoriteRoutes');
 const PopularProductRoutes = require('./route/PopularProductRoutes');
 const PublicityRoutes = require('./route/PublicityRoutes');
 const ReceiptRoutes = require('./route/ReceiptRoutes');
+const CitiesRoutes = require('./route/CitiesRoutes');
 
 //express app
 const app = express();
@@ -49,6 +50,8 @@ app.use('/api/Favorite', FavoriteRoutes);
 app.use('/api/PopularProduct', PopularProductRoutes);
 app.use('/api/Publicity', PublicityRoutes);
 app.use('/api/Receipt', ReceiptRoutes);
+app.use('/api/Cities', CitiesRoutes);
+
 
 //error handling
 app.use(ErrorHandler);

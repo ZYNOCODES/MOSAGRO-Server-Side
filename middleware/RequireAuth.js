@@ -14,7 +14,7 @@ const requireAuth = asyncErrorHandler(async (req, res, next) => {
     // Check if User is logged in
     const {authorization} = req.headers;
     
-    if(!authorization){
+    if(!authorization || !authorization.startsWith('Bearer ')){
         // If User is not logged in, return error
         const err = new CustomError('authorization token is required', 401);
         return next(err);
