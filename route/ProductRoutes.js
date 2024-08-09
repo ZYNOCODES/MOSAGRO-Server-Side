@@ -8,7 +8,7 @@ const {
 } = require('../controller/ProductController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
-const checkAuthrozation = require('../middleware/Authrozation');
+const checkAuthrozation = require('../middleware/Authorization');
 
 //secure routes below
 router.use(requireAuth);

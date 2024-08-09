@@ -23,7 +23,8 @@ const storeSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        required: false
+        required: false,
+        default: null
     },
     storeName: {
         type: String,
@@ -31,18 +32,20 @@ const storeSchema = new mongoose.Schema({
     },
     storeAddress: {
         type: String,
-        required: false
+        required: false,
+        default: null
     },
     storeLocation: {
         type: String,
-        required: false
+        required: false,
+        default: null
     },
     wilaya:{
-        type: String,
+        type: Number,
         required: true
     },
     commune:{
-        type: String,
+        type: Number,
         required: true
     },
     r_commerce:{
