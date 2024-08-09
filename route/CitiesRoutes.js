@@ -5,6 +5,7 @@ const {
 } = require('../controller/CitiesController');
 const router = express.Router();
 
+// SHARED_API routes below
 //get all arabic cities
 router.get('/ar', GetAllCitiesAR);
 //get all french cities

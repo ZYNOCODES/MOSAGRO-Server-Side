@@ -5,6 +5,8 @@ const {
     SignUp
 } = require('../controller/AuthController.js');
 
+
+// SHARED_API routes below
 router.post('/signin', SignIn);
 router.post('/signup', SignUp);
 

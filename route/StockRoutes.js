@@ -7,16 +7,21 @@ const {
 } = require('../controller/StockController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
+const checkAuthrozation = require('../middleware/Authrozation');
 
 //secure routes below
 router.use(requireAuth);
-//create new stock
-router.post('/create', CreateStock);
+
+// SHARED_API routes below
 //fetch stock by store
 router.get('/:Store', FetchStockByStore);
+
+// STORE_API routes below
+//create new stock
+router.post('/create', checkAuthrozation('STORE_API'), CreateStock);
 //update stock
-router.patch('/update/:id', UpdateStock);
+router.patch('/update/:id', checkAuthrozation('STORE_API'), UpdateStock);
 //delete stock
-router.delete('/delete/:id', DeleteStock);
+router.delete('/delete/:id', checkAuthrozation('STORE_API'), DeleteStock);
 
 module.exports = router;

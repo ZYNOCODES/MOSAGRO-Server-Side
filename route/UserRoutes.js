@@ -2,18 +2,20 @@ const express = require('express');
 const {
     GetAllUsers,
     GetUserById,
-    AddStoreToMyList
 } = require('../controller/UserController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
+const checkAuthrozation = require('../middleware/Authrozation');
 
 //secure routes below
 router.use(requireAuth);
-//fetch all Users
-router.get('/', GetAllUsers);
+
+// SHARED_API routes below
 //fetch specific user by id
 router.get('/:id', GetUserById);
-//add stores to my store collection
-router.patch('/:id/AddStore', AddStoreToMyList);
+
+// ADMIN_API routes below
+//fetch all Users
+router.get('/', checkAuthrozation('ADMIN_API'), GetAllUsers);
 
 module.exports = router;

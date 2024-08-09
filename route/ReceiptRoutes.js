@@ -16,16 +16,27 @@ const checkAuthrozation = require('../middleware/Authrozation');
 
 //secure routes below
 router.use(requireAuth);
+
 // STORE_API routes
+//get specific receipt
 router.get('/:id', checkAuthrozation('STORE_API'), GetReceiptByID);
+//get all delivered receipts
 router.get('/delivred/:id', checkAuthrozation('STORE_API'), GetAlldeliveredReceiptsByStore);
+//get all none delivered receipts
 router.get('/noneDelivred/:id', checkAuthrozation('STORE_API'), GetAllNonedeliveredReceiptsByStore);
+//get all receipts by client for store
 router.get('/clientForStore/:client/:store', checkAuthrozation('STORE_API'), GetAllReceiptsByClientForStore);
+//validate receipt
 router.patch('/validate/:id', checkAuthrozation('STORE_API'), ValidateMyReceipt);
+//delete receipt
 router.delete('/:id', checkAuthrozation('STORE_API'), DeleteReceipt);
+//update expected delivery date
 router.patch('/updateExpectedDeliveryDate/:id', checkAuthrozation('STORE_API'), UpdateReceiptExpextedDeliveryDate);
+//get all receipts by client
 router.get('/client/:id', checkAuthrozation('STORE_API'), GetAllReceiptsByClient);
+
 // Client_API routes
+//create new receipt
 router.post('/:client', checkAuthrozation('CLIENT_API'), CreateReceipt);
 
 

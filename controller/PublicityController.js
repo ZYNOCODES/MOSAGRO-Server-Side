@@ -220,7 +220,7 @@ const ChangePublicityDistination = asyncErrorHandler(async (req, res, next) => {
     //check if product is already in Publicity
     const findedProduct = publicity.products.find((p) => p.product == product);
     if(!findedProduct){
-        const err = new CustomError('product not in publicity list', 400);
+        const err = new CustomError('Product not in publicity list', 400);
         return next(err);
     }
     //make publicity public
