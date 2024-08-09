@@ -15,11 +15,30 @@ const checkAuthorization = (allowedTypes) => {
         try {
             const decodedToken = jwt.verify(token, process.env.SECRET_KEY);
             const userType = decodedToken.type;
-
+            //check if user type is allowed
             if (!allowedTypes.includes(userType)) {
                 return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
             }
-
+            //check req.user.code if its starts with the correct code
+            switch (userType) {
+                case 'CLIENT_API':
+                    if (!req.user.code.startsWith('C')) {
+                        return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
+                    }
+                    break;
+                case 'ADMIN_API':
+                    if (!req.user.code.startsWith('A')) {
+                        return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
+                    }
+                    break;
+                case 'STORE_API':
+                    if (!req.user.code.startsWith('S')) {
+                        return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
+                    }
+                    break;
+                default:
+                    return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
+            }
             // User type is allowed, continue
             next();
         } catch (error) {

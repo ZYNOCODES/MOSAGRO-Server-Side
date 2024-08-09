@@ -37,43 +37,48 @@ const requireAuth = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('Token has expired. Please log in again.', 401);
         return next(err);
     }
-    // Add User to request
-    if(type == 'CLIENT_API'){
-        req.user = await User.findById(id);
-    }else if(type == 'ADMIN_API'){
-        req.user = await Admin.findById(id);
-    }else if(type == 'STORE_API'){
-        req.user = await Store.findById(id);
-        // Check if the store was found
-        if (!req.user) {
-            const err = new CustomError('Store not found', 404);
-            return next(err);
-        }
-        //check if subscription is still valid
-        if(req.user.subscriptions.length > 0 ){
-            //get subscription details
-            const subscription = await SubscriptionStore.findById(
-                req.user.subscriptions[req.user.subscriptions.length - 1]
-            );
-            if(!subscription){
-                const err = new CustomError('Subscription not found', 404);
+    // check user exists and assign to req.user
+    switch (type) {
+        case 'CLIENT_API':
+            req.user = await User.findById(id);
+            break;
+        case 'ADMIN_API':
+            req.user = await Admin.findById(id);
+            break;
+        case 'STORE_API':
+            req.user = await Store.findById(id);
+            // Check if the store was found
+            if (!req.user) {
+                const err = new CustomError('User not found', 404);
                 return next(err);
             }
-            //check if subscription has expired
-            if(currentTime.isSameOrAfter(subscription.expiryDate)){
-                //update Store status to suspended
-                await Store.updateOne({ _id: id }, { status: 'Suspended' });
-                const err = new CustomError('Subscription has expired', 401);
+            //check if subscription is still valid
+            if(req.user.subscriptions.length > 0 ){
+                //get subscription details
+                const subscription = await SubscriptionStore.findById(
+                    req.user.subscriptions[req.user.subscriptions.length - 1]
+                );
+                if(!subscription){
+                    const err = new CustomError('Subscription not found', 404);
+                    return next(err);
+                }
+                //check if subscription has expired
+                if(currentTime.isSameOrAfter(subscription.expiryDate)){
+                    //update Store status to suspended
+                    await Store.updateOne({ _id: id }, { status: 'Suspended' });
+                    const err = new CustomError('Subscription has expired', 401);
+                    return next(err);
+                }
+            }else{
+                const err = new CustomError('No subscription exists for this profile', 401);
                 return next(err);
             }
-        }else{
-            const err = new CustomError('No subscription exists for this profile', 401);
+            break;
+        default:
+            const err = new CustomError('Authentication rejected', 404);
             return next(err);
-        }
-    }else{
-        const err = new CustomError('Authentication rejected', 404);
-        return next(err);
     }
+    // Check if the user was found
     if(!req.user){
         const err = new CustomError('Authentication rejected', 404);
         return next(err);
@@ -81,4 +86,5 @@ const requireAuth = asyncErrorHandler(async (req, res, next) => {
     // Continue to next middleware
     next();
 });
+
 module.exports = requireAuth;

@@ -7,7 +7,7 @@ const ErrorHandler = require('./controller/ErrorController');
 //security
 const cors = require('cors');
 const limiter = require('./middleware/RateLimiting');
-const validateRequest = require('./middleware/Sanitize');
+
 //routes
 const Authroutes = require('./route/AuthRoutes');
 const Productroutes = require('./route/ProductRoutes');
@@ -33,7 +33,6 @@ app.use(cors());
 app.use(body.json({limit: '50mb'}));
 app.use(body.urlencoded({limit: '50mb', extended: true}));
 app.use(limiter);
-// app.use(validateRequest); this making a problem in requests
 
 //routes
 app.use('/api/Product', Productroutes); 
