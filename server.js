@@ -24,6 +24,7 @@ const PopularProductRoutes = require('./route/PopularProductRoutes');
 const PublicityRoutes = require('./route/PublicityRoutes');
 const ReceiptRoutes = require('./route/ReceiptRoutes');
 const CitiesRoutes = require('./route/CitiesRoutes');
+const LossesRoutes = require('./route/LossesRoutes');
 
 //express app
 const app = express();
@@ -50,6 +51,7 @@ app.use('/api/PopularProduct', PopularProductRoutes);
 app.use('/api/Publicity', PublicityRoutes);
 app.use('/api/Receipt', ReceiptRoutes);
 app.use('/api/Cities', CitiesRoutes);
+app.use('/api/Losses', LossesRoutes);
 
 
 //error handling
