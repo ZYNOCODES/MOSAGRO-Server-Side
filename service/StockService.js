@@ -15,11 +15,11 @@ const findStockByStore = async (store) => {
         store: store
     });
 };
-const findStockByID_IDStore = async (id, store) => {
+const findStockByID_IDStore = async (id, store, session) => {
     return await Stock.findOne({
         _id: id,     
         store: store
-    });
+    }).session(session);
 };
 module.exports = {
     findStockById,
