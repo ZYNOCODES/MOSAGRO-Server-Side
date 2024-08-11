@@ -9,7 +9,7 @@ require('moment-timezone');
 const { ReceiptCode } = require('../util/Codification.js');
 const { findUserById } = require('../service/UserService.js');
 const { findStoreById } = require('../service/StoreService.js');
-const { findReceiptById } = require('../service/ReceiptService.js');
+const { findReceiptById, findNoneDeliveredReceiptByStore } = require('../service/ReceiptService.js');
 const { checkUserStore } = require('../service/MyStoreService.js');
 
 //create a receipt
@@ -325,6 +325,74 @@ const UpdateReceiptExpextedDeliveryDate = asyncErrorHandler(async (req, res, nex
     }
     res.status(200).json({ message: 'The expexted delivery date was submited successfully' });
 });
+//update specific product price in a receipt
+const UpdateReceiptProductPrice = asyncErrorHandler(async (req, res, next) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        const { store } = req.params;
+        const { id, stock, price } = req.body;
+
+        // Validate the input fields
+        if (!id || !stock || !price || !store ||
+            !mongoose.Types.ObjectId.isValid(id) ||
+            !mongoose.Types.ObjectId.isValid(stock) ||
+            !mongoose.Types.ObjectId.isValid(store) ||
+            !validator.isNumeric(price.toString())) {
+            return next(new CustomError('All fields are required', 400));
+        }
+
+        // Check if the receipt exists
+        const existingReceipt = await findNoneDeliveredReceiptByStore(store, id, session);
+        if (!existingReceipt) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Receipt not found', 404));
+        }
+
+        // Check if the stock exists in the receipt
+        const stockIndex = existingReceipt.products.findIndex(val => val.stock.toString() === stock);
+        if (stockIndex === -1) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Product not found in the receipt', 404));
+        }
+
+        // Update the product price in the receipt
+        existingReceipt.products[stockIndex].price = price;
+
+        // Update receipt total
+        existingReceipt.total = existingReceipt.products.reduce((acc, product) => acc + product.price * product.quantity, 0);
+
+        // Update receipt profit
+        let totalProfit = 0;
+        for (let product of existingReceipt.products) {
+            const existingProduct = await Stock.findOne({ _id: product.stock }).session(session);
+            if (existingProduct) {
+                totalProfit += (product.price - existingProduct.price[existingProduct.price.length - 1].buying) * product.quantity;
+            }
+        }
+        existingReceipt.profit = totalProfit;
+
+        // Save the updated receipt
+        const updatedReceipt = await existingReceipt.save({ session });
+
+        // Check if receipt updated successfully
+        if (!updatedReceipt) {
+            throw new CustomError('Error while updating receipt, try again.', 400);
+        }
+
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(200).json({ message: 'The product price was submitted successfully' });
+
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        return next(error);
+    }
+});
 //delete receiot
 const DeleteReceipt = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
@@ -344,6 +412,7 @@ const DeleteReceipt = asyncErrorHandler(async (req, res, next) => {
     }
     res.status(200).json({message: 'Receipt deleted successfully'});
 });
+
 module.exports = {
     CreateReceipt,
     GetReceiptByID,
@@ -353,5 +422,6 @@ module.exports = {
     ValidateMyReceipt,
     UpdateReceiptExpextedDeliveryDate,
     DeleteReceipt,
-    GetAllReceiptsByClientForStore
+    GetAllReceiptsByClientForStore,
+    UpdateReceiptProductPrice
 }

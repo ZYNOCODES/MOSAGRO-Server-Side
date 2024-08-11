@@ -8,7 +8,8 @@ const {
     ValidateMyReceipt,
     UpdateReceiptExpextedDeliveryDate,
     DeleteReceipt,
-    GetAllReceiptsByClientForStore
+    GetAllReceiptsByClientForStore,
+    UpdateReceiptProductPrice
 } = require('../controller/ReceiptController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
@@ -32,9 +33,10 @@ router.patch('/validate/:id', checkAuthrozation('STORE_API'), ValidateMyReceipt)
 router.delete('/:id', checkAuthrozation('STORE_API'), DeleteReceipt);
 //update expected delivery date
 router.patch('/updateExpectedDeliveryDate/:id', checkAuthrozation('STORE_API'), UpdateReceiptExpextedDeliveryDate);
+//update product price
+router.patch('/updateProductPrice/:store', checkAuthrozation('STORE_API'), UpdateReceiptProductPrice);
 //get all receipts by client
 router.get('/client/:id', checkAuthrozation('STORE_API'), GetAllReceiptsByClient);
-
 // Client_API routes
 //create new receipt
 router.post('/:client', checkAuthrozation('CLIENT_API'), CreateReceipt);

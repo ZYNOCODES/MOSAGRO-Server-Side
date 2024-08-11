@@ -119,6 +119,7 @@ const UpdateStore = asyncErrorHandler(async (req, res, next) => {
     }
     res.status(200).json({message: 'Store updated successfully'});
 });
+
 module.exports = {
     GetAllStores,
     GetStore,
