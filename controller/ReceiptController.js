@@ -1,16 +1,16 @@
 const mongoose = require('mongoose');
+const validator = require('validator');
 const Receipt = require('../model/ReceiptModel.js');
 const Stock = require('../model/StockModel');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
-const validator = require('validator');
-const moment = require('moment');
-require('moment-timezone');
 const { ReceiptCode } = require('../util/Codification.js');
 const { findUserById } = require('../service/UserService.js');
 const { findStoreById } = require('../service/StoreService.js');
 const { findReceiptById, findNoneDeliveredReceiptByStore } = require('../service/ReceiptService.js');
 const { checkUserStore } = require('../service/MyStoreService.js');
+const moment = require('moment');
+require('moment-timezone');
 
 //create a receipt
 const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
@@ -47,6 +47,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
     if (sum != total) {
         return next(new CustomError('Total is not equal to the sum of all products price', 400));
     }
+
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -73,6 +74,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
             session.endSession();
             return next(new CustomError('You are not a client for this store', 405));
         }
+        //calculate total profit
         var totalProfit = 0;
         //check if the all products exist
         for (const item of products) {
@@ -95,6 +97,17 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
                 return next(
                     new CustomError(
                     `This quantity ${item.quantity} of ${existingProduct.product.name} is no availble`,
+                    400)
+                );
+            }
+            //check if Quantity limitation
+            if (existingProduct.quantityLimit > 0 &&
+                existingProduct.quantityLimit < item.quantity) {
+                await session.abortTransaction();
+                session.endSession();
+                return next(
+                    new CustomError(
+                    `This quantity ${item.quantity} of ${existingProduct.product.name} is limited to ${existingProduct.quantityLimit} items maximum`,
                     400)
                 );
             }
