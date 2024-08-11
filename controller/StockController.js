@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Stock = require('../model/StockModel');
+const validator = require('validator');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const StockService = require('../service/StockService.js');
@@ -50,7 +51,8 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
             price : [{
                 buying : BuyingPrice,
                 selling : SellingPrice
-            }]
+            }],
+            quantityLimit : 0
         }, { session });
         
         await session.commitTransaction();
@@ -134,6 +136,34 @@ const UpdateStock = asyncErrorHandler(async (req, res, next) => {
     }
     res.status(200).json({message: 'Stock updated successfully'});
 });
+//update stock quantity limitation
+const UpdateStockQuantityLimitation = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const { QuantityLimit } = req.body;
+    // check if QuantityLimit is provided
+    if(validator.isEmpty(QuantityLimit.toString()) ||
+        !mongoose.Types.ObjectId.isValid(id) || 
+        !validator.isNumeric(QuantityLimit.toString())
+    ){
+        const err = new CustomError('Quantity Limit is required to update', 400);
+        return next(err);
+    }
+    //check if stock already exist
+    const stock = await StockService.findStockById(id);
+    if(!stock){
+        const err = new CustomError('Stock not found', 404);
+        return next(err);
+    }
+    //update stock
+    stock.quantityLimit = QuantityLimit;
+    //save updated stock
+    const updatedStock = await stock.save();
+    if(!updatedStock){
+        const err = new CustomError('Error while updating stock try again.', 400);
+        return next(err);
+    }
+    res.status(200).json({message: 'Stock updated successfully'});
+});
 //delete stock
 const DeleteStock = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
@@ -156,5 +186,6 @@ module.exports = {
     CreateStock,
     FetchStockByStore,
     UpdateStock,
+    UpdateStockQuantityLimitation,
     DeleteStock
 }

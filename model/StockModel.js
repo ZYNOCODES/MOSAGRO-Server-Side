@@ -25,6 +25,11 @@ const stockSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    quantityLimit: {
+        type: Number,
+        required: true,
+        default: 0
+    }
 },{
     timestamps: true,
     collection: 'stock'
