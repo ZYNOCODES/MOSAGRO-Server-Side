@@ -10,7 +10,8 @@ const {
     DeleteReceipt,
     GetAllReceiptsByClientForStore,
     UpdateReceiptProductPrice,
-    GetAlldeliveredReceiptsByStoreCredited
+    GetAlldeliveredReceiptsByStoreCredited,
+    AddPaumentToCreditReceipt
 } = require('../controller/ReceiptController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
@@ -38,6 +39,8 @@ router.delete('/:id', checkAuthrozation('STORE_API'), DeleteReceipt);
 router.patch('/updateExpectedDeliveryDate/:id', checkAuthrozation('STORE_API'), UpdateReceiptExpextedDeliveryDate);
 //update product price
 router.patch('/updateProductPrice/:store', checkAuthrozation('STORE_API'), UpdateReceiptProductPrice);
+//add payment to receipt credit
+router.patch('/addPaymentToCredit/:id', checkAuthrozation('STORE_API'), AddPaumentToCreditReceipt);
 //get all receipts by client
 router.get('/client/:id', checkAuthrozation('STORE_API'), GetAllReceiptsByClient);
 // Client_API routes

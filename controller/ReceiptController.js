@@ -7,7 +7,7 @@ const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const { ReceiptCode } = require('../util/Codification.js');
 const { findUserById } = require('../service/UserService.js');
 const { findStoreById } = require('../service/StoreService.js');
-const { findReceiptById, findNoneDeliveredReceiptByStore } = require('../service/ReceiptService.js');
+const { findReceiptById, findNoneDeliveredReceiptByStore, findCreditedReceipt } = require('../service/ReceiptService.js');
 const { checkUserStore } = require('../service/MyStoreService.js');
 const moment = require('moment');
 require('moment-timezone');
@@ -437,6 +437,49 @@ const UpdateReceiptProductPrice = asyncErrorHandler(async (req, res, next) => {
         return next(error);
     }
 });
+//add payment to credit receipt
+const AddPaumentToCreditReceipt = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const { payment } = req.body;
+    //check id 
+    if( !id || !payment || 
+        !mongoose.Types.ObjectId.isValid(id) || 
+        !validator.isNumeric(payment.toString())){
+        return next(new CustomError('All fields are required', 400));
+    }
+    //check if receipt exist
+    const existingReceipt = await findCreditedReceipt(id);
+    if(!existingReceipt){
+        return next(new CustomError('Receipt not found', 404));
+    }
+    // Calculate the sum of existing payments
+    const totalPaid = existingReceipt.payment.reduce((acc, val) => acc + val.amount, 0);
+
+    // Validate payment against the total
+    if ((totalPaid + parseFloat(payment)) > existingReceipt.total) {
+        const err =new CustomError(`The sum of payments is greater than the total. The remaining amount to pay is ${existingReceipt.total - totalPaid}`, 400);
+        return next(err);
+    }
+
+    // Add new payment
+    existingReceipt.payment.push({
+        amount: parseFloat(payment),
+        date: moment.tz('Africa/Algiers').format(),
+    });
+
+    // Check if the receipt is fully paid
+    if ((totalPaid + parseFloat(payment)) == existingReceipt.total) {
+        existingReceipt.credit = false;
+    }
+    // Save updated receipt
+    const updatedReceipt = await existingReceipt.save();
+    if (!updatedReceipt) {
+        const err = new CustomError('Error while adding payment to receipt, try again', 400);
+        return next(err);
+    }
+    // Return the response
+    res.status(200).json({ message: 'The payment was submited successfully' });
+});
 //delete receiot
 const DeleteReceipt = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
@@ -468,5 +511,6 @@ module.exports = {
     DeleteReceipt,
     GetAllReceiptsByClientForStore,
     UpdateReceiptProductPrice,
-    GetAlldeliveredReceiptsByStoreCredited
+    GetAlldeliveredReceiptsByStoreCredited,
+    AddPaumentToCreditReceipt
 }

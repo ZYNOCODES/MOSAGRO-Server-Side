@@ -17,8 +17,15 @@ const findNoneDeliveredReceiptByStore = async (store, id, session) => {
             delivered: false
         });
 }
+const findCreditedReceipt = async (id) => {
+    return await Receipt.findOne({
+        _id: id,
+        credit: true
+    });
+}
 
 module.exports = {
     findReceiptById,
-    findNoneDeliveredReceiptByStore
+    findNoneDeliveredReceiptByStore,
+    findCreditedReceipt
 }
