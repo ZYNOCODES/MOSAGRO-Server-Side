@@ -72,7 +72,24 @@ const receiptSchema = new mongoose.Schema({
         type: Number,
         required: true,
         default: 0
-    }
+    },
+    credit:{
+        type: Boolean,
+        required: true,
+        default: false
+    },
+    payment:[
+        {
+            date:{
+                type: String,
+                required: true
+            },
+            amount:{
+                type: Number,
+                required: true
+            }
+        }
+    ],
 },{
     timestamps: true,
     collection: 'receipt'

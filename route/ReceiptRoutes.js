@@ -9,7 +9,8 @@ const {
     UpdateReceiptExpextedDeliveryDate,
     DeleteReceipt,
     GetAllReceiptsByClientForStore,
-    UpdateReceiptProductPrice
+    UpdateReceiptProductPrice,
+    GetAlldeliveredReceiptsByStoreCredited
 } = require('../controller/ReceiptController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
@@ -25,6 +26,8 @@ router.get('/:id', checkAuthrozation('STORE_API'), GetReceiptByID);
 router.get('/delivred/:id', checkAuthrozation('STORE_API'), GetAlldeliveredReceiptsByStore);
 //get all none delivered receipts
 router.get('/noneDelivred/:id', checkAuthrozation('STORE_API'), GetAllNonedeliveredReceiptsByStore);
+//get all delivered receipts credited
+router.get('/delivredCredited/:id', checkAuthrozation('STORE_API'), GetAlldeliveredReceiptsByStoreCredited);
 //get all receipts by client for store
 router.get('/clientForStore/:client/:store', checkAuthrozation('STORE_API'), GetAllReceiptsByClientForStore);
 //validate receipt

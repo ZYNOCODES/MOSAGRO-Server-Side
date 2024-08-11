@@ -112,8 +112,8 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
                 );
             }
             //update stock quantity
-            existingProduct.quantity -= item.quantity;
-            await existingProduct.save({ session });
+            // existingProduct.quantity -= item.quantity;
+            // await existingProduct.save({ session });
             
             //calculate profit
             totalProfit += (
@@ -239,6 +239,35 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
     }
     res.status(200).json(receipts);
 });
+//get all delivered receipts by store which are credited by the client
+const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    //check all required fields
+    if( !id || !mongoose.Types.ObjectId.isValid(id)){
+        return next(new CustomError('All fields are required', 400));
+    }
+    //check if store exist
+    const existingStore = await findStoreById(id);
+    if(!existingStore){
+        return next(new CustomError('Store not found', 404));
+    }
+    const receipts = await Receipt.find({
+        store: id,
+        delivered: true,
+        credit: true
+    }).populate({
+        path: 'client',
+        select: 'firstName lastName phoneNumber'
+    }).populate({
+        path: 'products.product',
+        select: 'name size'
+    });
+    if(receipts.length <= 0){
+        const err = new CustomError('No credited delivered receipts found for you', 400);
+        return next(err);
+    }
+    res.status(200).json(receipts);
+});
 //get all receipts by client
 const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
@@ -292,8 +321,9 @@ const GetAllReceiptsByClientForStore = asyncErrorHandler(async (req, res, next) 
 //validate delivered
 const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
+    const { credit } = req.body;
     //check id 
-    if( !id || !mongoose.Types.ObjectId.isValid(id)){
+    if( !id || !mongoose.Types.ObjectId.isValid(id) ){
         return next(new CustomError('All fields are required', 400));
     }
     //check if receipt exist
@@ -304,7 +334,8 @@ const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
     //update 
     const updatedreceipt = await Receipt.updateOne({ _id: id }, { 
         delivered: true,
-        status: 3
+        status: 3,
+        credit: credit
     });
     // Check if receipt updated successfully
     if (!updatedreceipt) {
@@ -436,5 +467,6 @@ module.exports = {
     UpdateReceiptExpextedDeliveryDate,
     DeleteReceipt,
     GetAllReceiptsByClientForStore,
-    UpdateReceiptProductPrice
+    UpdateReceiptProductPrice,
+    GetAlldeliveredReceiptsByStoreCredited
 }
