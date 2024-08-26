@@ -13,17 +13,17 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // Check the file size limit
+  limits: { fileSize: 24 * 1024 * 1024 }, // Check the file size limit
   fileFilter: (req, file, cb) => {
     // Check the file types
     const allowedFileTypes = ['image/jpeg', 'image/jpg', 
-    'image/png', 'image/gif', 'application/pdf'];
+    'image/png', 'image/gif'];
     const detectedMimeType = mime.lookup(file.originalname);
 
     if (allowedFileTypes.includes(detectedMimeType)) {
       return cb(null, true);
     }
-    const error = new Error('Invalid file format. Allowed formats: JPEG, JPG, PNG, GIF, PDF');
+    const error = new Error('Invalid file format. Allowed formats: JPEG, JPG, PNG, GIF');
     error.status = 400; // Bad Request
     cb(error);
   }

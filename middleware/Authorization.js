@@ -20,25 +20,25 @@ const checkAuthorization = (allowedTypes) => {
                 return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
             }
             //check req.user.code if its starts with the correct code
-            switch (userType) {
-                case 'CLIENT_API':
-                    if (!req.user.code.startsWith('C')) {
-                        return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
-                    }
-                    break;
-                case 'ADMIN_API':
-                    if (!req.user.code.startsWith('A')) {
-                        return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
-                    }
-                    break;
-                case 'STORE_API':
-                    if (!req.user.code.startsWith('S')) {
-                        return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
-                    }
-                    break;
-                default:
-                    return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
-            }
+            // switch (userType) {
+            //     case process.env.CLIENT_TYPE:
+            //         if (!req.user.code.startsWith('C')) {
+            //             return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
+            //         }
+            //         break;
+            //     case process.env.ADMIN_TYPE:
+            //         if (!req.user.code.startsWith('A')) {
+            //             return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
+            //         }
+            //         break;
+            //     case process.env.STORE_TYPE:
+            //         if (!req.user.code.startsWith('S')) {
+            //             return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
+            //         }
+            //         break;
+            //     default:
+            //         return next(new CustomError('Authentication rejected', 401));
+            // }
             // User type is allowed, continue
             next();
         } catch (error) {

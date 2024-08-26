@@ -7,6 +7,7 @@ const {
     DeleteProduct
 } = require('../controller/ProductController');
 const router = express.Router();
+const { upload } = require('../util/ImageUploader');
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 
@@ -17,7 +18,7 @@ router.use(requireAuth);
 //get all products
 router.get('/', GetAllProducts);
 //create new product
-router.post('/create', CreateProduct);
+router.post('/create', upload, CreateProduct);
 //get specific product
 router.get('/:id', GetProduct);
 

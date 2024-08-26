@@ -6,17 +6,29 @@ const Brand = require('../model/BrandModel');
 const { getCurrentDateTime } = require('../util/DateTime.js');
 
 //Product codification
-const ProductCode = async (BrandCode, SubName, Size) => {
-    //2 degits random 
-    const code = BrandCode + SubName + Size;
-    //check if the product already exist with that code
-    const existCodeProduct = await Product.findOne({code: code});
-    if(existCodeProduct){
+const ProductCode = async (BrandCode, Name, Size) => {
+    // Get current date and time
+    const dateTime = getCurrentDateTime();
+
+    // 2 digits random (alphanumeric characters)
+    const digits = Math.random().toString(36).substring(2, 4).toUpperCase();
+
+    // Take the first 3 letters of BrandCode and first 2 of Name
+    const brandPart = BrandCode.substring(0, 3).toUpperCase();
+    const NamePart = Name.substring(0, 2).toUpperCase();
+
+    // Generate the code using BrandCode, Size, dateTime, and digits
+    const code = brandPart + NamePart + Size + dateTime + digits;
+
+    // Check if the product already exists with that code
+    const existCodeProduct = await Product.findOne({ code: code });
+
+    if (existCodeProduct) {
         return null;
     }
-    return code;
-}
 
+    return code;
+};
 //User codification
 const UserCode = async (PostalCode, type) => {
     //2 degits random 
@@ -45,12 +57,13 @@ const StoreCode = async (PostalCode, type) => {
     }
     return code;
 };
-
 //Receipt codification
 const ReceiptCode = async (UserCode, session) => {
+    // 2 digits random (alphanumeric characters)
+    const digits = Math.random().toString(36).substring(2, 4).toUpperCase();
     //get current date and time
     const dateTime = getCurrentDateTime();
-    const code = UserCode + dateTime;
+    const code = UserCode + dateTime + digits;
     //check if the receipt already exist with that code
     const existCodeReceipt = await Receipt.findOne({code: code}).session(session);
     if(existCodeReceipt){
@@ -58,11 +71,12 @@ const ReceiptCode = async (UserCode, session) => {
     }
     return code;
 }
-
 //Brand codification
 const BrandCode = async (Name) => {
+    // 2 digits random (alphanumeric characters)
+    const digits = Math.random().toString(36).substring(2, 4).toUpperCase();
     //take random 2 strings from name
-    const code = Name.substring(0, 2).toUpperCase();
+    const code = Name.substring(0, 3).toUpperCase() + digits;
     //check if the brand already exist with that code
     const existCodeBrand = await Brand.findOne({code: code});
     if(existCodeBrand){

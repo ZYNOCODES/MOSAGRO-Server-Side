@@ -1,7 +1,10 @@
 const Stock = require('../model/StockModel');
 
-const findStockById = async (id) => {
-    return await Stock.findById(id);
+const findStockById = async (id, session) => {
+    if (!session) 
+        return await Stock.findById(id);
+    else
+        return await Stock.findById(id).session(session);
 };
 
 const findStockByStoreAndProduct = async (Store, Product) => {

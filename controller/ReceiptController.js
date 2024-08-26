@@ -117,7 +117,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
             
             //calculate profit
             totalProfit += (
-                item.price - existingProduct.price[existingProduct.price.length -1].buying
+                item.price - existingProduct.buying
             ) * item.quantity;
             //add product id to the product object
             item.product = existingProduct.product;
@@ -335,7 +335,8 @@ const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
     const updatedreceipt = await Receipt.updateOne({ _id: id }, { 
         delivered: true,
         status: 3,
-        credit: credit
+        credit: credit,
+        expextedDeliveryDate: moment.tz('Africa/Algiers').format()
     });
     // Check if receipt updated successfully
     if (!updatedreceipt) {
@@ -413,7 +414,7 @@ const UpdateReceiptProductPrice = asyncErrorHandler(async (req, res, next) => {
         for (let product of existingReceipt.products) {
             const existingProduct = await Stock.findOne({ _id: product.stock }).session(session);
             if (existingProduct) {
-                totalProfit += (product.price - existingProduct.price[existingProduct.price.length - 1].buying) * product.quantity;
+                totalProfit += (product.price - existingProduct.buying) * product.quantity;
             }
         }
         existingReceipt.profit = totalProfit;

@@ -12,6 +12,7 @@ const limiter = require('./middleware/RateLimiting');
 const Authroutes = require('./route/AuthRoutes');
 const Productroutes = require('./route/ProductRoutes');
 const Brandroutes = require('./route/BrandRoutes');
+const Categoryroutes = require('./route/CategoryRoutes');
 const SubscriptionStoreRoutes = require('./route/SubscriptionStoreRoutes');
 const SubscriptionRoutes = require('./route/SubscriptionRoutes');
 const StoreRoutes = require('./route/StoreRoutes');
@@ -25,6 +26,7 @@ const PublicityRoutes = require('./route/PublicityRoutes');
 const ReceiptRoutes = require('./route/ReceiptRoutes');
 const CitiesRoutes = require('./route/CitiesRoutes');
 const LossesRoutes = require('./route/LossesRoutes');
+const StockStatusRoutes = require('./route/StockStatusRoutes');
 
 //express app
 const app = express();
@@ -39,6 +41,7 @@ app.use(limiter);
 app.use('/api/Product', Productroutes); 
 app.use('/api/Auth', Authroutes);
 app.use('/api/Brand', Brandroutes);
+app.use('/api/Category', Categoryroutes);
 app.use('/api/SubscriptionStore', SubscriptionStoreRoutes);
 app.use('/api/Subscription', SubscriptionRoutes);
 app.use('/api/Store', StoreRoutes);
@@ -52,10 +55,18 @@ app.use('/api/Publicity', PublicityRoutes);
 app.use('/api/Receipt', ReceiptRoutes);
 app.use('/api/Cities', CitiesRoutes);
 app.use('/api/Losses', LossesRoutes);
-
+app.use('/api/StockStatus', StockStatusRoutes);
 
 //error handling
 app.use(ErrorHandler);
+
+//serve static files
+app.use("/files", express.static("./files"))
+app.use(express.static("./public/build"));
+app.get("*", (req, res) => {
+    res.sendFile(path.resolve(__dirname, "public","build", "index.html"));
+});
+
 
 //connect to db
 mongoose.connect(process.env.MONGO_URL)

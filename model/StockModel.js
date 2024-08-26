@@ -11,16 +11,14 @@ const stockSchema = new mongoose.Schema({
         ref: 'store',
         required: true
     },
-    price: [{
-        buying: {
-            type: String,
-            required: true
-        },
-        selling: {
-            type: String,
-            required: true
-        }
-    }],
+    buying: {
+        type: Number,
+        required: true
+    },
+    selling: {
+        type: Number,
+        required: true
+    },
     quantity: {
         type: Number,
         required: true
@@ -29,7 +27,13 @@ const stockSchema = new mongoose.Schema({
         type: Number,
         required: true,
         default: 0
-    }
+    },
+    buyingMathode: {
+        type: String,
+        enum: ['both', 'box', 'unity'],
+        default: 'both',
+        required: true
+    },
 },{
     timestamps: true,
     collection: 'stock'

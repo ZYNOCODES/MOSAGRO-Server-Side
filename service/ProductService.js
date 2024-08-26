@@ -14,8 +14,16 @@ const findProductByCode = async (Code) => {
         code: Code
     });
 };
+const findProfuctByNameSizeBrand = async (Name, Size, Brand) => {
+    return await Product.findOne({            
+        name: Name,
+        size: Size,
+        brand: Brand
+    });
+}
 module.exports = {
     findProductById,
     findProductByName,
     findProductByCode,
+    findProfuctByNameSizeBrand
 }

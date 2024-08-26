@@ -35,8 +35,8 @@ const CreateBrand = asyncErrorHandler(async (req, res, next) => {
 //fetch all brands
 const GetAllBrands = asyncErrorHandler(async (req, res, next) => {
     const brands = await Brand.find({});
-    if(!brands){
-        const err = new CustomError('Error while fetching brands', 400);
+    if(!brands || brands.length < 1){
+        const err = new CustomError('No brand found', 400);
         return next(err);
     }
     res.status(200).json(brands);

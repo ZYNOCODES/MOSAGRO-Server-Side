@@ -1,29 +1,54 @@
+const mongoose = require('mongoose');
 const Product = require('../model/ProductModel');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const { ProductCode } = require('../util/Codification.js');
 const BrandService = require('../service/BrandService.js');
 const ProductService = require('../service/ProductService.js');
+const CategoryService = require('../service/CategoryService.js');
+const path = require('path');
 
 //create a new product
 const CreateProduct = asyncErrorHandler(async (req, res, next) => {
-    const { Name, Subname, Size, Brand, Image, BoxItems } = req.body;
+    const { Name, Size, Brand, BoxItems, Category } = req.body;
     // check if all required fields are provided
-    if(!Name || !Size || !Brand || !Image || !BoxItems){
+    if(!Name || !Size || !Brand || !BoxItems || !Category ||
+        !mongoose.Types.ObjectId.isValid(Brand) ||
+        !mongoose.Types.ObjectId.isValid(Category)
+    ){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
+    //check if image is provided
+    if(req.file == undefined){
+        const err = new CustomError('Image is required', 400);
+        return next(err);
+    }
+    const filename = req.file.filename;
+
     //check if brand already exists
     const brand = await BrandService.findBrandById(Brand);
     if(!brand){
         const err = new CustomError('Brand not found', 400);
         return next(err);
     }
+    //check if brand already exists
+    const category = await CategoryService.findCategoryById(Category);
+    if(!category){
+        const err = new CustomError('Category not found', 400);
+        return next(err);
+    }
+    //check if product already exists
+    const existingProduct = await ProductService.findProfuctByNameSizeBrand(Name, Size,Brand);
+    if(existingProduct){
+        const err = new CustomError('Product already exists', 400);
+        return next(err);
+    }
     //generate codification for a product
-    const code = await ProductCode(brand.code, Subname, Size);
+    const code = await ProductCode(brand.code, Name, Size);
     //check if the product already exist with that code
     if(code == null){
-        const err = new CustomError('An existing product use that code. check the product list', 400);
+        const err = new CustomError('Error while creating product try again.', 400);
         return next(err);
     }
 
@@ -31,10 +56,10 @@ const CreateProduct = asyncErrorHandler(async (req, res, next) => {
     const newProduct = await Product.create({
         code : code,
         name : Name,
-        subName : Subname,
         size : Size,
         brand : Brand,
-        image : Image,
+        category: Category,
+        image : filename,
         boxItems : BoxItems
     });
     
@@ -47,7 +72,16 @@ const CreateProduct = asyncErrorHandler(async (req, res, next) => {
 });
 //fetch all products
 const GetAllProducts = asyncErrorHandler(async (req, res, next) => {
-    const products = await Product.find({});
+    const products = await Product.find({}).populate([
+        {
+            path: 'brand',
+            select: 'name'
+        },
+        {
+            path: 'category',
+            select: 'name'
+        }
+    ]);
     if(!products){
         const err = new CustomError('Error while fetching products', 400);
         return next(err);

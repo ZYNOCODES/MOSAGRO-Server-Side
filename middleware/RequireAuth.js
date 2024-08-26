@@ -27,6 +27,7 @@ const requireAuth = asyncErrorHandler(async (req, res, next) => {
     try {
         decodedToken = jwt.verify(token, process.env.SECRET_KEY);
     } catch (err) {
+        console.log(err)
         const error = new CustomError('Invalid or expired token. Please log in again.', 401);
         return next(error);
     }
@@ -39,13 +40,13 @@ const requireAuth = asyncErrorHandler(async (req, res, next) => {
     }
     // check user exists and assign to req.user
     switch (type) {
-        case 'CLIENT_API':
+        case process.env.CLIENT_TYPE:
             req.user = await User.findById(id);
             break;
-        case 'ADMIN_API':
+        case process.env.ADMIN_TYPE:
             req.user = await Admin.findById(id);
             break;
-        case 'STORE_API':
+        case process.env.STORE_TYPE:
             req.user = await Store.findById(id);
             // Check if the store was found
             if (!req.user) {
