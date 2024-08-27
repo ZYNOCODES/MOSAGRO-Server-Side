@@ -18,10 +18,10 @@ router.get('/', GetAllCategorys);
 
 // ADMIN_API routes below
 //create new Category
-router.post('/create', checkAuthrozation('ADMIN_API'), CreateCategory);
+router.post('/create', checkAuthrozation([process.env.ADMIN_TYPE]), CreateCategory);
 //update existing Category name
-router.patch('/:id', checkAuthrozation('ADMIN_API'), UpdateCategoryName);
+router.patch('/:id', checkAuthrozation([process.env.ADMIN_TYPE]), UpdateCategoryName);
 //delete a Category
-router.delete('/:id', checkAuthrozation('ADMIN_API'), DeleteCategory);
+router.delete('/:id', checkAuthrozation([process.env.ADMIN_TYPE]), DeleteCategory);
 
 module.exports = router;

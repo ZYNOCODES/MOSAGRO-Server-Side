@@ -17,8 +17,8 @@ router.get('/:id', GetAllPopularProductbyStore);
 
 // STORE_API routes below
 //create new PopularProduct
-router.post('/', checkAuthrozation('STORE_API'), AddPopularProduct);
+router.post('/', checkAuthrozation([process.env.STORE_TYPE]), AddPopularProduct);
 //delete a product from PopularProduct
-router.patch('/:id', checkAuthrozation('STORE_API'), RemovePopularProduct);
+router.patch('/:id', checkAuthrozation([process.env.STORE_TYPE]), RemovePopularProduct);
 
 module.exports = router;

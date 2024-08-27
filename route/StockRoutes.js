@@ -23,13 +23,13 @@ router.use(requireAuth);
 //fetch stock by store
 router.get('/:id', FetchStockByID);
 //create new stock
-router.post('/create', checkAuthrozation('STORE_API'), CreateStock);
+router.post('/create', checkAuthrozation([process.env.STORE_TYPE]), CreateStock);
 //update stock
-router.patch('/update/:id', checkAuthrozation('STORE_API'), UpdateStock);
+router.patch('/update/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateStock);
 //update stock quantity limitation
-router.patch('/update/quantitylimit/:id', checkAuthrozation('STORE_API'), UpdateStockQuantityLimitation);
+router.patch('/update/quantitylimit/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateStockQuantityLimitation);
 //delete stock
-router.delete('/delete/:id', checkAuthrozation('STORE_API'), DeleteStock);
+router.delete('/delete/:id', checkAuthrozation([process.env.STORE_TYPE]), DeleteStock);
 //fetch stock by store
 router.get('/store/:Store', FetchStockByStore);
 

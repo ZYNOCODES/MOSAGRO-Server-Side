@@ -22,30 +22,30 @@ router.use(requireAuth);
 
 // STORE_API routes
 //get specific receipt
-router.get('/:id', checkAuthrozation('STORE_API'), GetReceiptByID);
+router.get('/:id', checkAuthrozation([process.env.STORE_TYPE]), GetReceiptByID);
 //get all delivered receipts
-router.get('/delivred/:id', checkAuthrozation('STORE_API'), GetAlldeliveredReceiptsByStore);
+router.get('/delivred/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAlldeliveredReceiptsByStore);
 //get all none delivered receipts
-router.get('/noneDelivred/:id', checkAuthrozation('STORE_API'), GetAllNonedeliveredReceiptsByStore);
+router.get('/noneDelivred/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllNonedeliveredReceiptsByStore);
 //get all delivered receipts credited
-router.get('/delivredCredited/:id', checkAuthrozation('STORE_API'), GetAlldeliveredReceiptsByStoreCredited);
+router.get('/delivredCredited/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAlldeliveredReceiptsByStoreCredited);
 //get all receipts by client for store
-router.get('/clientForStore/:client/:store', checkAuthrozation('STORE_API'), GetAllReceiptsByClientForStore);
+router.get('/clientForStore/:client/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllReceiptsByClientForStore);
 //validate receipt
-router.patch('/validate/:id', checkAuthrozation('STORE_API'), ValidateMyReceipt);
+router.patch('/validate/:id', checkAuthrozation([process.env.STORE_TYPE]), ValidateMyReceipt);
 //delete receipt
-router.delete('/:id', checkAuthrozation('STORE_API'), DeleteReceipt);
+router.delete('/:id', checkAuthrozation([process.env.STORE_TYPE]), DeleteReceipt);
 //update expected delivery date
-router.patch('/updateExpectedDeliveryDate/:id', checkAuthrozation('STORE_API'), UpdateReceiptExpextedDeliveryDate);
+router.patch('/updateExpectedDeliveryDate/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateReceiptExpextedDeliveryDate);
 //update product price
-router.patch('/updateProductPrice/:store', checkAuthrozation('STORE_API'), UpdateReceiptProductPrice);
+router.patch('/updateProductPrice/:store', checkAuthrozation([process.env.STORE_TYPE]), UpdateReceiptProductPrice);
 //add payment to receipt credit
-router.patch('/addPaymentToCredit/:id', checkAuthrozation('STORE_API'), AddPaumentToCreditReceipt);
+router.patch('/addPaymentToCredit/:id', checkAuthrozation([process.env.STORE_TYPE]), AddPaumentToCreditReceipt);
 //get all receipts by client
-router.get('/client/:id', checkAuthrozation('STORE_API'), GetAllReceiptsByClient);
+router.get('/client/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllReceiptsByClient);
 // Client_API routes
 //create new receipt
-router.post('/:client', checkAuthrozation('CLIENT_API'), CreateReceipt);
+router.post('/:client', checkAuthrozation([process.env.CLIENT_TYPE]), CreateReceipt);
 
 
 module.exports = router;

@@ -15,24 +15,25 @@ const checkAuthorization = (allowedTypes) => {
         try {
             const decodedToken = jwt.verify(token, process.env.SECRET_KEY);
             const userType = decodedToken.type;
+            const id = decodedToken.id;
             //check if user type is allowed
-            if (!allowedTypes.includes(userType)) {
+            if (!Array.isArray(allowedTypes) ||!allowedTypes.includes(userType)) {
                 return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
             }
             //check req.user.code if its starts with the correct code
             // switch (userType) {
             //     case process.env.CLIENT_TYPE:
-            //         if (!req.user.code.startsWith('C')) {
+            //         if (!req.user.code.startsWith('C') || req.user._id != id) {
             //             return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
             //         }
             //         break;
             //     case process.env.ADMIN_TYPE:
-            //         if (!req.user.code.startsWith('A')) {
+            //         if (!req.user.code.startsWith('A') || req.user._id != id) {
             //             return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
             //         }
             //         break;
             //     case process.env.STORE_TYPE:
-            //         if (!req.user.code.startsWith('S')) {
+            //         if (!req.user.code.startsWith('S') || req.user._id != id) {
             //             return next(new CustomError('Unauthorized access. You do not have permission to access this resource.', 403));
             //         }
             //         break;

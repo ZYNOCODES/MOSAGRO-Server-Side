@@ -1,0 +1,56 @@
+const mongoose = require('mongoose');
+
+const PurchaseSchema = new mongoose.Schema({
+    store:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'store',
+        required: true
+    },
+    fournisseur:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'fournisseur',
+        required: true
+    },
+    date:{
+        type: String,
+        required: true
+    },
+    TotalAmount:{
+        type: Number,
+        required: true
+    },
+    stock: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'stock',
+        required: true
+    }],
+    credit:{
+        type: Boolean,
+        required: true,
+        default: false
+    },
+    payment:[
+        {
+            date:{
+                type: String,
+                required: true
+            },
+            amount:{
+                type: Number,
+                required: true
+            }
+        }
+    ],
+    closed:{
+        type: Boolean,
+        required: true,
+        default: false
+    }
+},{
+    timestamps: true,
+    collection: 'purchase'
+});
+
+const Purchase = mongoose.model('purchase', PurchaseSchema);
+
+module.exports = Purchase;

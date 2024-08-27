@@ -27,6 +27,8 @@ const ReceiptRoutes = require('./route/ReceiptRoutes');
 const CitiesRoutes = require('./route/CitiesRoutes');
 const LossesRoutes = require('./route/LossesRoutes');
 const StockStatusRoutes = require('./route/StockStatusRoutes');
+const FournisseurRoutes = require('./route/FournisseurRoutes');
+const PurchaseRoutes = require('./route/PurchaseRoutes');
 
 //express app
 const app = express();
@@ -56,6 +58,9 @@ app.use('/api/Receipt', ReceiptRoutes);
 app.use('/api/Cities', CitiesRoutes);
 app.use('/api/Losses', LossesRoutes);
 app.use('/api/StockStatus', StockStatusRoutes);
+app.use('/api/Fournisseur', FournisseurRoutes);
+app.use('/api/Purchase', PurchaseRoutes);
+
 
 //error handling
 app.use(ErrorHandler);

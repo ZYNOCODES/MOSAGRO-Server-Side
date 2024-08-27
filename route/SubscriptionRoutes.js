@@ -18,10 +18,10 @@ router.get('/', GetAllSubscriptions);
 
 // ADMIN_API routes below
 //create new Subscription
-router.post('/create', checkAuthrozation('ADMIN_API'), CreateSubscription);
+router.post('/create', checkAuthrozation([process.env.ADMIN_TYPE]), CreateSubscription);
 //update Subscription
-router.patch('/update/:id', checkAuthrozation('ADMIN_API'), UpdateSubscription);
+router.patch('/update/:id', checkAuthrozation([process.env.ADMIN_TYPE]), UpdateSubscription);
 //delete Subscription
-router.delete('/delete/:id', checkAuthrozation('ADMIN_API'), DeleteSubscription);
+router.delete('/delete/:id', checkAuthrozation([process.env.ADMIN_TYPE]), DeleteSubscription);
 
 module.exports = router;

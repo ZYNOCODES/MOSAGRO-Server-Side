@@ -24,8 +24,8 @@ router.get('/:id', GetProduct);
 
 // ADMIN_API routes below
 //update a product
-router.patch('/:id', checkAuthrozation('ADMIN_API'), UpdateProduct);
+router.patch('/:id', checkAuthrozation([process.env.ADMIN_TYPE]), UpdateProduct);
 //delete a product
-router.delete('/:id', checkAuthrozation('ADMIN_API'), DeleteProduct);
+router.delete('/:id', checkAuthrozation([process.env.ADMIN_TYPE]), DeleteProduct);
 
 module.exports = router;

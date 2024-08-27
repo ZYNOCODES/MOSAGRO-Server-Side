@@ -13,10 +13,10 @@ router.use(requireAuth);
 
 // STORE_API routes below
 //fetch stock status by stock
-router.get('/:id', checkAuthrozation('STORE_API'), FetchStockStatusByStock);
+router.get('/:id', checkAuthrozation([process.env.STORE_TYPE]), FetchStockStatusByStock);
 //update stock status
-router.patch('/update/status/:id', checkAuthrozation('STORE_API'), UpdateStockStatus);
+router.patch('/update/status/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateStockStatus);
 //update stock end status
-router.patch('/update/endstatus/:id', checkAuthrozation('STORE_API'), UpdateStockEndStatus);
+router.patch('/update/endstatus/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateStockEndStatus);
 
 module.exports = router;

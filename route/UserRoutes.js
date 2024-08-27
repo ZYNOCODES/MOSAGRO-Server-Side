@@ -16,6 +16,6 @@ router.get('/:id', GetUserById);
 
 // ADMIN_API routes below
 //fetch all Users
-router.get('/', checkAuthrozation('ADMIN_API'), GetAllUsers);
+router.get('/', checkAuthrozation([process.env.ADMIN_TYPE]), GetAllUsers);
 
 module.exports = router;

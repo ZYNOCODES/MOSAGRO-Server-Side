@@ -16,6 +16,6 @@ router.get('/:id', GetAllSubsecriptionStoreByStore);
 
 // ADMIN_API routes below
 //create new Subscription for a specific store
-router.post('/create', checkAuthrozation('ADMIN_API'), CreateSubsecriptionStore);
+router.post('/create', checkAuthrozation([process.env.ADMIN_TYPE]), CreateSubsecriptionStore);
 
 module.exports = router;

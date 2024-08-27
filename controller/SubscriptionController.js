@@ -5,7 +5,6 @@ const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 //create a new Subscription
 const CreateSubscription = asyncErrorHandler(async (req, res, next) => {
     const { Name, Duration } = req.body;
-    console.log(Name, Duration);
     // check if all required fields are provided
     if(!Name || !Duration){
         const err = new CustomError('All fields are required', 400);

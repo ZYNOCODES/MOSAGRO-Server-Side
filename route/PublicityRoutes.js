@@ -19,16 +19,16 @@ router.get('/:id', GetAllPublicitybyStore);
 
 // STORE_API routes below
 //add Publicity
-router.post('/', checkAuthrozation('STORE_API'), AddPublicity);
+router.post('/', checkAuthrozation([process.env.STORE_TYPE]), AddPublicity);
 //remove Publicity
-router.patch('/:id', checkAuthrozation('STORE_API'), RemovePublicity);
+router.patch('/:id', checkAuthrozation([process.env.STORE_TYPE]), RemovePublicity);
 
 // CLIENT_API routes below
 //fetch all public Publicities
-router.get('/', checkAuthrozation('CLIENT_API'), GetAllPublicPublicities);
+router.get('/', checkAuthrozation([process.env.CLIENT_TYPE]), GetAllPublicPublicities);
 
 // ADMIN_API routes below
 //update Publicity distination
-router.patch('/distination/:id', checkAuthrozation('ADMIN_API'), ChangePublicityDistination);
+router.patch('/distination/:id', checkAuthrozation([process.env.ADMIN_TYPE]), ChangePublicityDistination);
 
 module.exports = router;

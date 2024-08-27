@@ -17,10 +17,10 @@ router.get('/:id', GetStore);
 
 // ADMIN_API routes below
 //fetch all Stores
-router.get('/', checkAuthrozation('ADMIN_API'), GetAllStores);
+router.get('/', checkAuthrozation([process.env.ADMIN_TYPE]), GetAllStores);
 
 // STORE_API routes below
 //update Store info
-router.patch('/:id', checkAuthrozation('STORE_API'), UpdateStore);
+router.patch('/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateStore);
 
 module.exports = router;

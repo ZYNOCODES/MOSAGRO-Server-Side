@@ -13,10 +13,10 @@ router.use(requireAuth);
 
 // CLIENT_API routes below
 //get all Favorite
-router.get('/:id', checkAuthrozation('CLIENT_API'), GetAllFavoritebyUser);
+router.get('/:id', checkAuthrozation([process.env.CLIENT_TYPE]), GetAllFavoritebyUser);
 //create new Favorite
-router.post('/', checkAuthrozation('CLIENT_API'), AddFavorite);
+router.post('/', checkAuthrozation([process.env.CLIENT_TYPE]), AddFavorite);
 //delete a product from Favorite
-router.patch('/:id', checkAuthrozation('CLIENT_API'), RemoveFavorite);
+router.patch('/:id', checkAuthrozation([process.env.CLIENT_TYPE]), RemoveFavorite);
 
 module.exports = router;

@@ -13,10 +13,10 @@ router.use(requireAuth);
 
 // STORE_API routes below
 //get all losses
-router.get('/:id', checkAuthrozation('STORE_API'), GetAllLosses);
+router.get('/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllLosses);
 //create a loss
-router.post('/:store', checkAuthrozation('STORE_API'), CreateLoss);
+router.post('/:store', checkAuthrozation([process.env.STORE_TYPE]), CreateLoss);
 //delete a loss
-router.delete('/:id', checkAuthrozation('STORE_API'), DeleteLoss);
+router.delete('/:id', checkAuthrozation([process.env.STORE_TYPE]), DeleteLoss);
 
 module.exports = router;

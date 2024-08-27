@@ -16,18 +16,18 @@ router.use(requireAuth);
 
 // CLIENT_API routes below
 //get all MyStores
-router.get('/:id', checkAuthrozation('CLIENT_API'), GetAllMyStoresbyUser);
+router.get('/:id', checkAuthrozation([process.env.CLIENT_TYPE]), GetAllMyStoresbyUser);
 //create new MyStores
-router.patch('/:id', checkAuthrozation('CLIENT_API'), AddStoreToMyList);
+router.patch('/:id', checkAuthrozation([process.env.CLIENT_TYPE]), AddStoreToMyList);
 
 // STORE_API routes below
 //get all users by store
-router.get('/users/:id', checkAuthrozation('STORE_API'), GetAllUsersByStore);
+router.get('/users/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllUsersByStore);
 //get all not approved users by store
-router.get('/notApprovedUsers/:id', checkAuthrozation('STORE_API'), GetAllNotApprovedUsersByStore);
+router.get('/notApprovedUsers/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllNotApprovedUsersByStore);
 //approve user to access store
-router.patch('/approve/:id', checkAuthrozation('STORE_API'), ApproveUserToAccessStore);
+router.patch('/approve/:id', checkAuthrozation([process.env.STORE_TYPE]), ApproveUserToAccessStore);
 //delete a store from MyStores
-router.patch('/delete/:id', checkAuthrozation('STORE_API'), DeleteStoreFromMyStores);
+router.patch('/delete/:id', checkAuthrozation([process.env.STORE_TYPE]), DeleteStoreFromMyStores);
 
 module.exports = router;

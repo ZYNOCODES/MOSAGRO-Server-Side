@@ -11,6 +11,6 @@ router.use(requireAuth);
 
 // ADMIN_API routes below
 //fetch specific admin
-router.get('/:id', checkAuthrozation('ADMIN_API'), GetAdmin);
+router.get('/:id', checkAuthrozation([process.env.ADMIN_TYPE]), GetAdmin);
 
 module.exports = router;

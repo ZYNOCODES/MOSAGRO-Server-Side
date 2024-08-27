@@ -20,8 +20,8 @@ router.post('/create', CreateBrand);
 
 // ADMIN_API routes below
 //update existing brand name
-router.patch('/:id', checkAuthrozation('ADMIN_API'), UpdateBrandName);
+router.patch('/:id', checkAuthrozation([process.env.ADMIN_TYPE]), UpdateBrandName);
 //delete a brand
-router.delete('/:id', checkAuthrozation('ADMIN_API'), DeleteBrand);
+router.delete('/:id', checkAuthrozation([process.env.ADMIN_TYPE]), DeleteBrand);
 
 module.exports = router;
