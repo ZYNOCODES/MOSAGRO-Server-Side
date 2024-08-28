@@ -31,7 +31,7 @@ const UserSchema = new mongoose.Schema({
     },
     wilaya:{
         type: String,
-        required: true
+        required: true,
     },
     commune:{
         type: String,
@@ -39,7 +39,7 @@ const UserSchema = new mongoose.Schema({
     },
     r_commerce:{
         type: String,
-        required: true
+        required: false
     },
 },{
     timestamps: true,

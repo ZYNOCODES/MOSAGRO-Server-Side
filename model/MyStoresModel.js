@@ -6,19 +6,21 @@ const myStoresSchema = new mongoose.Schema({
         ref: 'user',
         required: true
     },
-    stores: [{
-        store: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'store',
-            required: true
-        },
-        status: {
-            type: String,
-            enum: ['pending', 'approved', 'rejected'],
-            default: 'pending',
-            required: true
-        }
-    }]
+    store: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'store',
+        required: true
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending',
+        required: true
+    },
+    isSeller: {
+        type: Boolean,
+        default: false
+    }
 },{
     timestamps: true,
     collection: 'myStores'

@@ -1,15 +1,19 @@
+const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const Admin = require('../model/AdminModel.js');
 const User = require('../model/UserModel.js');
 const Store = require('../model/StoreModel.js');
 const UserService = require('../service/UserService.js');
 const StoreService = require('../service/StoreService.js'); 
 const AdminService = require('../service/AdminService.js');
+const CitiesService = require('../service/CitiesService.js')
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const bcrypt = require('../util/bcrypt.js');
 const Codification = require('../util/Codification.js');
 const validator = require('validator');
 const SubscriptionStore = require('../model/SubscriptionStoreModel');
+const MyStores = require('../model/MyStoresModel');
 const {
     createToken
 } = require('../util/JWT.js');
@@ -132,12 +136,11 @@ const SignUp = asyncErrorHandler(async (req, res, next) => {
     }
     
     //check if phone already exist
-    const [admin, store, user] = await Promise.all([
-        AdminService.findAdminByPhone(PhoneNumber),
+    const [store, user] = await Promise.all([
         StoreService.findStoreByPhone(PhoneNumber),
         UserService.findUserByPhone(PhoneNumber)
     ]);
-    if(admin || store || user){
+    if(store || user){
         const err = new CustomError('Phone number already exist', 400);
         return next(err);
     }
@@ -149,36 +152,32 @@ const SignUp = asyncErrorHandler(async (req, res, next) => {
             return next(err);
         }
 
-        const [adminByEmail, storeByEmail, userByEmail] = await Promise.all([
-            AdminService.findAdminByEmail(Email),
+        const [storeByEmail, userByEmail] = await Promise.all([
             StoreService.findStoreByEmail(Email),
             UserService.findUserByEmail(Email)
         ]);
 
-        if (adminByEmail || storeByEmail || userByEmail) {
+        if (storeByEmail || userByEmail) {
             const err = new CustomError('Email already exist', 400);
             return next(err);
         }
+    }
+
+    //check if the wilaya and commun exist
+    const existWilaya = await CitiesService.findCitiesFRByCodeC(wilaya, commune);
+    if(!existWilaya){
+        const err = new CustomError('the wilaya and its commune is incorrect', 404);
+        return next(err);
     }
     
     //hash password
     const hash = await bcrypt.hashPassword(Password);
 
     //create new User
-    if(AuthType === "Admin"){
-        const newAdmin = await Admin.create({
-            email: Email, password: hash, firstName: FirstName, lastName: LastName, phoneNumber: PhoneNumber,        
-        });
-        if(!newAdmin){
-            const err = new CustomError('Error while creating new admin', 400);
-            return next(err);
-        }
-    }else if(AuthType === "Store"){
+    if(AuthType === "Store"){
         const status = "En attente";
         //generate codification for a user
-        const postalCode = "26";
-        const type = "S";
-        const code = await Codification.StoreCode(postalCode, type);
+        const code = await Codification.StoreCode(existWilaya.codeC, "S");
         //check if the user already exist with that code
         if(code == null){
             const err = new CustomError('Code already existe. repeat the proccess', 404);
@@ -197,9 +196,7 @@ const SignUp = asyncErrorHandler(async (req, res, next) => {
         }
     }else if(AuthType === "User"){
         //generate codification for a user
-        const postalCode = "26";
-        const type = "C";
-        var code = await Codification.UserCode(postalCode, type);
+        var code = await Codification.UserCode(existWilaya.codeC, "C");
         //check if the user already exist with that code
         if(code == null){
             const err = new CustomError('Code already existe. repeat the proccess', 404);
@@ -224,7 +221,106 @@ const SignUp = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json({message: 'Profil created successfully'});
 });
 
+//create new client from a store
+const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    const {
+        Email, Password, FirstName, LastName, PhoneNumber, Address, 
+        Wilaya, Commune
+    } = req.body;
+    console.log(store, req.body)
+    // Check if all required fields are provided
+    if ([store, Password, FirstName, LastName, PhoneNumber, Address, 
+        Wilaya, Commune].some(field => !field || validator.isEmpty(field))) {
+        return next(new CustomError('All fields are required', 400));
+    }
+
+    // Check if the store exists
+    const existStore = await StoreService.findStoreById(store);
+    if (!existStore) {
+        return next(new CustomError('Store not found', 404));
+    }
+
+    // Check if the phone number already exists
+    const existingUserByPhone = await UserService.findUserByPhone(PhoneNumber);
+    if (existingUserByPhone) {
+        return next(new CustomError('Phone number already exists', 400));
+    }
+
+    // Validate and check if the email already exists
+    if (Email) {
+        if (!validator.isEmail(Email)) {
+            return next(new CustomError('Invalid email address', 400));
+        }
+
+        const existingUserByEmail = await UserService.findUserByEmail(Email);
+        if (existingUserByEmail) {
+            return next(new CustomError('Email already exists', 400));
+        }
+    }
+
+    // Check if the Wilaya and Commune exist
+    const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
+    if (!existWilaya) {
+        return next(new CustomError('Invalid Wilaya or Commune', 404));
+    }
+
+    // Hash the password
+    const hash = await bcrypt.hashPassword(Password);
+
+    // Generate codification for the user
+    const code = await Codification.UserCode(existWilaya.codeC, "C");
+    if (code == null) {
+        return next(new CustomError('Code generation failed, please retry again', 400));
+    }
+
+    // Start a session for the transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+
+        // Create the new user
+        const newUser = await User.create([{
+            email: Email,
+            password: hash,
+            firstName: FirstName,
+            lastName: LastName,
+            phoneNumber: PhoneNumber,
+            storeAddresses: [Address],
+            code: code,
+            wilaya: existWilaya.codeW,
+            commune: existWilaya.codeC
+        }], { session });
+        //check if the user created successfully
+        if (!newUser) {
+            return next(new CustomError('Error while creating the user', 500));
+        }
+        // Create the MyStore entry
+        await MyStores.create([{
+            user: newUser[0]._id,
+            store: existStore._id,
+            status: 'approved',
+        }], { session });
+
+        // Commit the transaction if everything is successful
+        await session.commitTransaction();
+
+        // Return a detailed success message
+        res.status(200).json({ message: `Client profile created successfully.`,});
+
+    } catch (error) {
+        // Abort the transaction in case of any errors
+        await session.abortTransaction();
+        next(new CustomError('An error occurred while creating the client profile', 500));
+    } finally {
+        // End the session
+        session.endSession();
+    }
+});
+
 module.exports = {
     SignIn,
-    SignUp
+    SignUp,
+    CreateNewClientForAStore
 }

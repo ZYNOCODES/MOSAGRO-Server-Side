@@ -27,21 +27,21 @@ const CreateFournisseur = asyncErrorHandler(async (req, res, next) => {
     //check if the store exist
     const existStore = await StoreService.findStoreById(store);
     if(!existStore){
-        const err = new CustomError('Magasin non trouvé', 404);
+        const err = new CustomError('Store non trouvé', 404);
         return next(err);
     }
 
     //check if the phone number already used
     const existPhone = await FournisseurService.findFournisseurByPhone(phone, existStore._id);
     if(existPhone){
-        const err = new CustomError('Un fournisseur existant utilise ce numéro de téléphone. Réessayez avec un autre.', 400);
+        const err = new CustomError('An existing fournisseur is using this phone number. Try again with another one.', 400);
         return next(err);
     }
 
     //check if the wilaya and commun exist
     const existWilaya = await CitiesService.findCitiesFRByCodeC(wilaya, commune);
     if(!existWilaya){
-        const err = new CustomError('la wilaya et sa commune est incorrecte', 404);
+        const err = new CustomError('the wilaya and its commune is incorrect', 404);
         return next(err);
     }
 

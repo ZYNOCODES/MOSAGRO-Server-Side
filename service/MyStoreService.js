@@ -5,11 +5,11 @@ const findMyStoresById = async (id) => {
 };
 const findMyStoresByUser = async (userID, session) => {
     if (session)
-        return await MyStores.findOne({
+        return await MyStores.find({
             user: userID
         }).session(session);
     else
-        return await MyStores.findOne({
+        return await MyStores.find({
             user: userID
         });
 };
@@ -18,22 +18,14 @@ const checkUserStore = async (userID, storeID, session) => {
     if (session)
         return await MyStores.findOne({
             user: userID,
-            stores: {
-                $elemMatch: {
-                    store: storeID,
-                    status: 'approved'
-                }
-            }
+            store: storeID,
+            status: 'approved'
         }).session(session);
     else
         return await MyStores.findOne({
             user: userID,
-            stores: {
-                $elemMatch: {
-                    store: storeID,
-                    status: 'approved'
-                }
-            }
+            store: storeID,
+            status: 'approved'
         });
 };
 module.exports = {
