@@ -6,7 +6,31 @@ const StockService = require('../service/StockService.js');
 const StockStatusService = require('../service/StockStatusService.js');
 
 //fetch stock status by stock
-const FetchStockStatusByStock = asyncErrorHandler(async (req, res, next) => {
+const FetchLiveStockStatusByStock = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    //validate required fields
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        return next(new CustomError('Invalid stock id', 400));
+    }
+    //check if stock already exist
+    const stock = await StockService.findStockById(id);
+    if(!stock){
+        const err = new CustomError('Stock not found', 404);
+        return next(err);
+    }
+    const stockStatus = await StockStatus.findOne({ stock: id });
+    if (!stockStatus || stockStatus.status.length < 1) {
+        return next(new CustomError('Stock status not found', 404));
+    }
+    // Filter the stock status data by end == false
+    const NonEndedStatus = stockStatus.status.filter(status => status.end === false);
+    //check if there is any stock status
+    if(NonEndedStatus.length < 1){
+        return next(new CustomError('Stock status not found', 404));
+    }
+    res.status(200).json(NonEndedStatus);
+});
+const FetchEndedStockStatusByStock = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     //validate required fields
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
@@ -22,7 +46,13 @@ const FetchStockStatusByStock = asyncErrorHandler(async (req, res, next) => {
     if (!stockStatus) {
         return next(new CustomError('Stock status not found', 404));
     }
-    res.status(200).json(stockStatus);
+    // Filter the stock status data by end == true
+    const EndedStatus = stockStatus.status.filter(status => status.end === true);
+    //check if there is any stock status
+    if(EndedStatus.length < 1){
+        return next(new CustomError('Stock status not found', 404));
+    }
+    res.status(200).json(EndedStatus);
 });
 //update status information of stock
 const UpdateStockStatus = asyncErrorHandler(async (req, res, next) => {
@@ -105,7 +135,8 @@ const UpdateStockEndStatus = asyncErrorHandler(async (req, res, next) => {
 });
 
 module.exports = {
-    FetchStockStatusByStock,
+    FetchLiveStockStatusByStock,
+    FetchEndedStockStatusByStock,
     UpdateStockStatus,
     UpdateStockEndStatus
 };

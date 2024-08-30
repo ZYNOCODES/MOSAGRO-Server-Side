@@ -7,6 +7,10 @@ const stockStatusSchema = new mongoose.Schema({
         required: true
     },
     status: [{
+        date:{
+            type: String,
+            required: true
+        },
         buying: {
             type: Number,
             required: true

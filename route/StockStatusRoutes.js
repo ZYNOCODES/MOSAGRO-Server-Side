@@ -1,6 +1,7 @@
 const express = require('express');
 const {
-    FetchStockStatusByStock,
+    FetchLiveStockStatusByStock,
+    FetchEndedStockStatusByStock,
     UpdateStockStatus,
     UpdateStockEndStatus
 } = require('../controller/StockStatusController');
@@ -13,7 +14,9 @@ router.use(requireAuth);
 
 // STORE_API routes below
 //fetch stock status by stock
-router.get('/:id', checkAuthrozation([process.env.STORE_TYPE]), FetchStockStatusByStock);
+router.get('/:id', checkAuthrozation([process.env.STORE_TYPE]), FetchLiveStockStatusByStock);
+//fetch stock status by stock
+router.get('/ended/:id', checkAuthrozation([process.env.STORE_TYPE]), FetchEndedStockStatusByStock);
 //update stock status
 router.patch('/update/status/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateStockStatus);
 //update stock end status

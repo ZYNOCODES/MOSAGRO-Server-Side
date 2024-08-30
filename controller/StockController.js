@@ -7,22 +7,52 @@ const StockService = require('../service/StockService.js');
 const StoreService = require('../service/StoreService.js');
 const ProductService = require('../service/ProductService.js');
 const { createStockStatus, addStatus } = require('../service/StockStatusService.js');
+const moment = require('moment');
+require('moment-timezone');
 
 //Create a new stock
 const CreateStock = asyncErrorHandler(async (req, res, next) => {
-    const { Product, Store, BuyingPrice, SellingPrice, Quantity, LimitedQuantity, ExparationDate, BuyingMathode } = req.body;
+    const { Product, Store, BuyingPrice, SellingPrice, Quantity, 
+        LimitedQuantity, ExparationDate, BuyingMathode, Destocking } = req.body;
     // Check if all required fields are provided
-    if (!Product || !Store || !BuyingMathode || !ExparationDate ||
-        !BuyingPrice || !SellingPrice || !Quantity || !LimitedQuantity || 
-        !validator.isNumeric(BuyingPrice.toString()) || !validator.isNumeric(SellingPrice.toString()) || !validator.isNumeric(Quantity.toString()) || !validator.isNumeric(LimitedQuantity.toString()) ||
-        !mongoose.Types.ObjectId.isValid(Product) || !mongoose.Types.ObjectId.isValid(Store)
+    if (!Product || !Store || !BuyingMathode ||
+        !BuyingPrice || !SellingPrice || 
+        !validator.isNumeric(BuyingPrice.toString()) || 
+        !validator.isNumeric(SellingPrice.toString())  ||
+        !mongoose.Types.ObjectId.isValid(Product) || 
+        !mongoose.Types.ObjectId.isValid(Store)
     ) {
         return next(new CustomError('All fields are required', 400));
+    }
+    //check if Quantity is a positive number
+    if(!Quantity || Number(Quantity) <= 0 || !validator.isNumeric(Quantity.toString())){
+        return next(new CustomError('Quantity must be a positive number > 0', 400));
+    }
+    //check if BuyingPrice and SellingPrice is a positive number
+    if(Number(BuyingPrice) <= 0 || Number(SellingPrice) <= 0){
+        return next(new CustomError('Buying and Selling price must be a positive number > 0', 400));
+    }
+    //check if buying price is greater than selling price
+    if(Number(BuyingPrice) >= Number(SellingPrice)){
+        return next(new CustomError('Buying price must be less than or equal to selling price', 400));
     }
     //check if BuyingMathode is provided
     if(!BuyingMathode.buyingByUnit && !BuyingMathode.buyingByBox){
         return next(new CustomError('Buying Mathode is required', 400));
     }
+    //check if LimitedQuantity and Destocking is valid
+    if((!validator.isEmpty(LimitedQuantity.toString()) && !validator.isNumeric(LimitedQuantity.toString())) ||
+        (!validator.isEmpty(Destocking.toString()) && !validator.isNumeric(Destocking.toString()))
+    ){
+        return next(new CustomError('Limited Quantity and Destocking must be a number', 400));
+    }
+    //check if ExparationDate is valid
+    if(ExparationDate && !validator.isDate(ExparationDate)){
+        return next(new CustomError('Exparation Date must be a date', 400));
+    }
+
+    //get current datetime
+    const currentDateTime = moment.tz('Africa/Algiers').format();
 
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -43,24 +73,47 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
             return next(new CustomError('Store not found', 404));
         }
 
+        // recalculate the quantity 
+        const newQuantity = Number(Quantity) * Number(product.boxItems);
         // Check if stock already exists
         const stock = await StockService.findStockByStoreAndProduct(Store, Product, session);
         if (stock) {
             // Add new stock status
-            const stockStatus = await addStatus(stock._id, BuyingPrice, SellingPrice, Quantity, ExparationDate, session);
+            const stockStatus = await addStatus(
+                currentDateTime,
+                stock._id, 
+                BuyingPrice, 
+                SellingPrice, 
+                newQuantity,
+                ExparationDate, 
+                session
+            );
+
             if (!stockStatus) {
                 await session.abortTransaction();
                 session.endSession();
                 return next(new CustomError('Error while creating stock status, try again.', 400));
             }
-            // Convert Quantity to a number to avoid concatenation
-            stock.quantity += Number(Quantity);
+            stock.quantity += Number(newQuantity);
             await stock.save({ session });
 
             await session.commitTransaction();
             session.endSession();
             return res.status(200).json({ message: 'Stock already exists, new stock status added successfully' });
         }else{
+            //check if Quantity is greater than LimitedQuantity
+            if(Number(LimitedQuantity) > 0 && Number(newQuantity) < Number(LimitedQuantity)){
+                await session.abortTransaction();
+                session.endSession();
+                return next(new CustomError('Unity quantity must be greater than or equal to Limited Quantity', 400));
+            }
+            //check if Quantity is greater than Destocking
+            if(Number(Destocking) > 0 && Number(newQuantity) < Number(Destocking)){
+                await session.abortTransaction();
+                session.endSession();
+                return next(new CustomError('Unity quantity must be greater than or equal to Destocking Quantity', 400));
+            }
+
             const buyingMathode = BuyingMathode.buyingByUnit && BuyingMathode.buyingByBox 
             ? 'both' 
             : (BuyingMathode.buyingByUnit 
@@ -72,10 +125,11 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
             const newStock = await Stock.create([{
                 product: Product,
                 store: Store,
-                quantity: Number(Quantity),
+                quantity: Number(newQuantity),
                 buying: BuyingPrice,
                 selling: SellingPrice,
-                quantityLimit: Number(LimitedQuantity),
+                quantityLimit: Number(LimitedQuantity) > 0 ? Number(LimitedQuantity) : 0,
+                destocking: Number(Destocking) > 0 ? Number(Destocking) : 0,
                 buyingMathode: buyingMathode,
             }], { session });
             if (!newStock) {
@@ -86,10 +140,11 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
 
             // Create a new stock status
             const stockStatus = await createStockStatus(
+                currentDateTime,
                 newStock[0]._id,
                 BuyingPrice,
                 SellingPrice,
-                Quantity,
+                newQuantity,
                 ExparationDate,
                 session
             );
@@ -107,7 +162,6 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
-        console.log(error);
         next(new CustomError('Error while creating stock, try again.', 400));
     }
 });

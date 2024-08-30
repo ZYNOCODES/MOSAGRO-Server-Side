@@ -23,17 +23,22 @@ const stockSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    quantityLimit: {
-        type: Number,
-        required: true,
-        default: 0
-    },
     buyingMathode: {
         type: String,
         enum: ['both', 'box', 'unity'],
         default: 'both',
         required: true
     },
+    quantityLimit: {
+        type: Number,
+        required: false,
+        default: 0
+    },
+    destocking: {
+        type: Number,
+        required: false,
+        default: 0
+    }
 },{
     timestamps: true,
     collection: 'stock'
