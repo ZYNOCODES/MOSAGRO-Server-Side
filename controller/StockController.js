@@ -223,7 +223,7 @@ const FetchStockByStore = asyncErrorHandler(async (req, res, next) => {
         store: Store
     }).populate({
         path:'product',
-        select: '_id code name size image brand',
+        select: '_id code name size image brand boxItems',
         populate: {
             path: 'brand',
             select: 'name'
