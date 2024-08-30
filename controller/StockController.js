@@ -94,6 +94,19 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
                 session.endSession();
                 return next(new CustomError('Error while creating stock status, try again.', 400));
             }
+            //
+            const buyingMathode = BuyingMathode.buyingByUnit && BuyingMathode.buyingByBox 
+            ? 'both' 
+            : (BuyingMathode.buyingByUnit 
+                ? 'unity' 
+                : (BuyingMathode.buyingByBox ? 'box' : null)
+            );
+
+            stock.buying = Number(BuyingPrice);
+            stock.selling = Number(SellingPrice);
+            stock.quantityLimit = Number(LimitedQuantity) > 0 ? Number(LimitedQuantity) : 0;
+            stock.destocking = Number(Destocking) > 0 ? Number(Destocking) : 0;
+            stock.buyingMathode = buyingMathode;
             stock.quantity += Number(newQuantity);
             await stock.save({ session });
 
