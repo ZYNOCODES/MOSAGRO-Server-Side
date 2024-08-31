@@ -15,7 +15,7 @@ require('moment-timezone');
 //create a receipt
 const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
     const { client } = req.params;
-    const { store, products, total, deliveredLocation, type } = req.body;
+    const { store, products, total, deliveredLocation, type, deliveredAmount } = req.body;
     //get current date with algeire timezome
     const currentDateTime = moment.tz('Africa/Algiers').format();
 
@@ -100,6 +100,12 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
                     400)
                 );
             }
+            //check if all price is equal to the selling price and threre is no manipulation
+            if (Number(existingProduct.selling) != Number(item.price)) {
+                await session.abortTransaction();
+                session.endSession();
+                return next(new CustomError(`This price ${item.price} of ${existingProduct.product.name} is not valid`,400));
+            }
             //check if Quantity limitation
             if (existingProduct.quantityLimit > 0 &&
                 existingProduct.quantityLimit < item.quantity) {
@@ -160,6 +166,165 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
         await session.abortTransaction();
         session.endSession();
         console.log(error);
+        return next(new CustomError('Error while creating new receipt, try again', 500));
+    }
+});
+//create a receipt
+const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    const { client, products, total, deliveredLocation, type, deliveredAmount, deliveredExpectedDate } = req.body;
+    //get current date with algeire timezome
+    const currentDateTime = moment.tz('Africa/Algiers').format();
+
+    // Check if all fields are provided
+    if (!store || !products || !total || !client || !type ||
+        !mongoose.Types.ObjectId.isValid(client) || 
+        !mongoose.Types.ObjectId.isValid(store) ||
+        !Array.isArray(products) || !validator.isNumeric(total.toString())
+    ) {
+        return next(new CustomError('All fields are required', 400));
+    }
+    if (type === 'delivery' && (
+        !deliveredLocation || !deliveredAmount || !deliveredExpectedDate
+    )
+    ) {
+        return next(new CustomError('Delivered location, amount and expected date are required', 400));
+    }
+    if (products.length <= 0) {
+        return next(new CustomError('You have to pick at least one product', 400));
+    }
+    console.log(products)
+    // Check if all products have a quantity and price
+    if (products.some(val => {
+        return (!mongoose.Types.ObjectId.isValid(val.stock)) && 
+               (!val.quantity || val.quantity <= 0 || !validator.isNumeric(val.quantity.toString())) && 
+               (!val.price || val.price <= 0 || !validator.isNumeric(val.price.toString()));
+    })) {
+        return next(new CustomError('All products must have a valid quantity and price', 400));
+    }
+    //check if total is equal to the sum of all products
+    const sum = products.reduce((acc, product) => acc + product.price * product.quantity, 0);
+    if (sum != total) {
+        return next(new CustomError('Total is not equal to the sum of all products price', 400));
+    }
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        // Check if client exists
+        const existingClient = await findUserById(client, session);
+        if (!existingClient) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Client not found', 404));
+        }
+
+        // Check if store exists
+        const existingStore = await findStoreById(store, session);
+        if (!existingStore) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Store not found', 404));
+        }
+        //check if client is a client for the store
+        const isClient = await checkUserStore(client, store, session);
+        if (!isClient) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('You are not a client for this store', 405));
+        }
+        //calculate total profit
+        var totalProfit = 0;
+        //check if the all products exist
+        for (const item of products) {
+            const existingProduct = await Stock.findOne({
+                _id: item.stock,
+                store: store
+            }).populate({
+                path: 'product',
+                select: 'name'
+            }).session(session);
+            if (!existingProduct) {
+                await session.abortTransaction();
+                session.endSession();
+                return next(new CustomError(`Product not found, clear all products and try again.`, 404));
+            }
+            //check if the product quantity is enough
+            if (existingProduct.quantity < item.quantity) {
+                await session.abortTransaction();
+                session.endSession();
+                return next(
+                    new CustomError(
+                    `This quantity ${item.quantity} of ${existingProduct.product.name} is no availble`,
+                    400)
+                );
+            }
+            //check if all price is equal to the selling price and threre is no manipulation
+            if (Number(existingProduct.selling) != Number(item.price)) {
+                await session.abortTransaction();
+                session.endSession();
+                return next(new CustomError(`This price ${item.price} of ${existingProduct.product.name} is not valid`,400));
+            }
+            //check if Quantity limitation
+            if (existingProduct.quantityLimit > 0 &&
+                existingProduct.quantityLimit < item.quantity) {
+                await session.abortTransaction();
+                session.endSession();
+                return next(
+                    new CustomError(
+                    `This quantity ${item.quantity} of ${existingProduct.product.name} is limited to ${existingProduct.quantityLimit} items maximum`,
+                    400)
+                );
+            }
+            //update stock quantity
+            // existingProduct.quantity -= item.quantity;
+            // await existingProduct.save({ session });
+            
+            //calculate profit
+            totalProfit += (
+                item.price - existingProduct.buying
+            ) * item.quantity;
+            //add product id to the product object
+            item.product = existingProduct.product;
+        }
+        // Check if the total profit is not negative
+        if (totalProfit < 0) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Total profit cannot be negative', 405));
+        }
+        // Generate receipt code
+        const code = await ReceiptCode(existingStore.code, session);
+        if (code == null) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Code already exists. Repeat the process', 405));
+        }
+
+        // Create a new receipt
+        await Receipt.create([{
+            code: code,
+            store: store,
+            client: client,
+            products: products,
+            total: Number(total) + Number(deliveredAmount),
+            profit: totalProfit,
+            date: currentDateTime,
+            type: type,
+            deliveredLocation: type != 'delivery' ? null : deliveredLocation,
+            expextedDeliveryDate: type != 'delivery' ? null : deliveredExpectedDate,
+            delivered: false,
+            status: 0
+        }], { session });        
+
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(200).json({ message: 'The order is submitted successfully' });
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
         return next(new CustomError('Error while creating new receipt, try again', 500));
     }
 });
@@ -282,6 +447,13 @@ const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
     }
     const receipts = await Receipt.find({
         client: id
+    }).populate({
+        path: 'products.product',
+        select: 'name size brand',
+        populate: {
+            path: 'brand',
+            select: 'name'
+        }
     });
     if(receipts.length <= 0){
         const err = new CustomError('No receipts found for you', 400);
@@ -292,31 +464,65 @@ const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
 //get all receipts by client for a specific store
 const GetAllReceiptsByClientForStore = asyncErrorHandler(async (req, res, next) => {
     const { client, store } = req.params;
-    //check required fields
-    if( !client || !store || 
+
+    // Validate the required fields
+    if (!client || !store || 
         !mongoose.Types.ObjectId.isValid(client) ||
-        !mongoose.Types.ObjectId.isValid(store)){
+        !mongoose.Types.ObjectId.isValid(store)) {
         return next(new CustomError('All fields are required', 400));
     }
-    //check if client exist
+
+    // Check if the client exists
     const existingClient = await findUserById(client);
-    if(!existingClient){
+    if (!existingClient) {
         return next(new CustomError('Client not found', 404));
     }
-    //check if store exist
+
+    // Check if the store exists
     const existingStore = await findStoreById(store);
-    if(!existingStore){
+    if (!existingStore) {
         return next(new CustomError('Store not found', 404));
     }
+
+    // Fetch all receipts for the client in the specified store
     const receipts = await Receipt.find({
         client: client,
-        store: store
+        store: store,
+    }).populate({
+        path: 'products.product',
+        select: 'name size brand',
+        populate: {
+            path: 'brand',
+            select: 'name',
+        }
     });
-    if(receipts.length <= 0){
+
+    // Check if any receipts were found
+    if (receipts.length <= 0) {
         const err = new CustomError('No receipts found for this client', 400);
         return next(err);
     }
-    res.status(200).json(receipts);
+
+    // Count the total number of orders
+    const orderCount = receipts.length;
+
+    // Calculate the total amount of all delivered orders
+    const totalAmountDelivered = receipts
+        .filter(receipt => receipt.delivered == true)
+        .reduce((total, receipt) => Number(total) + Number(receipt.total), 0);
+
+    // Calculate the total profit amount of all delivered orders
+    const totalProfitDelivered = receipts
+        .filter(receipt => receipt.delivered == true)
+        .reduce((total, receipt) => Number(total) + Number(receipt.profit), 0);
+
+    // Send the response with all data in the same object
+    res.status(200).json({
+        orderCount,
+        totalAmountDelivered,
+        totalProfitDelivered,
+        receipts,
+    });
 });
 //validate delivered
 const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
@@ -503,6 +709,7 @@ const DeleteReceipt = asyncErrorHandler(async (req, res, next) => {
 
 module.exports = {
     CreateReceipt,
+    CreateReceiptFromStore,
     GetReceiptByID,
     GetAllNonedeliveredReceiptsByStore,
     GetAlldeliveredReceiptsByStore,

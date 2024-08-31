@@ -1,6 +1,7 @@
 const express = require('express');
 const {
     CreateReceipt,
+    CreateReceiptFromStore,
     GetReceiptByID,
     GetAllNonedeliveredReceiptsByStore,
     GetAlldeliveredReceiptsByStore,
@@ -41,11 +42,14 @@ router.patch('/updateExpectedDeliveryDate/:id', checkAuthrozation([process.env.S
 router.patch('/updateProductPrice/:store', checkAuthrozation([process.env.STORE_TYPE]), UpdateReceiptProductPrice);
 //add payment to receipt credit
 router.patch('/addPaymentToCredit/:id', checkAuthrozation([process.env.STORE_TYPE]), AddPaumentToCreditReceipt);
-//get all receipts by client
-router.get('/client/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllReceiptsByClient);
+//create new receipt from store
+router.post('/store/:store', checkAuthrozation([process.env.STORE_TYPE]), CreateReceiptFromStore);
+
 // Client_API routes
 //create new receipt
 router.post('/:client', checkAuthrozation([process.env.CLIENT_TYPE]), CreateReceipt);
+//get all receipts by client
+router.get('/client/:id', checkAuthrozation([process.env.CLIENT_TYPE]), GetAllReceiptsByClient);
 
 
 module.exports = router;
