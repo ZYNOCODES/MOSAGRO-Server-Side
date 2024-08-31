@@ -1,7 +1,9 @@
+const mongoose = require('mongoose');
 const Category = require('../model/CategoryModel.js');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const CategoryService = require('../service/CategoryService.js');
+const StoreService = require('../service/StoreService.js');
 
 //create a new Category
 const CreateCategory = asyncErrorHandler(async (req, res, next) => {
@@ -39,13 +41,39 @@ const GetAllCategorys = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json(Categorys);
 });
 
+//fetch all Categorys
+const GetAllCategorysForStore = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    // check if all required fields are provided
+    if(!id || !mongoose.Types.ObjectId.isValid(id)){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+    
+    //check if the store exist
+    const existStore = await StoreService.findStoreById(id);
+    if(!existStore){
+        const err = new CustomError('Store not found', 400);
+        return next(err);
+    }
+    //fetch all Categorys by store.categories
+    const Categorys = await Category.find({
+        _id: { $in: existStore.categories }
+    });
+    if(!Categorys || Categorys.length < 1){
+        const err = new CustomError('No category found', 400);
+        return next(err);
+    }
+    res.status(200).json(Categorys);
+});
+
 //update Category
 const UpdateCategoryName = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const { Name } = req.body;
 
     // Check if at least one field is provided
-    if (!Name) {
+    if (!Name || !id) {
         const err = new CustomError('All fields is required', 400);
         return next(err);
     }
@@ -94,6 +122,7 @@ const DeleteCategory = asyncErrorHandler(async (req, res, next) => {
 module.exports = {
     CreateCategory,
     GetAllCategorys,
+    GetAllCategorysForStore,
     UpdateCategoryName,
     DeleteCategory
 }

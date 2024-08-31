@@ -6,7 +6,8 @@ const { ProductCode } = require('../util/Codification.js');
 const BrandService = require('../service/BrandService.js');
 const ProductService = require('../service/ProductService.js');
 const CategoryService = require('../service/CategoryService.js');
-const path = require('path');
+const StoreService = require('../service/StoreService.js');
+
 
 //create a new product
 const CreateProduct = asyncErrorHandler(async (req, res, next) => {
@@ -82,7 +83,42 @@ const GetAllProducts = asyncErrorHandler(async (req, res, next) => {
             select: 'name'
         }
     ]);
-    if(!products){
+    if(!products || products.length < 1){
+        const err = new CustomError('Error while fetching products', 400);
+        return next(err);
+    }
+    res.status(200).json(products);
+});
+//fetch all products by category
+const GetAllProductsByCategoryStore = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    // check if all required fields are provided
+    if(!id || !mongoose.Types.ObjectId.isValid(id)){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+
+    //check if the store exist
+    const existStore = await StoreService.findStoreById(id);
+    if(!existStore){
+        const err = new CustomError('Store not found', 400);
+        return next(err);
+    }
+    //fetch all products by store.categories
+    const products = await Product.find({
+        category: { $in: existStore.categories }
+    }).populate([
+        {
+            path: 'brand',
+            select: 'name'
+        },
+        {
+            path: 'category',
+            select: 'name'
+        }
+    ]);
+
+    if(!products || products.length < 1){
         const err = new CustomError('Error while fetching products', 400);
         return next(err);
     }
@@ -154,6 +190,7 @@ const DeleteProduct = asyncErrorHandler(async (req, res, next) => {
 module.exports = {
     CreateProduct,
     GetAllProducts,
+    GetAllProductsByCategoryStore,
     GetProduct,
     UpdateProduct,
     DeleteProduct

@@ -2,6 +2,7 @@ const express = require('express');
 const {
     CreateCategory,
     GetAllCategorys,
+    GetAllCategorysForStore,
     UpdateCategoryName,
     DeleteCategory
 } = require('../controller/CategoryController');
@@ -14,7 +15,11 @@ router.use(requireAuth);
 
 // SHARED_API routes below
 //get all Categorys
-router.get('/', GetAllCategorys);
+router.get('/', checkAuthrozation([process.env.ADMIN_TYPE, process.env.CLIENT_TYPE]), GetAllCategorys);
+
+// STORE_API routes below
+//get all Categorys for store
+router.get('/store/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllCategorysForStore);
 
 // ADMIN_API routes below
 //create new Category

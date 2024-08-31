@@ -6,7 +6,8 @@ const Store = require('../model/StoreModel.js');
 const UserService = require('../service/UserService.js');
 const StoreService = require('../service/StoreService.js'); 
 const AdminService = require('../service/AdminService.js');
-const CitiesService = require('../service/CitiesService.js')
+const CitiesService = require('../service/CitiesService.js');
+const CategoryService = require('../service/CategoryService.js');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const bcrypt = require('../util/bcrypt.js');
@@ -120,14 +121,13 @@ const SignIn = asyncErrorHandler(async (req, res, next) => {
 
 //SignUp
 const SignUp = asyncErrorHandler(async (req, res, next) => {
-    const {Email, Password, FirstName, LastName, PhoneNumber, 
+    const {Email, Password, FirstName, LastName, PhoneNumber, Category,
         Wilaya, Commune, R_Commerce, Address, storeName, storeLocation, 
         AuthType} = req.body;
 
     //check if all required fields are provided for Admin type
     const requiredFields = {
-        Admin: [Password, FirstName, LastName, PhoneNumber],
-        Store: [Password, FirstName, LastName, PhoneNumber, Address, storeName, storeLocation, Wilaya, Commune, R_Commerce],
+        Store: [Password, FirstName, LastName, PhoneNumber, Address, Category, storeName, storeLocation, Wilaya, Commune, R_Commerce],
         User: [Password, FirstName, LastName, PhoneNumber, Address, Wilaya, Commune, R_Commerce]
     };
     if (requiredFields[AuthType].some(field => !field)) {
@@ -163,8 +163,15 @@ const SignUp = asyncErrorHandler(async (req, res, next) => {
         }
     }
 
+    //check if Category exist
+    const existCategory = await CategoryService.findCategoryById(Category);
+    if(!existCategory){
+        const err = new CustomError('Category not found', 404);
+        return next(err);
+    }
+
     //check if the wilaya and commun exist
-    const existWilaya = await CitiesService.findCitiesFRByCodeC(wilaya, commune);
+    const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
     if(!existWilaya){
         const err = new CustomError('the wilaya and its commune is incorrect', 404);
         return next(err);
@@ -188,7 +195,8 @@ const SignUp = asyncErrorHandler(async (req, res, next) => {
             firstName: FirstName, lastName: LastName, phoneNumber: PhoneNumber,
             storeAddress: Address, storeName: storeName, storeLocation: storeLocation, 
             code: code, wilaya: Wilaya, commune: Commune, r_commerce: R_Commerce,
-            status: status
+            status: status,
+            categories: [existCategory._id]
         });
         if(!newStore){
             const err = new CustomError('Error while creating new store', 400);
@@ -228,7 +236,6 @@ const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
         Email, Password, FirstName, LastName, PhoneNumber, Address, 
         Wilaya, Commune
     } = req.body;
-    console.log(store, req.body)
     // Check if all required fields are provided
     if ([store, Password, FirstName, LastName, PhoneNumber, Address, 
         Wilaya, Commune].some(field => !field || validator.isEmpty(field))) {

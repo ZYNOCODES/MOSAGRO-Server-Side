@@ -207,6 +207,52 @@ const GetAllNewPurchases = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json(purchases);
 });
 
+//fetch all purchases by fournisseur
+const GetAllPurchasesByFournisseurForSpecificStore = asyncErrorHandler(async (req, res, next) => {
+    const { store, fournisseur } = req.params;
+    if(!store || !mongoose.Types.ObjectId.isValid(store) || 
+        !fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur)){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+
+    //check if the store exist
+    const existStore = await StoreService.findStoreById(store);
+    if(!existStore){
+        const err = new CustomError('Store not found', 404);
+        return next(err);
+    }
+    //check if the fournisseur exist
+    const existFournisseur = await FournisseurService.findFournisseurByIdANDStore(fournisseur, store);
+    if(!existFournisseur){
+        const err = new CustomError('Fournisseur not found', 404);
+        return next(err);
+    }
+    //get all purchases by store
+    const purchases = await Purchase.find({
+        store: store,
+        fournisseur: fournisseur
+    }).populate({
+        path: 'stock',
+        select: 'product',
+        populate:{
+            path: 'product',
+            select: 'name size brand',
+            populate: {
+                path: 'brand',
+                select: 'name'
+            }
+        }
+    });
+    //check if purchases found
+    if(!purchases || purchases.length < 1){
+        const err = new CustomError('No purchases found', 400);
+        return next(err);
+    }
+    //return the purchases
+    res.status(200).json(purchases);
+});
+
 //update Purchase
 const UpdatePurchase = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
@@ -369,6 +415,7 @@ module.exports = {
     GetPurchaseByID,
     GetAllCreditedPurchases,
     GetAllNewPurchases,
+    GetAllPurchasesByFournisseurForSpecificStore,
     UpdatePurchase,
     AddPaymentToPurchase,
     DeletePurchase

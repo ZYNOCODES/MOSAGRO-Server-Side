@@ -2,6 +2,7 @@ const express = require('express');
 const {
     CreateProduct,
     GetAllProducts,
+    GetAllProductsByCategoryStore,
     GetProduct,
     UpdateProduct,
     DeleteProduct
@@ -15,14 +16,18 @@ const checkAuthrozation = require('../middleware/Authorization');
 router.use(requireAuth);
 
 // SHARED_API routes below
-//get all products
-router.get('/', GetAllProducts);
 //create new product
-router.post('/create', upload, CreateProduct);
+router.post('/create', upload, checkAuthrozation([process.env.ADMIN_TYPE, process.env.STORE_TYPE]), CreateProduct);
 //get specific product
-router.get('/:id', GetProduct);
+router.get('/:id', checkAuthrozation([process.env.ADMIN_TYPE, process.env.STORE_TYPE, process.env.CLIENT_TYPE]), GetProduct);
+
+// STORE_API routes below
+//get all products by category
+router.get('/store/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllProductsByCategoryStore);
 
 // ADMIN_API routes below
+//get all products
+router.get('/', checkAuthrozation([process.env.ADMIN_TYPE]), GetAllProducts);
 //update a product
 router.patch('/:id', checkAuthrozation([process.env.ADMIN_TYPE]), UpdateProduct);
 //delete a product

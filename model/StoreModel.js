@@ -62,7 +62,12 @@ const storeSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'subscriptionStore',
         required: true
-    }]
+    }],
+    categories:[{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'category',
+        required: true
+    }],
 },{
     timestamps: true,
     collection: 'store'

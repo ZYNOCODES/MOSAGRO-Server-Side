@@ -5,6 +5,7 @@ const {
     GetPurchaseByID,
     GetAllCreditedPurchases,
     GetAllNewPurchases,
+    GetAllPurchasesByFournisseurForSpecificStore,
     UpdatePurchase,
     AddPaymentToPurchase,
     DeletePurchase
@@ -27,6 +28,8 @@ router.get('/all/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllPur
 router.get('/all/credited/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllCreditedPurchases);
 //get all new Purchases by store
 router.get('/all/new/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllNewPurchases);
+//get all Purchases by fournisseur for specific store
+router.get('/all/:store/:fournisseur', checkAuthrozation([process.env.STORE_TYPE]), GetAllPurchasesByFournisseurForSpecificStore);
 //update a specific Purchase
 router.patch('/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdatePurchase);
 //add payment to a specific purchase
