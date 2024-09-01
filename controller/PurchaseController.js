@@ -4,62 +4,177 @@ const Purchase = require('../model/PurchaseModel.js');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const FournisseurService = require('../service/FournisseurService.js')
-const StoreService = require('../service/StoreService.js')
-const PurchaseService = require('../service/PurchaseService.js')
+const StoreService = require('../service/StoreService.js');
+const ProductService = require('../service/ProductService.js');
+const PurchaseService = require('../service/PurchaseService.js');
+const StockService = require('../service/StockService.js');
+const StockStatusService = require('../service/StockStatusService.js');
+
 const moment = require('moment');
+const path = require('path');
 require('moment-timezone');
 
 //create a new Purchase
 const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    const { fournisseur, date, amount } = req.body;
+    const { fournisseur, amount, products } = req.body;
     // check if all required fields are provided
     if(!store || !mongoose.Types.ObjectId.isValid(store) || 
         !fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur) ||
-        !date || !amount
+         !amount || !products
     ){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
-    //check if the date is valid
-    if(date && !validator.isDate(date)){
-        const err = new CustomError('Enter a valid date', 400);
+    //check if products is empty
+    if(!Array.isArray(products) || products.length < 1){
+        const err = new CustomError('You have to select at least one product', 400);
         return next(err);
     }
     // Check if the amount is valid
-    if (!amount || isNaN(amount) || Number(amount) <= 0) {
+    if (!validator.isNumeric(amount.toString()) || isNaN(amount) || Number(amount) <= 0) {
         const err = new CustomError('Enter a valid positive amount', 400);
         return next(err);
     }
 
-    //check if the store exist
-    const existStore = await StoreService.findStoreById(store);
-    if(!existStore){
-        const err = new CustomError('Store not found', 404);
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        // Parallel execution to speed up store and fournisseur validation
+        const [existStore, existFournisseur] = await Promise.all([
+            StoreService.findStoreById(store),
+            FournisseurService.findFournisseurByIdANDStore(fournisseur, store)
+        ]);
+
+        if (!existStore) {
+            throw new CustomError('Store not found', 404);
+        }
+
+        if (!existFournisseur) {
+            throw new CustomError('Fournisseur not found', 404);
+        }
+
+        const productTasks = products.map(async (product) => {
+            if (!product.productID || !mongoose.Types.ObjectId.isValid(product.productID)){
+                throw new CustomError('Product not found', 400);
+            }
+            //check if the product exist in the store
+            const existProduct = await ProductService.findProductById(product.productID);
+            if(!existProduct){
+                throw new CustomError('Product not found', 404);
+            }
+            if (!product.quantity || isNaN(product.quantity) || Number(product.quantity) <= 0) {
+                throw new CustomError(`Enter a valid positive quantity for product ${product.name}`, 400);
+            }
+            if (!product.buying || isNaN(product.buying) || Number(product.buying) <= 0 ||
+                !product.selling || isNaN(product.selling) || Number(product.selling) <= 0) {
+                throw new CustomError(`Enter a valid positive buying and selling price for product ${product.name}`, 400);
+            }
+
+            if (Number(product.buying) > Number(product.selling)) {
+                throw new CustomError(`The selling price must be greater than the buying price for product ${product.name}`, 400);
+            }
+
+            const newQuantity = Number(product.quantity) * Number(existProduct.boxItems);
+            return {
+                ...product,
+                newQuantity,
+            };
+        });
+
+        const productDetails = await Promise.all(productTasks);
+        // Calculate totalAmount after resolving all promises
+        const totalAmount = productDetails.reduce((acc, product) => acc + (product.buying * product.newQuantity), 0);
+        if (Number(totalAmount) != Number(amount)) {
+            throw new CustomError('The total amount does not match the sum of the products', 400);
+        }
+
+        const currentDateTime = moment.tz('Africa/Algiers').format();
+        let stockStatusIDs = [];
+        for (const product of productDetails) {
+            const stock = await StockService.findStockByStoreAndProduct(store, product.productID);
+            if (stock) {
+                // Add stock status if stock exists
+                const stockStatus = await StockStatusService.createStockStatus(
+                    currentDateTime,
+                    stock._id,
+                    product.buying,
+                    product.selling,
+                    product.newQuantity,
+                    null,
+                    session
+                );
+
+                if (!stockStatus) {
+                    throw new CustomError('Error while creating stock status, try again.', 400);
+                }
+
+                stock.quantity += product.newQuantity;
+                stock.buying = product.buying;
+                stock.selling = product.selling;
+                const updatedStock = await stock.save({ session });
+                if (!updatedStock) {
+                    throw new CustomError('Error while updating stock, try again.', 400);
+                }
+
+                //add stock status id to stockStatusIDs
+                stockStatusIDs.push(stockStatus[0]._id);
+            } else {
+                // Create new stock and stock status if it doesn't exist
+                const newStock = await StockService.createNewStock(product, store, session);
+                if (!newStock) {
+                    throw new CustomError('Error while creating stock, try again.', 400);
+                }
+
+                const stockStatus = await StockStatusService.createStockStatus(
+                    currentDateTime,
+                    newStock[0]._id,
+                    product.buying,
+                    product.selling,
+                    product.newQuantity,
+                    null,
+                    session
+                );
+
+                if (!stockStatus) {
+                    throw new CustomError('Error while creating stock status, try again.', 400);
+                }
+
+                //add stock status id to stockStatusIDs
+                stockStatusIDs.push(stockStatus[0]._id);
+            }
+        }
+
+        //check if stockStatusIDs is empty
+        if(stockStatusIDs.length < 1 || stockStatusIDs.length != productDetails.length){
+            throw new CustomError('Error while creating stock status, try again.', 400);
+        }
+        // Create new Purchase
+        const newPurchase = await Purchase.create([{
+            store: store,
+            fournisseur: fournisseur,
+            date: currentDateTime,
+            totalAmount: totalAmount,
+            credit: false,
+            closed: false,
+            stock: stockStatusIDs,
+        }], { session });
+
+        if (!newPurchase) {
+            throw new CustomError('Error while creating purchase, try again.', 400);
+        }
+
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(200).json({ message: 'Purchase created successfully' });
+
+    } catch (err) {
+        await session.abortTransaction();
+        session.endSession();
         return next(err);
     }
-
-    //check if the fournisseur exist
-    const existFournisseur = await FournisseurService.findFournisseurByIdANDStore(fournisseur, store);
-    if(!existFournisseur){
-        const err = new CustomError('Fournisseur not found', 404);
-        return next(err);
-    }
-
-    //create new purchase
-    const newPurchase = await Purchase.create({
-        store: store,
-        fournisseur: fournisseur, 
-        date: date,
-        TotalAmount: amount,
-    });
-
-    //check if Fournisseur created successfully
-    if(!newPurchase){
-        const err = new CustomError('Error while creating purchase try again.', 400);
-        return next(err);
-    }
-    res.status(200).json({message: 'Purchase created successfully'});
 });
 
 //fetch all Purchases
@@ -76,10 +191,18 @@ const GetPurchaseByID = asyncErrorHandler(async (req, res, next) => {
         select: 'firstName lastName'
     }).populate({
         path: 'stock',
-        select: 'buying quantity',
+        select: 'stock',
         populate: {
-            path: 'product',
-            select: 'name size'
+            path: 'stock',
+            select: 'buying quantity product',
+            populate: {
+                path: 'product',
+                select: 'name size brand',
+                populate: {
+                    path: 'brand',
+                    select: 'name'
+                }
+            }
         }
     });
 
@@ -93,7 +216,7 @@ const GetPurchaseByID = asyncErrorHandler(async (req, res, next) => {
 });
 
 //fetch all Purchases
-const GetAllPurchases = asyncErrorHandler(async (req, res, next) => {
+const GetAllClosedPurchases = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     if(!store || !mongoose.Types.ObjectId.isValid(store)){
         const err = new CustomError('All fields are required', 400);
@@ -110,17 +233,26 @@ const GetAllPurchases = asyncErrorHandler(async (req, res, next) => {
     //get all purchases by store
     const purchases = await Purchase.find({
         store: store,
+        closed: true
     }).populate({
         path: 'fournisseur',
         select: 'firstName lastName'
     }).populate({
         path: 'stock',
-        select: 'buying quantity',
+        select: 'stock',
         populate: {
-            path: 'product',
-            select: 'name size'
+            path: 'stock',
+            select: 'buying quantity product',
+            populate: {
+                path: 'product',
+                select: 'name size brand',
+                populate: {
+                    path: 'brand',
+                    select: 'name'
+                }
+            }
         }
-    });;
+    });
 
     //check if purchases found
     if(!purchases || purchases.length < 1){
@@ -156,10 +288,18 @@ const GetAllCreditedPurchases = asyncErrorHandler(async (req, res, next) => {
         select: 'firstName lastName'
     }).populate({
         path: 'stock',
-        select: 'buying quantity',
+        select: 'stock',
         populate: {
-            path: 'product',
-            select: 'name size'
+            path: 'stock',
+            select: 'buying quantity product',
+            populate: {
+                path: 'product',
+                select: 'name size brand',
+                populate: {
+                    path: 'brand',
+                    select: 'name'
+                }
+            }
         }
     });
 
@@ -196,6 +336,21 @@ const GetAllNewPurchases = asyncErrorHandler(async (req, res, next) => {
     }).populate({
         path: 'fournisseur',
         select: 'firstName lastName'
+    }).populate({
+        path: 'stock',
+        select: 'stock',
+        populate: {
+            path: 'stock',
+            select: 'buying quantity product',
+            populate: {
+                path: 'product',
+                select: 'name size brand',
+                populate: {
+                    path: 'brand',
+                    select: 'name'
+                }
+            }
+        }
     });
 
     //check if purchases found
@@ -234,13 +389,17 @@ const GetAllPurchasesByFournisseurForSpecificStore = asyncErrorHandler(async (re
         fournisseur: fournisseur
     }).populate({
         path: 'stock',
-        select: 'product',
+        select: 'stock buying quantity',
         populate:{
-            path: 'product',
-            select: 'name size brand',
+            path: 'stock',
+            select: 'product',
             populate: {
-                path: 'brand',
-                select: 'name'
+                path: 'product',
+                select: 'name size brand',
+                populate: {
+                    path: 'brand',
+                    select: 'name' 
+                }
             }
         }
     });
@@ -254,20 +413,15 @@ const GetAllPurchasesByFournisseurForSpecificStore = asyncErrorHandler(async (re
 });
 
 //update Purchase
-const UpdatePurchase = asyncErrorHandler(async (req, res, next) => {
+const MakePurchaseCredited = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { credited, date } = req.body;
+    const { credited } = req.body;
     if(!id || !mongoose.Types.ObjectId.isValid(id)){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
-    if(!validator.isBoolean(credited) && !date){
-        const err = new CustomError('One of the fields are required', 400);
-        return next(err);
-    }
-    //check if the date is valid
-    if(date && !validator.isDate(date)){
-        const err = new CustomError('Enter a valid date', 400);
+    if(!validator.isBoolean(credited)){
+        const err = new CustomError('Enter a valid value', 400);
         return next(err);
     }
 
@@ -279,7 +433,6 @@ const UpdatePurchase = asyncErrorHandler(async (req, res, next) => {
     }
 
     //update
-    if (date) existPurchase.date = date;
     if (validator.isBoolean(credited)) existPurchase.credit = credited;
 
     // Update Purchase
@@ -317,11 +470,7 @@ const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     // Find the existing purchase
     const existPurchase = await Purchase.findById(id).populate({
         path: 'stock',
-        select: 'buying quantity',
-        populate: {
-            path: 'product',
-            select: 'name size'
-        }
+        select: 'stock buying quantity',
     });
     if (!existPurchase) {
         const err = new CustomError('Purchase not found', 404);
@@ -330,15 +479,7 @@ const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
 
     //check if the purchase is closed
     if (existPurchase.closed) {
-        const err = new CustomError('Your purchase is complete once everything is paid.', 400);
-        return next(err);
-    }
-
-    //check if the total price of all stock is equal to existPurchase.TotalAmount
-    const totalBuyingStock = existPurchase.stock.reduce((sum, stock) => sum + (stock.buying * stock.quantity), 0);
-    if (totalBuyingStock != existPurchase.TotalAmount) {
-        const errorMessage = `You cannot add a payment until you have finished adding all the products to this purchase. The total price of products in this purchase is ${totalBuyingStock}. Please complete the addition of all products before making a payment.`;
-        const err = new CustomError(errorMessage, 400);
+        const err = new CustomError('Your purchase is closed once everything is paid.', 400);
         return next(err);
     }
 
@@ -346,21 +487,24 @@ const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     if (existPurchase.credit) {
         // Check if the total amount and sum of existing payments are considered
         const totalPayments = existPurchase.payment.reduce((sum, payment) => sum + payment.amount, 0);
-        if (totalPayments + Number(amount) > existPurchase.TotalAmount) {
+        if (totalPayments + Number(amount) > Number(existPurchase.totalAmount)) {
             const err = new CustomError('Payment amount exceeds the total amount due', 400);
             return next(err);
         }
-        if(totalPayments + Number(amount) == existPurchase.TotalAmount){
+        if(totalPayments + Number(amount) == Number(existPurchase.totalAmount)){
             existPurchase.closed = true;
         }
     } else {
         // If not credit, the payment must match the total amount exactly
-        if (Number(amount) != existPurchase.TotalAmount) {
+        if (Number(amount) != Number(existPurchase.totalAmount)) {
             const err = new CustomError('Payment amount must match the total amount due', 400);
             return next(err);
         }
-        if(Number(amount) == existPurchase.TotalAmount){
+        if(Number(amount) == Number(existPurchase.totalAmount)){
             existPurchase.closed = true;
+        }else{
+            const err = new CustomError('Payment amount must match the total amount due', 400);
+            return next(err);
         }
 
     }
@@ -386,37 +530,90 @@ const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
 //delete Purchase
 const DeletePurchase = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    // check if all required fields are provided
-    if(!id || !mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
+
+    // Validate ID
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        return next(new CustomError('Invalid purchase ID provided.', 400));
     }
 
     // Check if Purchase exists
     const existPurchase = await PurchaseService.findPurchaseById(id);
-    if(!existPurchase){
-        const err = new CustomError('Purchase not found', 404);
-        return next(err);
+    if (!existPurchase) {
+        return next(new CustomError('Purchase not found', 404));
     }
 
-    //delete Purchase
-    const deletedPurchase = await Purchase.deleteOne({_id: existPurchase._id});
-    //check if Purchase deleted successfully
-    if(!deletedPurchase){
-        const err = new CustomError('Error while deleting purchase try again.', 400);
-        return next(err);
+    // Check if the purchase is closed
+    if (existPurchase.closed) {
+        return next(new CustomError('You can\'t delete a closed purchase', 400));
     }
-    res.status(200).json({message: 'Purchase deleted successfully'});
+
+    // Check if there is any stock related to this purchase
+    const stockStatuses = await Promise.all(
+        existPurchase.stock.map(stockStatusID => StockStatusService.findStockStatusById(stockStatusID))
+    );
+
+    // If any stock status exists, handle accordingly
+    if (stockStatuses.some(stockStatus => stockStatus !== null)) {
+        return next(new CustomError('Cannot delete purchase with associated stock. Please remove the stock first.', 400));
+    }
+
+    // Delete Purchase
+    const deletedPurchase = await Purchase.deleteOne({ _id: existPurchase._id });
+
+    // Check if Purchase was deleted successfully
+    if (deletedPurchase.deletedCount === 0) {
+        return next(new CustomError('Error while deleting purchase, please try again.', 400));
+    }
+
+    res.status(200).json({ message: 'Purchase deleted successfully' });
+});
+
+//get statistics purchase for specific store and fournisseur
+const GetStatisticsForStoreFournisseur = asyncErrorHandler(async (req, res, next) => {
+    const { store, fournisseur } = req.params;
+
+    // Validate store and fournisseur IDs
+    if (!store || !mongoose.Types.ObjectId.isValid(store) || 
+        !fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur)) {
+        return next(new CustomError('Invalid store or fournisseur ID provided.', 400));
+    }
+
+    // Check if the store exists
+    const existStore = await StoreService.findStoreById(store);
+    if (!existStore) {
+        return next(new CustomError('Store not found', 404));
+    }
+
+    // Check if the fournisseur exists for the given store
+    const existFournisseur = await FournisseurService.findFournisseurByIdANDStore(fournisseur, store);
+    if (!existFournisseur) {
+        return next(new CustomError('Fournisseur not found', 404));
+    }
+
+    // Get statistics for purchases between the store and fournisseur
+    const totalPurchases = await PurchaseService.countPurchasesByStoreAndFournisseur(store, fournisseur);
+    const totalPaymentClosed = await PurchaseService.sumPaymentsForClosedPurchases(store, fournisseur);
+    const totalAmountNonClosedNonCredited = await PurchaseService.sumAmountsForNonClosedNonCreditedPurchases(store, fournisseur);
+    const totalPaymentNonClosedCredited = await PurchaseService.sumPaymentsForNonClosedCreditedPurchases(store, fournisseur);
+
+    // Respond with the statistics
+    res.status(200).json({
+        count: totalPurchases,
+        paid: totalPaymentClosed,
+        unpaidNonCredited: totalAmountNonClosedNonCredited,
+        unpaidCredited: totalPaymentNonClosedCredited,
+    });
 });
 
 module.exports = {
     CreatePurchase,
-    GetAllPurchases,
+    GetAllClosedPurchases,
     GetPurchaseByID,
     GetAllCreditedPurchases,
     GetAllNewPurchases,
     GetAllPurchasesByFournisseurForSpecificStore,
-    UpdatePurchase,
+    MakePurchaseCredited,
     AddPaymentToPurchase,
-    DeletePurchase
+    DeletePurchase,
+    GetStatisticsForStoreFournisseur
 }

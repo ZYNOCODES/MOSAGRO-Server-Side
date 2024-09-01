@@ -24,9 +24,19 @@ const findStockByID_IDStore = async (id, store, session) => {
         store: store
     }).session(session);
 };
+const createNewStock = async (product, store, session) => {
+    return await Stock.create([{
+        product: product.productID,
+        store: store,
+        quantity: product.newQuantity,
+        buying: product.buying,
+        selling: product.selling,
+    }], { session });
+}
 module.exports = {
     findStockById,
     findStockByStoreAndProduct,
     findStockByStore,
-    findStockByID_IDStore
+    findStockByID_IDStore,
+    createNewStock
 }

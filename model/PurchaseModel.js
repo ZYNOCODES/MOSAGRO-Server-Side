@@ -15,13 +15,13 @@ const PurchaseSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    TotalAmount:{
+    totalAmount:{
         type: Number,
         required: true
     },
     stock: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'stock',
+        ref: 'stockStatus',
         required: true
     }],
     credit:{

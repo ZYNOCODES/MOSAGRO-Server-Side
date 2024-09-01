@@ -6,7 +6,7 @@ const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const StockService = require('../service/StockService.js');
 const StoreService = require('../service/StoreService.js');
 const ProductService = require('../service/ProductService.js');
-const { createStockStatus, addStatus } = require('../service/StockStatusService.js');
+const StockStatusService = require('../service/StockStatusService.js');
 const moment = require('moment');
 require('moment-timezone');
 
@@ -79,13 +79,13 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
         const stock = await StockService.findStockByStoreAndProduct(Store, Product, session);
         if (stock) {
             // Add new stock status
-            const stockStatus = await addStatus(
+            const stockStatus = await StockStatusService.createStockStatus(
                 currentDateTime,
-                stock._id, 
-                BuyingPrice, 
-                SellingPrice, 
+                stock._id,
+                BuyingPrice,
+                SellingPrice,
                 newQuantity,
-                ExparationDate, 
+                ExparationDate,
                 session
             );
 
@@ -152,7 +152,7 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
             }
 
             // Create a new stock status
-            const stockStatus = await createStockStatus(
+            const stockStatus = await StockStatusService.createStockStatus(
                 currentDateTime,
                 newStock[0]._id,
                 BuyingPrice,
@@ -175,6 +175,7 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
+        console.log(error);
         next(new CustomError('Error while creating stock, try again.', 400));
     }
 });
