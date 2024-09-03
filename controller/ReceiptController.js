@@ -662,8 +662,9 @@ const AddPaumentToCreditReceipt = asyncErrorHandler(async (req, res, next) => {
         const err =new CustomError(`The sum of payments is greater than the total. The remaining amount to pay is ${existingReceipt.total - totalPaid}`, 400);
         return next(err);
     }
+
     //check if this receipt is credited or not
-    if(existingReceipt.credit == false){
+    if(existingReceipt.credit == false || existingReceipt.status == -1 ){
         // Validate payment against the total
         if ((parseFloat(payment)) != parseFloat(existingReceipt.total)) {
             const err =new CustomError(`The payment must be equal to the total price. The remaining amount to pay is ${existingReceipt.total}`, 400);
@@ -673,6 +674,7 @@ const AddPaumentToCreditReceipt = asyncErrorHandler(async (req, res, next) => {
         existingReceipt.credit = false;
         existingReceipt.delivered = true;
     }
+
     // Add new payment
     existingReceipt.payment.push({
         amount: parseFloat(payment),
@@ -732,6 +734,38 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
     }
     // Return the response
     res.status(200).json({ message: 'The status was updated successfully' });
+});
+//make it credited
+const MakeItCredited = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    //check id 
+    if( !id || !mongoose.Types.ObjectId.isValid(id)){
+        return next(new CustomError('All fields are required', 400));
+    }
+    //check if receipt exist
+    const existingReceipt = await Receipt.findById(id);
+    if(!existingReceipt){
+        return next(new CustomError('Receipt not found', 404));
+    }
+
+    //check if already closed
+    if(existingReceipt.status == 10){
+        const err =new CustomError(`This receipt is already fully paid`, 400);
+        return next(err);
+    }
+
+    // Save updated receipt
+    existingReceipt.status = 3;
+    existingReceipt.credit = true;
+    existingReceipt.delivered = true;
+
+    const updatedReceipt = await existingReceipt.save();
+    if (!updatedReceipt) {
+        const err = new CustomError('Error while updating credit to receipt, try again', 400);
+        return next(err);
+    }
+    // Return the response
+    res.status(200).json({ message: 'Make it credited was submitted successfully' });
 });
 //delete receiot
 const DeleteReceipt = asyncErrorHandler(async (req, res, next) => {
@@ -807,5 +841,6 @@ module.exports = {
     GetAlldeliveredReceiptsByStoreCredited,
     AddPaumentToCreditReceipt,
     GetStatisticsForStoreClient,
-    updateReceiptStatus
+    updateReceiptStatus,
+    MakeItCredited
 }

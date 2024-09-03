@@ -14,7 +14,8 @@ const {
     GetAlldeliveredReceiptsByStoreCredited,
     AddPaumentToCreditReceipt,
     GetStatisticsForStoreClient,
-    updateReceiptStatus
+    updateReceiptStatus,
+    MakeItCredited
 } = require('../controller/ReceiptController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
@@ -50,6 +51,8 @@ router.post('/store/:store', checkAuthrozation([process.env.STORE_TYPE]), Create
 router.get('/statistics/:store/:client', checkAuthrozation([process.env.STORE_TYPE]), GetStatisticsForStoreClient);
 // update receipt status to -1
 router.patch('/status-1/:id', checkAuthrozation([process.env.STORE_TYPE]), updateReceiptStatus);
+// make it credited
+router.patch('/credited/:id', checkAuthrozation([process.env.STORE_TYPE]), MakeItCredited);
 
 // Client_API routes
 //create new receipt
