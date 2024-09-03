@@ -9,6 +9,7 @@ const { findUserById } = require('../service/UserService.js');
 const { findStoreById } = require('../service/StoreService.js');
 const { findReceiptById, findNoneDeliveredReceiptByStore, findCreditedReceipt } = require('../service/ReceiptService.js');
 const { checkUserStore } = require('../service/MyStoreService.js');
+const ReceiptService = require('../service/ReceiptService.js');
 const moment = require('moment');
 require('moment-timezone');
 
@@ -193,7 +194,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
     if (products.length <= 0) {
         return next(new CustomError('You have to pick at least one product', 400));
     }
-    console.log(products)
+
     // Check if all products have a quantity and price
     if (products.some(val => {
         return (!mongoose.Types.ObjectId.isValid(val.stock)) && 
@@ -303,7 +304,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
         }
 
         // Create a new receipt
-        await Receipt.create([{
+        const newReceipt = await Receipt.create([{
             code: code,
             store: store,
             client: client,
@@ -317,11 +318,16 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
             delivered: false,
             status: 0
         }], { session });        
+        if(!newReceipt || newReceipt.length < 1){
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Error while creating new receipt, try again', 400));
+        }
 
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ message: 'The order is submitted successfully' });
+        res.status(200).json({ message: 'The order is submitted successfully', id: newReceipt[0]._id});
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
@@ -390,7 +396,8 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
     }
     const receipts = await Receipt.find({
         store: id,
-        delivered: true
+        delivered: true,
+        status: 10
     }).populate({
         path: 'client',
         select: 'firstName lastName phoneNumber'
@@ -503,26 +510,8 @@ const GetAllReceiptsByClientForStore = asyncErrorHandler(async (req, res, next) 
         return next(err);
     }
 
-    // Count the total number of orders
-    const orderCount = receipts.length;
-
-    // Calculate the total amount of all delivered orders
-    const totalAmountDelivered = receipts
-        .filter(receipt => receipt.delivered == true)
-        .reduce((total, receipt) => Number(total) + Number(receipt.total), 0);
-
-    // Calculate the total profit amount of all delivered orders
-    const totalProfitDelivered = receipts
-        .filter(receipt => receipt.delivered == true)
-        .reduce((total, receipt) => Number(total) + Number(receipt.profit), 0);
-
     // Send the response with all data in the same object
-    res.status(200).json({
-        orderCount,
-        totalAmountDelivered,
-        totalProfitDelivered,
-        receipts,
-    });
+    res.status(200).json(receipts);
 });
 //validate delivered
 const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
@@ -655,9 +644,15 @@ const AddPaumentToCreditReceipt = asyncErrorHandler(async (req, res, next) => {
         return next(new CustomError('All fields are required', 400));
     }
     //check if receipt exist
-    const existingReceipt = await findCreditedReceipt(id);
+    const existingReceipt = await Receipt.findById(id);
     if(!existingReceipt){
         return next(new CustomError('Receipt not found', 404));
+    }
+
+    //check if already closed
+    if(existingReceipt.status == 10){
+        const err =new CustomError(`This receipt is already fully paid`, 400);
+        return next(err);
     }
     // Calculate the sum of existing payments
     const totalPaid = existingReceipt.payment.reduce((acc, val) => acc + val.amount, 0);
@@ -667,7 +662,17 @@ const AddPaumentToCreditReceipt = asyncErrorHandler(async (req, res, next) => {
         const err =new CustomError(`The sum of payments is greater than the total. The remaining amount to pay is ${existingReceipt.total - totalPaid}`, 400);
         return next(err);
     }
-
+    //check if this receipt is credited or not
+    if(existingReceipt.credit == false){
+        // Validate payment against the total
+        if ((parseFloat(payment)) != parseFloat(existingReceipt.total)) {
+            const err =new CustomError(`The payment must be equal to the total price. The remaining amount to pay is ${existingReceipt.total}`, 400);
+            return next(err);
+        }
+        existingReceipt.status = 10
+        existingReceipt.credit = false;
+        existingReceipt.delivered = true;
+    }
     // Add new payment
     existingReceipt.payment.push({
         amount: parseFloat(payment),
@@ -675,9 +680,12 @@ const AddPaumentToCreditReceipt = asyncErrorHandler(async (req, res, next) => {
     });
 
     // Check if the receipt is fully paid
-    if ((totalPaid + parseFloat(payment)) == existingReceipt.total) {
+    if ((totalPaid + parseFloat(payment)) == existingReceipt.total && existingReceipt.credit == true) {
+        existingReceipt.status = 10
         existingReceipt.credit = false;
+        existingReceipt.delivered = true;
     }
+
     // Save updated receipt
     const updatedReceipt = await existingReceipt.save();
     if (!updatedReceipt) {
@@ -686,6 +694,44 @@ const AddPaumentToCreditReceipt = asyncErrorHandler(async (req, res, next) => {
     }
     // Return the response
     res.status(200).json({ message: 'The payment was submited successfully' });
+});
+//make reciept status -1
+const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    //check id 
+    if( !id || !mongoose.Types.ObjectId.isValid(id)){
+        return next(new CustomError('All fields are required', 400));
+    }
+    //check if receipt exist
+    const existingReceipt = await Receipt.findById(id);
+    if(!existingReceipt){
+        return next(new CustomError('Receipt not found', 404));
+    }
+
+    //check if already closed
+    if(existingReceipt.status == 10){
+        const err =new CustomError(`This receipt is already fully paid`, 400);
+        return next(err);
+    }
+
+    //check if already closed
+    if(existingReceipt.credit == true && existingReceipt.status != -1){
+        const err =new CustomError(`This receipt is already have a credit`, 400);
+        return next(err);
+    }
+
+    // Save updated receipt
+    existingReceipt.status = -1;
+    existingReceipt.delivered = true;
+    existingReceipt.credit = true;
+
+    const updatedReceipt = await existingReceipt.save();
+    if (!updatedReceipt) {
+        const err = new CustomError('Error while updating status to receipt, try again', 400);
+        return next(err);
+    }
+    // Return the response
+    res.status(200).json({ message: 'The status was updated successfully' });
 });
 //delete receiot
 const DeleteReceipt = asyncErrorHandler(async (req, res, next) => {
@@ -706,6 +752,45 @@ const DeleteReceipt = asyncErrorHandler(async (req, res, next) => {
     }
     res.status(200).json({message: 'Receipt deleted successfully'});
 });
+//get statistics receipts for specific store and client
+const GetStatisticsForStoreClient = asyncErrorHandler(async (req, res, next) => {
+    const { store, client } = req.params;
+
+    // Validate store and Client IDs
+    if (!store || !mongoose.Types.ObjectId.isValid(store) || 
+        !client || !mongoose.Types.ObjectId.isValid(client)) {
+        return next(new CustomError('Invalid store or client ID provided.', 400));
+    }
+
+    // Check if the store exists
+    const existStore = await findStoreById(store);
+    if (!existStore) {
+        return next(new CustomError('Store not found', 404));
+    }
+
+    // Check if the Client exists for the given store
+    const existClient = await checkUserStore(client, store);
+    if (!existClient) {
+        return next(new CustomError('Client not found', 404));
+    }
+
+    // Get statistics for receipt between the store and client
+    const totalReceipts = await ReceiptService.countReceiptsByStoreAndClient(store, client);
+    const total = await ReceiptService.sumPaymentsForDelivredReceipts(store, client);
+    const totalCredit = await ReceiptService.sumCreditsForDelivredReceipts(store, client);
+    const totalAnpaid = await ReceiptService.sumAnpaidReceipts(store, client);
+
+    // Respond with the statistics
+    res.status(200).json({
+        count: totalReceipts,
+        total: total.total,
+        profit: total.profit,
+        credit: totalCredit,
+        anpaid: totalAnpaid
+    });
+});
+
+
 
 module.exports = {
     CreateReceipt,
@@ -720,5 +805,7 @@ module.exports = {
     GetAllReceiptsByClientForStore,
     UpdateReceiptProductPrice,
     GetAlldeliveredReceiptsByStoreCredited,
-    AddPaumentToCreditReceipt
+    AddPaumentToCreditReceipt,
+    GetStatisticsForStoreClient,
+    updateReceiptStatus
 }
