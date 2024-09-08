@@ -21,9 +21,19 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    phoneVerification: {
+        type: Boolean,
+        required: true,
+        default: false
+    },
     email: {
         type: String,
         required: false
+    },
+    emailVerification: {
+        type: Boolean,
+        required: true,
+        default: false
     },
     storeAddresses: {
         type: Array,

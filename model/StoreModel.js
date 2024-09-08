@@ -21,10 +21,20 @@ const storeSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    phoneVerification: {
+        type: Boolean,
+        required: true,
+        default: false
+    },
     email: {
         type: String,
         required: false,
         default: null
+    },
+    emailVerification: {
+        type: Boolean,
+        required: true,
+        default: false
     },
     storeName: {
         type: String,
