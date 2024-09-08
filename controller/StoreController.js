@@ -3,7 +3,7 @@ const validator = require('validator');
 const Store = require('../model/StoreModel');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
-const { findCitiesFRByCodeC } = require('../service/CitiesService');
+const CitiesService = require('../service/CitiesService.js')
 
 //fetch all Stores
 const GetAllStores = asyncErrorHandler(async (req, res, next) => {
@@ -18,16 +18,25 @@ const GetAllStores = asyncErrorHandler(async (req, res, next) => {
 const GetStore = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     //check if id is valid 
-    if(!id){
-        const err = new CustomError('Invalid Store ID', 400);
+    if(!id || !mongoose.Types.ObjectId.isValid(id)){
+        const err = new CustomError('All fields are required', 400);
         return next(err);
     }
     const store = await Store.findById(id);
     if(!store){
-        const err = new CustomError('Error while fetching Store', 400);
+        const err = new CustomError('Store not found', 400);
         return next(err);
     }
-    res.status(200).json(store);
+
+    const wilaya = await CitiesService.findCitiesFRByCodeC(store.wilaya, store.commune);
+    
+    const response = {
+        ...store.toObject(),
+        wilaya: wilaya.wilaya,
+        commune: wilaya.baladiya
+    };
+    
+    res.status(200).json(response);
 });
 //update specific Store info
 const UpdateStore = asyncErrorHandler(async (req, res, next) => {
@@ -57,7 +66,7 @@ const UpdateStore = asyncErrorHandler(async (req, res, next) => {
     }
     //check wilaya and commune
     if(wilaya && commune){
-        const checkWilaya = await findCitiesFRByCodeC(wilaya, commune);
+        const checkWilaya = await CitiesService.findCitiesFRByCodeC(wilaya, commune);
         if(!checkWilaya){
             const err = new CustomError('Invalid wilaya or commune', 400);
             return next(err);
