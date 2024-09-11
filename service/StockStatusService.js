@@ -11,7 +11,6 @@ const createStockStatus = async (date, stock, buying, selling, quantity, exparat
         selling,
         quantity,
         exparationDate: exparationDate ? exparationDate : '',
-        end: false
     }], { session });
 }
 

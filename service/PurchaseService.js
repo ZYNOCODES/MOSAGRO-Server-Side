@@ -9,22 +9,36 @@ const countPurchasesByStoreAndFournisseur = async (storeId, fournisseurId) => {
 };
 
 // Total payment of all closed purchases between store and fournisseur
-const sumPaymentsForClosedPurchases = async (storeId, fournisseurId) => {
-    const purchases = await Purchase.find({ store: storeId, fournisseur: fournisseurId, closed: true });
+const sumAmountsForAllPurchases = async (storeId, fournisseurId) => {
+    const purchases = await Purchase.find({ 
+        store: storeId, 
+        fournisseur: fournisseurId, 
+    });
+    return purchases.reduce((total, purchase) => {
+        return total + purchase.totalAmount;
+    }, 0);
+};
+
+// Total amount of all non-closed and non-credited purchases
+const sumPaymentsForAllPurchases = async (storeId, fournisseurId) => {
+    const purchases = await Purchase.find({ 
+        store: storeId, 
+        fournisseur: fournisseurId, 
+    });
     return purchases.reduce((total, purchase) => {
         return total + purchase.payment.reduce((sum, pay) => sum + pay.amount, 0);
     }, 0);
 };
 
-// Total amount of all non-closed and non-credited purchases
-const sumAmountsForNonClosedNonCreditedPurchases = async (storeId, fournisseurId) => {
-    const purchases = await Purchase.find({ store: storeId, fournisseur: fournisseurId, closed: false, credit: false });
-    return purchases.reduce((total, purchase) => total + purchase.totalAmount, 0);
-};
-
 // Total payment of all non-closed and credited purchases
-const sumPaymentsForNonClosedCreditedPurchases = async (storeId, fournisseurId) => {
-    const purchases = await Purchase.find({ store: storeId, fournisseur: fournisseurId, closed: false, credit: true });
+const sumPaymentsForCreditedUnpaidPurchases = async (storeId, fournisseurId) => {
+    const purchases = await Purchase.find({ 
+        store: storeId, 
+        fournisseur: fournisseurId, 
+        closed: false, 
+        credit: true
+    });
+
     return purchases.reduce((total, purchase) => {
         return total + (purchase.totalAmount - purchase.payment.reduce((sum, pay) => sum + pay.amount, 0));
     }, 0);
@@ -35,7 +49,7 @@ const sumPaymentsForNonClosedCreditedPurchases = async (storeId, fournisseurId) 
 module.exports = {
     findPurchaseById,
     countPurchasesByStoreAndFournisseur,
-    sumPaymentsForClosedPurchases,
-    sumAmountsForNonClosedNonCreditedPurchases,
-    sumPaymentsForNonClosedCreditedPurchases
+    sumAmountsForAllPurchases,
+    sumPaymentsForAllPurchases,
+    sumPaymentsForCreditedUnpaidPurchases
 }

@@ -810,17 +810,17 @@ const GetStatisticsForStoreClient = asyncErrorHandler(async (req, res, next) => 
 
     // Get statistics for receipt between the store and client
     const totalReceipts = await ReceiptService.countReceiptsByStoreAndClient(store, client);
-    const total = await ReceiptService.sumPaymentsForDelivredReceipts(store, client);
-    const totalCredit = await ReceiptService.sumCreditsForDelivredReceipts(store, client);
-    const totalAnpaid = await ReceiptService.sumAnpaidReceipts(store, client);
+    const total = await ReceiptService.sumPaymentsForAllReceipts(store, client);
+    const totalPaid = await ReceiptService.sumPaidPaymentsForAllReceipts(store, client);
+    const totalCreditAnpaid = await ReceiptService.sumCreditsAndUnpaidReceipts(store, client);
 
     // Respond with the statistics
     res.status(200).json({
         count: totalReceipts,
         total: total.total,
+        totalPaid: totalPaid,
         profit: total.profit,
-        credit: totalCredit,
-        anpaid: totalAnpaid
+        creditanpaid: totalCreditAnpaid,
     });
 });
 

@@ -75,6 +75,7 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
 
         // recalculate the quantity 
         const newQuantity = Number(Quantity) * Number(product.boxItems);
+
         // Check if stock already exists
         const stock = await StockService.findStockByStoreAndProduct(Store, Product, session);
         if (stock) {
@@ -89,7 +90,7 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
                 session
             );
 
-            if (!stockStatus) {
+            if (!stockStatus[0]) {
                 await session.abortTransaction();
                 session.endSession();
                 return next(new CustomError('Error while creating stock status, try again.', 400));
@@ -145,7 +146,7 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
                 destocking: Number(Destocking) > 0 ? Number(Destocking) : 0,
                 buyingMathode: buyingMathode,
             }], { session });
-            if (!newStock) {
+            if (!newStock[0]) {
                 await session.abortTransaction();
                 session.endSession();
                 return next(new CustomError('Error while creating stock, try again.', 400));
@@ -161,7 +162,7 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
                 ExparationDate,
                 session
             );
-            if (!stockStatus) {
+            if (!stockStatus[0]) {
                 await session.abortTransaction();
                 session.endSession();
                 return next(new CustomError('Error while creating stock status, try again.', 400));

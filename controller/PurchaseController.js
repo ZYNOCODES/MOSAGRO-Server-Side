@@ -592,16 +592,16 @@ const GetStatisticsForStoreFournisseur = asyncErrorHandler(async (req, res, next
 
     // Get statistics for purchases between the store and fournisseur
     const totalPurchases = await PurchaseService.countPurchasesByStoreAndFournisseur(store, fournisseur);
-    const totalPaymentClosed = await PurchaseService.sumPaymentsForClosedPurchases(store, fournisseur);
-    const totalAmountNonClosedNonCredited = await PurchaseService.sumAmountsForNonClosedNonCreditedPurchases(store, fournisseur);
-    const totalPaymentNonClosedCredited = await PurchaseService.sumPaymentsForNonClosedCreditedPurchases(store, fournisseur);
+    const totalAmount = await PurchaseService.sumAmountsForAllPurchases(store, fournisseur);
+    const totalPayment = await PurchaseService.sumPaymentsForAllPurchases(store, fournisseur);
+    const totalCreditUnpaid = await PurchaseService.sumPaymentsForCreditedUnpaidPurchases(store, fournisseur);
 
     // Respond with the statistics
     res.status(200).json({
         count: totalPurchases,
-        paid: totalPaymentClosed,
-        unpaidNonCredited: totalAmountNonClosedNonCredited,
-        unpaidCredited: totalPaymentNonClosedCredited,
+        totalAmount: totalAmount,
+        totalPayment: totalPayment,
+        totalCreditUnpaid: totalCreditUnpaid,
     });
 });
 

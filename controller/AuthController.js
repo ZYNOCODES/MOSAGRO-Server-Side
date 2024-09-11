@@ -23,215 +23,6 @@ const {
 const moment = require('moment');
 require('moment-timezone');
 
-//login
-const SignIn = asyncErrorHandler(async (req, res, next) => {
-    const { UserName, Password, Type } = req.body;
-    
-    // Check if UserName or Password is empty
-    if (!UserName || !Password) {
-        return next(new CustomError('All fields are required', 400));
-    }
-
-    // Check if Type is provided correctly
-    if (!Type || validator.isEmpty(Type) ||
-        !['ADMIN_API', 'STORE_API', 'CLIENT_API'].includes(Type)) {
-        return next(new CustomError('Authentication rejected.', 400));
-    }
-
-    // Define user and functions to find users by phone or email
-    let user = null;
-
-    const findByPhone = async (phone) => {
-        switch (Type) {
-            case 'ADMIN_API':
-                return await AdminService.findAdminByPhone(phone);
-            case 'STORE_API':
-                return await StoreService.findStoreByPhone(phone);
-            case 'CLIENT_API':
-                return await UserService.findUserByPhone(phone);
-            default:
-                return null;
-        }
-    };
-
-    const findByEmail = async (email) => {
-        switch (Type) {
-            case 'ADMIN_API':
-                return await AdminService.findAdminByEmail(email);
-            case 'STORE_API':
-                return await StoreService.findStoreByEmail(email);
-            case 'CLIENT_API':
-                return await UserService.findUserByEmail(email);
-            default:
-                return null;
-        }
-    };
-
-    // Check if User exists by phone or email
-    if (validator.isMobilePhone(UserName)) {
-        user = await findByPhone(UserName);
-    } else if (validator.isEmail(UserName)) {
-        user = await findByEmail(UserName);
-    } else {
-        return next(new CustomError('Username or password incorrect', 400));
-    }
-
-    if (!user) {
-        return next(new CustomError('Username or password incorrect', 400));
-    }
-    
-    // Check if password is correct
-    const match = await bcrypt.comparePassword(Password, user.password);
-    if(!match){
-        const err = new CustomError('Username or password incorrect', 400);
-        return next(err);
-    }
-
-    // Check if status is already active for store api
-    if (Type === 'STORE_API') {
-        if (['En attente', 'Suspended'].includes(user.status)) {
-            const errorMessage = user.status === 'En attente'
-                ? 'Your account is not active yet. Try again later.'
-                : 'Your account is suspended, probably your subscription is expired';
-            return next(new CustomError(errorMessage, 400));
-        } else if (user.status === 'Active') {
-            const timezone = 'Africa/Algiers';
-            const currentTime = moment.tz(timezone);
-            // Get subscription details
-            const subscription = await SubscriptionStore.findById(user.subscriptions[user.subscriptions.length - 1]);
-            if (!subscription) {
-                return next(new CustomError('Subscription not found', 404));
-            }
-            // Check if subscription has expired
-            if (currentTime.isSameOrAfter(subscription.expiryDate)) {
-                // Update Store status to suspended
-                const updatedStore = await Store.updateOne({ _id: user._id }, { status: 'Suspended' });
-                if (!updatedStore) {
-                    return next(new CustomError('Something went wrong. Login again', 400));
-                }
-                return next(new CustomError('Subscription has expired', 400));
-            }
-        }
-    }
-    
-    // Create token
-    const token = createToken(user._id, Type);
-
-    // Return user
-    res.status(200).json({token});
-});
-
-//SignUp
-const SignUp = asyncErrorHandler(async (req, res, next) => {
-    const {Email, Password, FirstName, LastName, PhoneNumber, Category,
-        Wilaya, Commune, R_Commerce, Address, storeName, storeLocation, 
-        AuthType} = req.body;
-
-    //check if all required fields are provided for Admin type
-    const requiredFields = {
-        Store: [Password, FirstName, LastName, PhoneNumber, Address, Category, storeName, storeLocation, Wilaya, Commune, R_Commerce],
-        User: [Password, FirstName, LastName, PhoneNumber, Address, Wilaya, Commune, R_Commerce]
-    };
-    if (requiredFields[AuthType].some(field => !field)) {
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
-    }
-    
-    //check if phone already exist
-    const [store, user] = await Promise.all([
-        StoreService.findStoreByPhone(PhoneNumber),
-        UserService.findUserByPhone(PhoneNumber)
-    ]);
-    if(store || user){
-        const err = new CustomError('Phone number already exist', 400);
-        return next(err);
-    }
-
-    //check if email already exist
-    if (Email) {
-        if (!validator.isEmail(Email)) {
-            const err = new CustomError('Email is not valid', 400);
-            return next(err);
-        }
-
-        const [storeByEmail, userByEmail] = await Promise.all([
-            StoreService.findStoreByEmail(Email),
-            UserService.findUserByEmail(Email)
-        ]);
-
-        if (storeByEmail || userByEmail) {
-            const err = new CustomError('Email already exist', 400);
-            return next(err);
-        }
-    }
-
-    //check if Category exist
-    const existCategory = await CategoryService.findCategoryById(Category);
-    if(!existCategory){
-        const err = new CustomError('Category not found', 404);
-        return next(err);
-    }
-
-    //check if the wilaya and commun exist
-    const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
-    if(!existWilaya){
-        const err = new CustomError('the wilaya and its commune is incorrect', 404);
-        return next(err);
-    }
-    
-    //hash password
-    const hash = await bcrypt.hashPassword(Password);
-
-    //create new User
-    if(AuthType === "Store"){
-        const status = "En attente";
-        //generate codification for a user
-        const code = await Codification.StoreCode(existWilaya.codeC, "S");
-        //check if the user already exist with that code
-        if(code == null){
-            const err = new CustomError('Code already existe. repeat the proccess', 404);
-            return next(err);
-        }
-        const newStore = await Store.create({
-            email: Email, password: hash,
-            firstName: FirstName, lastName: LastName, phoneNumber: PhoneNumber,
-            storeAddress: Address, storeName: storeName, storeLocation: storeLocation, 
-            code: code, wilaya: Wilaya, commune: Commune, r_commerce: R_Commerce,
-            status: status,
-            categories: [existCategory._id]
-        });
-        if(!newStore){
-            const err = new CustomError('Error while creating new store', 400);
-            return next(err);
-        }
-        
-    }else if(AuthType === "User"){
-        //generate codification for a user
-        var code = await Codification.UserCode(existWilaya.codeC, "C");
-        //check if the user already exist with that code
-        if(code == null){
-            const err = new CustomError('Code already existe. repeat the proccess', 404);
-            return next(err);
-        }
-        const newUser = await User.create({
-            email: Email, password: hash,
-            firstName: FirstName, lastName: LastName, phoneNumber: PhoneNumber,
-            storeAddresses: [Address], code: code, wilaya: Wilaya, commune: Commune, 
-            r_commerce: R_Commerce
-        });
-        if(!newUser){
-            const err = new CustomError('Error while creating new user', 400);
-            return next(err);
-        }
-    }else{
-        const err = new CustomError('Auth type not found', 400);
-        return next(err);
-    }
-
-    //return User
-    res.status(200).json({message: 'Profil created successfully'});
-});
-
 //login Admin
 const SignInAdmin = asyncErrorHandler(async (req, res, next) => {
     const { UserName, Password } = req.body;
@@ -244,9 +35,9 @@ const SignInAdmin = asyncErrorHandler(async (req, res, next) => {
     let user;
     // Check if User exists by phone or email
     if (validator.isMobilePhone(UserName)) {
-        user = await AdminService.findAdminByPhone(phone);
+        user = await AdminService.findAdminByPhone(UserName);
     } else if (validator.isEmail(UserName)) {
-        user = await AdminService.findAdminByEmail(email);
+        user = await AdminService.findAdminByEmail(UserName);
     } else {
         return next(new CustomError('Username or password incorrect', 400));
     }
@@ -281,9 +72,9 @@ const SignInStore = asyncErrorHandler(async (req, res, next) => {
     let user;
     // Check if User exists by phone or email
     if (validator.isMobilePhone(UserName)) {
-        user = await StoreService.findStoreByPhone(phone);
+        user = await StoreService.findStoreByPhone(UserName);
     } else if (validator.isEmail(UserName)) {
-        user = await StoreService.findStoreByEmail(email);
+        user = await StoreService.findStoreByEmail(UserName);
     } else {
         return next(new CustomError('Username or password incorrect', 400));
     }
@@ -343,9 +134,9 @@ const SignInClient = asyncErrorHandler(async (req, res, next) => {
     let user;
     // Check if User exists by phone or email
     if (validator.isMobilePhone(UserName)) {
-        user = await UserService.findUserByPhone(phone);
+        user = await UserService.findUserByPhone(UserName);
     } else if (validator.isEmail(UserName)) {
-        user = await UserService.findUserByEmail(email);
+        user = await UserService.findUserByEmail(UserName);
     } else {
         return next(new CustomError('Username or password incorrect', 400));
     }
@@ -368,35 +159,39 @@ const SignInClient = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json({token});
 });
 
-//singup store
-const SignUpStore = asyncErrorHandler(async (req, res, next) => {
-    const {Email, Password, FirstName, LastName, PhoneNumber, Category,
-        Wilaya, Commune, R_Commerce, Address, storeName, storeLocation} = req.body;
+//update singup store
+const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const {Password, FirstName, LastName, Category,
+        Wilaya, Commune, R_Commerce, Address, storeName} = req.body;
     //check if all required fields are provide
-    if ([Password, FirstName, LastName, PhoneNumber, Address, Category, storeName, storeLocation, Wilaya, Commune, R_Commerce].some(field => !field)) {
+    if ([id, Password, FirstName, LastName, Address, Category,
+        storeName, Wilaya, Commune, R_Commerce].some(
+            field => !field || validator.isEmpty(field.toString())
+        )) {
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
-    
-    const storeByPhone = StoreService.findStoreByPhone(PhoneNumber);
-    if(storeByPhone){
-        const err = new CustomError('Phone number already exist', 400);
-        return next(err);
+
+    // Check if the store exists and is not verified
+    const NonVerifiedStore = await Store.findOne({
+        _id: id,
+        emailVerification: false,
+    });
+
+    if (NonVerifiedStore) {
+        return next(new CustomError('Store not found. Please check your details or sign up.', 404));
     }
 
-    //check if email already exist
-    if (Email) {
-        if (!validator.isEmail(Email)) {
-            const err = new CustomError('Email is not valid', 400);
-            return next(err);
-        }
+    // If the store is verified, it's likely that the user has already signed up, prompt them to log in
+    const existStore = await Store.findOne({
+        _id: id,
+        emailVerification: true,
+        password: { $ne: null },
+    });
 
-        const storeByEmail = await StoreService.findStoreByEmail(Email);
-
-        if (storeByEmail) {
-            const err = new CustomError('Email already exist', 400);
-            return next(err);
-        }
+    if (existStore) {
+        return next(new CustomError('Account already verified. Please log in.', 400));
     }
 
     //check if Category exist
@@ -415,8 +210,6 @@ const SignUpStore = asyncErrorHandler(async (req, res, next) => {
     
     //hash password
     const hash = await bcrypt.hashPassword(Password);
-    //create new store
-    const status = "En attente";
     //generate codification for a user
     const code = await Codification.StoreCode(existWilaya.codeC, "S");
     //check if the user already exist with that code
@@ -424,27 +217,210 @@ const SignUpStore = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('Code already existe. try again', 404);
         return next(err);
     }
-    const newStore = await Store.create({
-        code: code, 
-        password: hash,
-        firstName: FirstName, 
-        lastName: LastName,
-        phoneNumber: PhoneNumber, phoneVerification: false,
-        email: Email, emailVerification: false,
-        storeAddress: Address, storeName: storeName, storeLocation: storeLocation, 
-        wilaya: Wilaya, commune: Commune, 
-        r_commerce: R_Commerce,
-        status: status,
-        categories: [existCategory._id]
-    });
-    if(!newStore){
+    //update
+    existStore.code = code;
+    existStore.password = hash;
+    existStore.firstName = FirstName;
+    existStore.lastName = LastName;
+    existStore.storeAddress = Address;
+    existStore.storeName = storeName;
+    existStore.storeLocation = null;
+    existStore.wilaya = Wilaya;
+    existStore.commune = Commune;
+    existStore.r_commerce = R_Commerce;
+    existStore.categories = [existCategory._id];
+
+    const updatedStore = await existStore.save();
+    if(!updatedStore){
         const err = new CustomError('Error while creating new store. try again', 400);
         return next(err);
     }
-    //send phone otp
-
     //return store
-    // res.status(200).json({message: 'Store created successfully'});
+    res.status(200).json({message: 'Store created successfully'});
+});
+//singup store by sending email otp verification
+const SignUpStore = asyncErrorHandler(async (req, res, next) => {
+    const { Email } = req.body;
+
+    // Validation
+    if (!Email || validator.isEmpty(Email)) {
+        return next(new CustomError('All fields are required', 400));
+    }
+    if (!validator.isEmail(Email)) {
+        return next(new CustomError('Email is not valid', 400));
+    }
+
+    // Start transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        // Check if the email already exists
+        let storeByEmail = await StoreService.findStoreByEmail(Email);
+
+        // If store doesn't exist, create it
+        if (!storeByEmail) {
+            const status = "En attente"; // Initialize status before using
+            const newStore = await Store.create([{
+                email: Email,
+                status,
+            }], { session });
+
+            if (!newStore[0]) {
+                throw new CustomError('Error while creating new store. Try again', 400);
+            }
+
+            storeByEmail = newStore[0]; // Assign newly created store to `storeByEmail`
+        }
+
+        //check if email is alredy verified
+        if (storeByEmail.emailVerification === true) {
+            return next(new CustomError('Email is already verified. Please log in.', 400));
+        }
+
+        // Generate OTP (4-digit random number)
+        const otp = Math.floor(1000 + Math.random() * 9000);
+
+        // Hash the OTP
+        const hashOTP = await bcrypt.hashPassword(otp.toString());
+
+        // Set to UTC time zone
+        const currentTime = moment().utc(1); // Ensures UTC+0
+
+        // Save OTP in the database with an expiry time of 1 hour
+        const existingOTP = await EmailOTPVerification.findOne({ store: storeByEmail._id });
+        
+        if (!existingOTP) {
+            // Create a new OTP entry if it doesn't exist
+            const newOTP = await EmailOTPVerification.create([{
+                store: storeByEmail._id, // Link OTP with the store ID
+                otp: hashOTP,
+                createdAt: currentTime.toDate(),
+                expiresAt: currentTime.add(1, 'hour').toDate(),
+            }], { session });
+
+            if (!newOTP[0]) {
+                throw new CustomError('Error while saving OTP in the database', 500);
+            }
+        } else {
+            // Update existing OTP if found
+            await EmailOTPVerification.updateOne(
+                { store: storeByEmail._id },
+                {
+                    otp: hashOTP,
+                    createdAt: currentTime.toDate(),
+                    expiresAt: currentTime.add(1, 'hour').toDate(),
+                },
+                { session }
+            );
+        }
+
+        // Email options for sending OTP
+        const mailOptions = {
+            from: process.env.AUTH_EMAIL,
+            to: storeByEmail.email,
+            subject: 'Email Verification',
+            html: `
+                <h2>Please verify your email</h2>
+                <p>Your OTP is <strong>${otp}</strong></p>
+                <a href="http://localhost:5173/VerifyCode/${storeByEmail._id}">Verify your email</a>
+            `,
+        };
+
+        // Send the OTP email
+        await NodeMailer.transporter.sendMail(mailOptions);
+
+        // Optional: Verify transporter success (only logs error)
+        NodeMailer.transporter.verify((error) => {
+            if (error) {
+                console.log(error);
+                throw new CustomError('Error while sending OTP', 500);
+            }
+        });
+
+        // Commit the transaction if everything is successful
+        await session.commitTransaction();
+
+        // Return success message
+        res.status(200).json({
+            message: 'OTP sent successfully. Please check your email for verification.',
+            store: storeByEmail._id,
+        });
+    } catch (err) {
+        // Abort the transaction in case of an error
+        await session.abortTransaction();
+        console.log(err);
+        return next(new CustomError('Error while processing the request. Try again', 500));
+    } finally {
+        session.endSession(); // End session whether success or failure
+    }
+});
+//verifie email otp for store
+const VerifyStoreOTP = asyncErrorHandler(async (req, res, next) => {
+    const { store, otp } = req.body;
+    // Validation
+    if (!otp || !store || !mongoose.Types.ObjectId.isValid(store)) {
+        return next(new CustomError('Store ID and OTP are required', 400));
+    }
+
+    // Start a session for transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        // Find the OTP linked to the store
+        const otpRecord = await EmailOTPVerification.findOne({ store: store });
+
+        // Check if OTP record exists
+        if (!otpRecord) {
+            return next(new CustomError('OTP not found', 400));
+        }
+
+        // Check if OTP has expired
+        const currentTime = moment().utc();
+        if (currentTime.isAfter(otpRecord.expiresAt)) {
+            return next(new CustomError('OTP has expired', 400));
+        }
+
+        // Compare provided OTP with stored OTP (hashed)
+        const isMatch = await bcrypt.comparePassword(otp.toString(), otpRecord.otp);
+        if (!isMatch) {
+            return next(new CustomError('Invalid OTP', 400));
+        }
+
+        // OTP is valid - Update the store status and delete the OTP in a transaction
+        const storeUpdate = await Store.findByIdAndUpdate(
+            store,
+            { emailVerification: true },
+            { session }
+        );
+
+        if (!storeUpdate) {
+            throw new CustomError('Error while updating store email verification', 500);
+        }
+
+        // Delete the OTP record
+        const otpDeletion = await EmailOTPVerification.deleteOne({ store: store }).session(session);
+        
+        if (!otpDeletion.deletedCount) {
+            throw new CustomError('Error while deleting OTP record', 500);
+        }
+
+        // Commit the transaction if both operations succeed
+        await session.commitTransaction();
+        session.endSession();
+
+        // Return success message
+        res.status(200).json({
+            message: 'OTP verified successfully. Store email is now verified.',
+        });
+    } catch (err) {
+        // Abort the transaction in case of any error
+        await session.abortTransaction();
+        session.endSession();
+        console.log(err);
+        return next(new CustomError('Error during OTP verification. Try again', 500));
+    }
 });
 
 //singup store
@@ -716,47 +692,8 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
     }
 });
 
-//send email OTP verification
-const sendEmailOTPVerification = asyncErrorHandler(async ({ store, email }, res, next) => {
-    // Generate OTP (4-digit random number)
-    const otp = Math.floor(1000 + Math.random() * 9000);
 
-    // Email options
-    const mailOptions = {
-        from: process.env.AUTH_EMAIL,
-        to: email,
-        subject: 'Email Verification',
-        text: `Your OTP is ${otp}`,
-    };
 
-    // Hash the OTP
-    const hashOTP = await bcrypt.hashPassword(otp.toString());
-
-    // Set timezone and get the current time
-    const timezone = 'Africa/Algiers';
-    const currentTime = moment.tz(timezone);
-
-    // Save OTP in the database with an expiry time of 1 hour
-    const newOTP = await EmailOTPVerification.create({
-        store: store, // Assuming you want to link OTP with the store ID
-        otp: hashOTP,
-        createdAt: currentTime.toDate(),
-        expiresAt: currentTime.add(1, 'hour').toDate(), // Expires after 1 hour
-    });
-
-    // Check if the OTP was saved successfully
-    if (!newOTP) {
-        return next(new CustomError('Error while saving OTP in the database', 500));
-    }
-
-    // Send the OTP email
-    await NodeMailer.transporter.sendMail(mailOptions);
-
-    // Return success message
-    res.status(200).json({
-        message: 'OTP sent successfully. Please check your email for verification.',
-    });
-});
 
 
 module.exports = {
@@ -764,9 +701,9 @@ module.exports = {
     SignInStore,
     SignInClient,
     SignUpStore,
+    VerifyStoreOTP,
+    SignUpUpdateStore,
     SignUpClient,
-    SignIn,
-    SignUp,
     CreateNewClientForAStore,
     CreateNewSellerForAStore
 }

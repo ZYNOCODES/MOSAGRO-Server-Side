@@ -10,12 +10,11 @@ const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 
+//get all Categorys
+router.get('/', GetAllCategorys);
+
 //secure routes below
 router.use(requireAuth);
-
-// SHARED_API routes below
-//get all Categorys
-router.get('/', checkAuthrozation([process.env.ADMIN_TYPE, process.env.CLIENT_TYPE]), GetAllCategorys);
 
 // STORE_API routes below
 //get all Categorys for store

@@ -3,23 +3,28 @@ const mongoose = require('mongoose');
 const storeSchema = new mongoose.Schema({
     code: {
         type: String,
-        required: true
+        required: false,
+        default: null
     },
     password: {
         type: String,
-        required: true
+        required: false,
+        default: null
     },
     firstName: {
         type: String,
-        required: true
+        required: false,
+        default: null
     },
     lastName: {
         type: String,
-        required: true
+        required: false,
+        default: null
     },
     phoneNumber: {
         type: String,
-        required: true
+        required: false,
+        default: null
     },
     phoneVerification: {
         type: Boolean,
@@ -38,7 +43,8 @@ const storeSchema = new mongoose.Schema({
     },
     storeName: {
         type: String,
-        required: true
+        required: false,
+        default: null
     },
     storeAddress: {
         type: String,
@@ -52,15 +58,18 @@ const storeSchema = new mongoose.Schema({
     },
     wilaya:{
         type: Number,
-        required: true
+        required: false,
+        default: null
     },
     commune:{
         type: Number,
-        required: true
+        required: false,
+        default: null
     },
     r_commerce:{
         type: String,
-        required: true
+        required: false,
+        default: null
     },
     status:{
         type: String,
