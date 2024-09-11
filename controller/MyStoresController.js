@@ -5,6 +5,7 @@ const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const CitiesService = require('../service/CitiesService.js')
 const StoreService = require('../service/StoreService.js');
 const ClientService = require('../service/ClientService.js');
+const validator = require('validator');
 
 //fetch all MyStores
 const GetAllMyStoresbyUser = asyncErrorHandler(async (req, res, next) => {
@@ -274,8 +275,12 @@ const RejectUserToAccessStore = asyncErrorHandler(async (req, res, next) => {
 //make a user a seller
 const MakeUserSeller = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { user } = req.body;
-    if (!id || !user || !mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(user)) {
+    const { user, isSeller } = req.body;
+    if (!id || !user || isSeller == null ||
+        !mongoose.Types.ObjectId.isValid(id) || 
+        !mongoose.Types.ObjectId.isValid(user) ||
+        !validator.isBoolean(isSeller.toString())
+    ) {
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
@@ -286,22 +291,29 @@ const MakeUserSeller = asyncErrorHandler(async (req, res, next) => {
         status: 'approved'
     });
     if(!myStore){
-        const err = new CustomError('User not found in your list', 400);
+        const err = new CustomError('Client not found in your list', 400);
         return next(err);
     }
     //check if user is already approved in store
-    if(myStore.isSeller){
-        const err = new CustomError('User already a seller', 400);
+    if(myStore.isSeller == true && isSeller == true){
+        const err = new CustomError('Client already a seller', 400);
+        return next(err);
+    }else if(myStore.isSeller == false && isSeller == false){
+        const err = new CustomError('Client already not a seller', 400);
         return next(err);
     }
+
     //approve user to access store
-    myStore.isSeller = true;
+    myStore.isSeller = isSeller;
     const updatedMyStore = await myStore.save();
     if(!updatedMyStore){
-        const err = new CustomError('Error while making user a seller', 400);
+        const err = new CustomError('Error while updating client selling option', 400);
         return next(err);
     }
-    res.status(200).json({message: 'User is now a seller'});
+    res.status(200).json({message: `${myStore.isSeller ? 
+        'Client is now a seller' :
+        'Client is now a simple customer'
+    }`});
 });
 //delete store from myStores
 const DeleteStoreFromMyStores = asyncErrorHandler(async (req, res, next) => {
