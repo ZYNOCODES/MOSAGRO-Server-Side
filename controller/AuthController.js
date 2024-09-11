@@ -174,14 +174,14 @@ const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
     }
 
     // Check if the store exists and is not verified
-    const NonVerifiedStore = await Store.findOne({
-        _id: id,
-        emailVerification: false,
-    });
+    // const NonVerifiedStore = await Store.findOne({
+    //     _id: id,
+    //     emailVerification: false,
+    // });
 
-    if (NonVerifiedStore) {
-        return next(new CustomError('Store not found. Please check your details or sign up.', 404));
-    }
+    // if (NonVerifiedStore) {
+    //     return next(new CustomError('Store not found. Please check your details or sign up.', 404));
+    // }
 
     // If the store is verified, it's likely that the user has already signed up, prompt them to log in
     const existStore = await Store.findOne({
@@ -192,6 +192,16 @@ const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
 
     if (existStore) {
         return next(new CustomError('Account already verified. Please log in.', 400));
+    }
+
+    const newExistStore = await Store.findOne({
+        _id: id,
+        emailVerification: true,
+        password: null,
+    });
+
+    if (!newExistStore) {
+        return next(new CustomError('Store not found. Please check your details or sign up.', 404));
     }
 
     //check if Category exist
@@ -218,19 +228,19 @@ const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
     //update
-    existStore.code = code;
-    existStore.password = hash;
-    existStore.firstName = FirstName;
-    existStore.lastName = LastName;
-    existStore.storeAddress = Address;
-    existStore.storeName = storeName;
-    existStore.storeLocation = null;
-    existStore.wilaya = Wilaya;
-    existStore.commune = Commune;
-    existStore.r_commerce = R_Commerce;
-    existStore.categories = [existCategory._id];
+    newExistStore.code = code;
+    newExistStore.password = hash;
+    newExistStore.firstName = FirstName;
+    newExistStore.lastName = LastName;
+    newExistStore.storeAddress = Address;
+    newExistStore.storeName = storeName;
+    newExistStore.storeLocation = null;
+    newExistStore.wilaya = Wilaya;
+    newExistStore.commune = Commune;
+    newExistStore.r_commerce = R_Commerce;
+    newExistStore.categories = [existCategory._id];
 
-    const updatedStore = await existStore.save();
+    const updatedStore = await newExistStore.save();
     if(!updatedStore){
         const err = new CustomError('Error while creating new store. try again', 400);
         return next(err);
