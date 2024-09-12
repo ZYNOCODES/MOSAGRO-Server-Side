@@ -162,91 +162,69 @@ const SignInClient = asyncErrorHandler(async (req, res, next) => {
 //update singup store
 const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const {Password, FirstName, LastName, Category,
-        Wilaya, Commune, R_Commerce, Address, storeName} = req.body;
-    //check if all required fields are provide
-    if ([id, Password, FirstName, LastName, Address, Category,
-        storeName, Wilaya, Commune, R_Commerce].some(
-            field => !field || validator.isEmpty(field.toString())
-        )) {
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
+    const { Password, FirstName, LastName, Category, Wilaya, Commune, R_Commerce, Address, storeName } = req.body;
+
+    // Validate required fields
+    if ([id, Password, FirstName, LastName, Address, Category, storeName, Wilaya, Commune, R_Commerce].some(field => !field || validator.isEmpty(field.toString()))) {
+        return next(new CustomError('All fields are required', 400));
     }
 
-    // Check if the store exists and is not verified
-    // const NonVerifiedStore = await Store.findOne({
-    //     _id: id,
-    //     emailVerification: false,
-    // });
-
-    // if (NonVerifiedStore) {
-    //     return next(new CustomError('Store not found. Please check your details or sign up.', 404));
-    // }
-
-    // If the store is verified, it's likely that the user has already signed up, prompt them to log in
-    const existStore = await Store.findOne({
-        _id: id,
-        emailVerification: true,
-        password: { $ne: null },
+    // Check if the store is already verified and has a password (indicating a signed-up account)
+    const existingStore = await Store.findOne({ 
+        _id: id, 
+        emailVerification: true 
     });
-
-    if (existStore) {
+    
+    if (!existingStore) {
+        return next(new CustomError('Store not found. Please check your details or sign up.', 404));
+    }
+    
+    if (existingStore.password) {
         return next(new CustomError('Account already verified. Please log in.', 400));
     }
 
-    const newExistStore = await Store.findOne({
-        _id: id,
-        emailVerification: true,
-        password: null,
-    });
-
-    if (!newExistStore) {
-        return next(new CustomError('Store not found. Please check your details or sign up.', 404));
-    }
-
-    //check if Category exist
+    // Check if the category exists
     const existCategory = await CategoryService.findCategoryById(Category);
-    if(!existCategory){
-        const err = new CustomError('Category not found', 404);
-        return next(err);
+    if (!existCategory) {
+        return next(new CustomError('Category not found', 404));
     }
 
-    //check if the wilaya and commun exist
+    // Check if the wilaya and commune exist
     const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
-    if(!existWilaya){
-        const err = new CustomError('the wilaya and its commune is incorrect', 404);
-        return next(err);
+    if (!existWilaya) {
+        return next(new CustomError('The wilaya and its commune are incorrect', 404));
     }
-    
-    //hash password
-    const hash = await bcrypt.hashPassword(Password);
-    //generate codification for a user
-    const code = await Codification.StoreCode(existWilaya.codeC, "S");
-    //check if the user already exist with that code
-    if(code == null){
-        const err = new CustomError('Code already existe. try again', 404);
-        return next(err);
-    }
-    //update
-    newExistStore.code = code;
-    newExistStore.password = hash;
-    newExistStore.firstName = FirstName;
-    newExistStore.lastName = LastName;
-    newExistStore.storeAddress = Address;
-    newExistStore.storeName = storeName;
-    newExistStore.storeLocation = null;
-    newExistStore.wilaya = Wilaya;
-    newExistStore.commune = Commune;
-    newExistStore.r_commerce = R_Commerce;
-    newExistStore.categories = [existCategory._id];
 
-    const updatedStore = await newExistStore.save();
-    if(!updatedStore){
-        const err = new CustomError('Error while creating new store. try again', 400);
-        return next(err);
+    // Hash the password
+    const hash = await bcrypt.hashPassword(Password);
+
+    // Generate a unique codification for the store
+    const storeCode = await Codification.StoreCode(existWilaya.codeC, "S");
+    if (!storeCode) {
+        return next(new CustomError('Error generating store code. Please try again', 500));
     }
-    //return store
-    res.status(200).json({message: 'Store created successfully'});
+
+    // Update the store data
+    existingStore.password = hash;
+    existingStore.firstName = FirstName;
+    existingStore.lastName = LastName;
+    existingStore.storeAddress = Address;
+    existingStore.storeName = storeName;
+    existingStore.storeLocation = null; // Reset location as null (if needed)
+    existingStore.wilaya = Wilaya;
+    existingStore.commune = Commune;
+    existingStore.r_commerce = R_Commerce;
+    existingStore.categories = [existCategory._id];
+    existingStore.code = storeCode;
+
+    // Save the updated store
+    const updatedStore = await existingStore.save();
+    if (!updatedStore) {
+        return next(new CustomError('Error while updating store. Please try again', 500));
+    }
+
+    // Return success response
+    res.status(200).json({ message: 'Store updated successfully' });
 });
 //singup store by sending email otp verification
 const SignUpStore = asyncErrorHandler(async (req, res, next) => {
