@@ -12,10 +12,11 @@ const {
     GetAllReceiptsByClientForStore,
     UpdateReceiptProductPrice,
     GetAlldeliveredReceiptsByStoreCredited,
-    AddPaumentToCreditReceipt,
+    AddPaymentToReceipt,
+    AddFullPaymentToReceipt,
     GetStatisticsForStoreClient,
-    updateReceiptStatus,
-    MakeItCredited
+    UpdateReceiptCredited,
+    UpdateReceiptDiposit
 } = require('../controller/ReceiptController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
@@ -44,15 +45,17 @@ router.patch('/updateExpectedDeliveryDate/:id', checkAuthrozation([process.env.S
 //update product price
 router.patch('/updateProductPrice/:store', checkAuthrozation([process.env.STORE_TYPE]), UpdateReceiptProductPrice);
 //add payment to receipt credit
-router.patch('/addPaymentToCredit/:id', checkAuthrozation([process.env.STORE_TYPE]), AddPaumentToCreditReceipt);
+router.patch('/payment/:id', checkAuthrozation([process.env.STORE_TYPE]), AddPaymentToReceipt);
+//add payment to receipt credit
+router.patch('/full/payment/:id', checkAuthrozation([process.env.STORE_TYPE]), AddFullPaymentToReceipt);
 //create new receipt from store
 router.post('/store/:store', checkAuthrozation([process.env.STORE_TYPE]), CreateReceiptFromStore);
 // Getting statistics for a specific store and client
 router.get('/statistics/:store/:client', checkAuthrozation([process.env.STORE_TYPE]), GetStatisticsForStoreClient);
-// update receipt status to -1
-router.patch('/status-1/:id', checkAuthrozation([process.env.STORE_TYPE]), updateReceiptStatus);
-// make it credited
-router.patch('/credited/:id', checkAuthrozation([process.env.STORE_TYPE]), MakeItCredited);
+// update receipt deposit
+router.patch('/deposit/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateReceiptDiposit);
+// mupdate receipt credit
+router.patch('/credit/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateReceiptCredited);
 
 // Client_API routes
 //create new receipt

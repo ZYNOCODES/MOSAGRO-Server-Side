@@ -456,6 +456,10 @@ const UpdatePurchaseCredited = asyncErrorHandler(async (req, res, next) => {
     }
 
     //update
+    if(credited === false){
+        // Clear the payment array first
+        existPurchase.payment = [];
+    }
     existPurchase.credit = credited;
 
     // Update Purchase
@@ -534,7 +538,7 @@ const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     // Find the existing purchase
     const existPurchase = await Purchase.findOne({
         _id: id,
-        store: store
+        store: store,
     }).populate({
         path: 'stock',
         select: 'stock buying quantity',
@@ -546,34 +550,24 @@ const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
 
     //check if the purchase is closed
     if (existPurchase.closed) {
-        const err = new CustomError('Your purchase is closed once everything is paid.', 400);
+        const err = new CustomError('You purchase is closed once everything is paid.', 400);
         return next(err);
     }
 
-    // Check if the purchase is on credit
-    if (existPurchase.credit) {
-        // Check if the total amount and sum of existing payments are considered
-        const totalPayments = existPurchase.payment.reduce((sum, payment) => sum + payment.amount, 0);
-        if (totalPayments + Number(amount) > Number(existPurchase.totalAmount)) {
-            const err = new CustomError('Payment amount exceeds the total amount due', 400);
-            return next(err);
-        }
-        if(totalPayments + Number(amount) == Number(existPurchase.totalAmount)){
-            existPurchase.closed = true;
-        }
-    } else {
-        // If not credit, the payment must match the total amount exactly
-        if (Number(amount) != Number(existPurchase.totalAmount)) {
-            const err = new CustomError('Payment amount must match the total amount due', 400);
-            return next(err);
-        }
-        if(Number(amount) == Number(existPurchase.totalAmount)){
-            existPurchase.closed = true;
-        }else{
-            const err = new CustomError('Payment amount must match the total amount due', 400);
-            return next(err);
-        }
+    //check if the purchase is credited
+    if (existPurchase.credit == false) {
+        const err = new CustomError('Your can\'t add payment because this purchase is not credited', 400);
+        return next(err);
+    }
 
+    // Check if the total amount and sum of existing payments are considered
+    const totalPayments = existPurchase.payment.reduce((sum, payment) => sum + payment.amount, 0);
+    if (totalPayments + Number(amount) > Number(existPurchase.totalAmount)) {
+        const err = new CustomError('Payment amount exceeds the total amount due', 400);
+        return next(err);
+    }
+    if(totalPayments + Number(amount) == Number(existPurchase.totalAmount)){
+        existPurchase.closed = true;
     }
 
     // Add the payment to the purchase
@@ -614,7 +608,7 @@ const AddFullPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     // Find the existing purchase
     const existPurchase = await Purchase.findOne({
         _id: id,
-        store: store
+        store: store,
     });
     if (!existPurchase) {
         const err = new CustomError('Purchase not found', 404);
@@ -627,6 +621,12 @@ const AddFullPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
 
+    //check if the purchase is credited
+    if (existPurchase.credit == true) {
+        const err = new CustomError('You can\'t add full payment because this purchase is credited', 400);
+        return next(err);
+    }
+
     // Clear the payment array first
     existPurchase.payment = [];
     // Add the payment to the purchase
@@ -635,6 +635,9 @@ const AddFullPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
         amount: Number(existPurchase.totalAmount)
     });
     existPurchase.closed = true;
+    existPurchase.deposit = false;
+    existPurchase.credit = false;
+
 
     // Save the updated purchase
     const updatedPurchase = await existPurchase.save();

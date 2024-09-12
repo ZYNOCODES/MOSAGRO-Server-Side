@@ -78,6 +78,11 @@ const receiptSchema = new mongoose.Schema({
         required: true,
         default: false
     },
+    deposit:{
+        type: Boolean,
+        require: true,
+        default: false
+    },
     payment:[
         {
             date:{
