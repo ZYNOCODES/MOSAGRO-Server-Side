@@ -6,8 +6,10 @@ const {
     GetAllCreditedPurchases,
     GetAllNewPurchases,
     GetAllPurchasesByFournisseurForSpecificStore,
-    MakePurchaseCredited,
+    UpdatePurchaseCredited,
+    UpdatePurchaseDeposit,
     AddPaymentToPurchase,
+    AddFullPaymentToPurchase,
     DeletePurchase,
     GetStatisticsForStoreFournisseur
 } = require('../controller/PurchaseController');
@@ -22,7 +24,7 @@ router.use(requireAuth);
 //create new Purchase by store
 router.post('/create/:store', checkAuthrozation([process.env.STORE_TYPE]), CreatePurchase);
 //get specific Purchase
-router.get('/:id', checkAuthrozation([process.env.STORE_TYPE]), GetPurchaseByID);
+router.get('/:id/:store', checkAuthrozation([process.env.STORE_TYPE]), GetPurchaseByID);
 //get all Purchases non credited by store
 router.get('/all/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllClosedPurchases);
 //get all Purchases credited by store
@@ -31,12 +33,16 @@ router.get('/all/credited/:store', checkAuthrozation([process.env.STORE_TYPE]), 
 router.get('/all/new/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllNewPurchases);
 //get all Purchases by fournisseur for specific store
 router.get('/all/:store/:fournisseur', checkAuthrozation([process.env.STORE_TYPE]), GetAllPurchasesByFournisseurForSpecificStore);
-//update a specific Purchase
-router.patch('/credit/:id', checkAuthrozation([process.env.STORE_TYPE]), MakePurchaseCredited);
+//update a specific Purchase credited
+router.patch('/credit/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdatePurchaseCredited);
+//update a specific Purchase deposit
+router.patch('/deposit/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdatePurchaseDeposit);
 //add payment to a specific purchase
 router.patch('/payment/:id', checkAuthrozation([process.env.STORE_TYPE]), AddPaymentToPurchase);
+//add payment to a specific purchase
+router.patch('/full/payment/:id', checkAuthrozation([process.env.STORE_TYPE]), AddFullPaymentToPurchase);
 //delete a specific purchase
-router.delete('/:id', checkAuthrozation([process.env.STORE_TYPE]), DeletePurchase);
+router.delete('/:id/:store', checkAuthrozation([process.env.STORE_TYPE]), DeletePurchase);
 // Getting statistics for a specific store and fournisseur
 router.get('/statistics/:store/:fournisseur', checkAuthrozation([process.env.STORE_TYPE]), GetStatisticsForStoreFournisseur);
 

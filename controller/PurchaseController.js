@@ -9,9 +9,8 @@ const ProductService = require('../service/ProductService.js');
 const PurchaseService = require('../service/PurchaseService.js');
 const StockService = require('../service/StockService.js');
 const StockStatusService = require('../service/StockStatusService.js');
-
+const CitiesService = require('../service/CitiesService.js');
 const moment = require('moment');
-const path = require('path');
 require('moment-timezone');
 
 //create a new Purchase
@@ -89,8 +88,8 @@ const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
         if (Number(totalAmount) != Number(amount)) {
             throw new CustomError('The total amount does not match the sum of the products', 400);
         }
-
-        const currentDateTime = moment.tz('Africa/Algiers').format();
+        // Set to UTC time zone
+        const currentDateTime = moment().utc(1); // Ensures UTC+1
         let stockStatusIDs = [];
         for (const product of productDetails) {
             const stock = await StockService.findStockByStoreAndProduct(store, product.productID);
@@ -158,6 +157,7 @@ const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
             totalAmount: totalAmount,
             credit: false,
             closed: false,
+            deposit: false,
             stock: stockStatusIDs,
         }], { session });
 
@@ -179,25 +179,31 @@ const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
 
 //fetch all Purchases
 const GetPurchaseByID = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    if(!id || !mongoose.Types.ObjectId.isValid(id)){
+    const { id, store } = req.params;
+    if(!id || !store ||
+        !mongoose.Types.ObjectId.isValid(id) ||
+        !mongoose.Types.ObjectId.isValid(store)
+    ){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
 
     //get all purchases by store
-    const purchase = await Purchase.findById(id).populate({
+    const purchase = await Purchase.findOne({
+        _id: id,
+        store: store
+    }).populate({
         path: 'fournisseur',
-        select: 'firstName lastName'
+        select: 'firstName lastName phoneNumber address wilaya commune'
     }).populate({
         path: 'stock',
-        select: 'stock',
+        select: 'stock buying quantity',
         populate: {
             path: 'stock',
-            select: 'buying quantity product',
+            select: 'product',
             populate: {
                 path: 'product',
-                select: 'name size brand',
+                select: 'name size brand boxItems',
                 populate: {
                     path: 'brand',
                     select: 'name'
@@ -206,13 +212,27 @@ const GetPurchaseByID = asyncErrorHandler(async (req, res, next) => {
         }
     });
 
-    //check if purchases found
-    if(!purchase){
-        const err = new CustomError('Purchase not found', 404);
-        return next(err);
+    // Check if the purchase exists
+    if (!purchase) {
+        return next(new CustomError('Purchase not found', 404));
     }
 
-    res.status(200).json(purchase);
+    // Convert purchase to a plain object to make modifications
+    const purchaseObj = purchase.toObject();
+
+    // Fetch wilaya and commune details
+    if (purchaseObj.fournisseur.wilaya && purchaseObj.fournisseur.commune) {
+        const cities = await CitiesService.findCitiesFRByCodeC(purchaseObj.fournisseur.wilaya, purchaseObj.fournisseur.commune);
+
+        if (cities) {
+            // Overwrite wilaya and commune in the purchase object with the city names
+            purchaseObj.fournisseur.wilaya = cities.wilaya;
+            purchaseObj.fournisseur.commune = cities.baladiya;
+        }
+    }
+
+    // Return the updated purchase object with the modified values
+    res.status(200).json(purchaseObj);
 });
 
 //fetch all Purchases
@@ -239,10 +259,10 @@ const GetAllClosedPurchases = asyncErrorHandler(async (req, res, next) => {
         select: 'firstName lastName'
     }).populate({
         path: 'stock',
-        select: 'stock',
+        select: 'stock buying quantity',
         populate: {
             path: 'stock',
-            select: 'buying quantity product',
+            select: 'product',
             populate: {
                 path: 'product',
                 select: 'name size brand',
@@ -288,10 +308,10 @@ const GetAllCreditedPurchases = asyncErrorHandler(async (req, res, next) => {
         select: 'firstName lastName'
     }).populate({
         path: 'stock',
-        select: 'stock',
+        select: 'stock buying quantity',
         populate: {
             path: 'stock',
-            select: 'buying quantity product',
+            select: 'product',
             populate: {
                 path: 'product',
                 select: 'name size brand',
@@ -338,10 +358,10 @@ const GetAllNewPurchases = asyncErrorHandler(async (req, res, next) => {
         select: 'firstName lastName'
     }).populate({
         path: 'stock',
-        select: 'stock',
+        select: 'stock buying quantity',
         populate: {
             path: 'stock',
-            select: 'buying quantity product',
+            select: 'product',
             populate: {
                 path: 'product',
                 select: 'name size brand',
@@ -412,28 +432,31 @@ const GetAllPurchasesByFournisseurForSpecificStore = asyncErrorHandler(async (re
     res.status(200).json(purchases);
 });
 
-//update Purchase
-const MakePurchaseCredited = asyncErrorHandler(async (req, res, next) => {
+//update Purchase Credit
+const UpdatePurchaseCredited = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { credited } = req.body;
-    if(!id || !mongoose.Types.ObjectId.isValid(id)){
+    const { credited, store } = req.body;
+    if(!id || !store ||
+        !mongoose.Types.ObjectId.isValid(id) ||
+        !mongoose.Types.ObjectId.isValid(store)
+    ){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
-    if(!validator.isBoolean(credited)){
+    if(!validator.isBoolean(credited.toString())){
         const err = new CustomError('Enter a valid value', 400);
         return next(err);
     }
 
     //check if the purchase exist
-    const existPurchase = await PurchaseService.findPurchaseById(id);
+    const existPurchase = await PurchaseService.findPurchaseByIdAndStore(id, store);
     if(!existPurchase){
         const err = new CustomError('Purchase not found', 404);
         return next(err);
     }
 
     //update
-    if (validator.isBoolean(credited)) existPurchase.credit = credited;
+    existPurchase.credit = credited;
 
     // Update Purchase
     const updatedPurchase = await existPurchase.save();
@@ -444,20 +467,61 @@ const MakePurchaseCredited = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
 
-    res.status(200).json({ message: 'Purchase updated successfully' });
+    res.status(200).json({ message: `Purchase now is ${credited ? "" : "not "}credited` });
+});
+
+//update Purchase Deposit
+const UpdatePurchaseDeposit = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const { deposit, store  } = req.body;
+    if(!id || !store ||
+        !mongoose.Types.ObjectId.isValid(id) ||
+        !mongoose.Types.ObjectId.isValid(store)
+    ){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+    if(!validator.isBoolean(deposit.toString())){
+        const err = new CustomError('Enter a valid value', 400);
+        return next(err);
+    }
+
+    //check if the purchase exist
+    const existPurchase = await PurchaseService.findPurchaseByIdAndStore(id, store);
+    if(!existPurchase){
+        const err = new CustomError('Purchase not found', 404);
+        return next(err);
+    }
+
+    //update
+    existPurchase.deposit = deposit;
+
+    // Update Purchase
+    const updatedPurchase = await existPurchase.save();
+
+    // Check if Purchase updated successfully
+    if (!updatedPurchase) {
+        const err = new CustomError('Error while updating purchase, try again.', 400);
+        return next(err);
+    }
+
+    res.status(200).json({ message: `Purchase now is ${deposit ? "" : "not "}deposit` });
 });
 
 //add payments tp purchase
 const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { amount } = req.body;
+    const { amount, store } = req.body;
     
     // Get current date with Algiers timezone
-    const currentDateTime = moment.tz('Africa/Algiers').format();
+    const currentDateTime = moment().utc(1); // Ensures UTC+1
 
     // Validate ID
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        const err = new CustomError('Invalid Purchase ID', 400);
+    if(!id || !store ||
+        !mongoose.Types.ObjectId.isValid(id) ||
+        !mongoose.Types.ObjectId.isValid(store)
+    ){
+        const err = new CustomError('All fields are required', 400);
         return next(err);
     }
 
@@ -468,7 +532,10 @@ const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     }
 
     // Find the existing purchase
-    const existPurchase = await Purchase.findById(id).populate({
+    const existPurchase = await Purchase.findOne({
+        _id: id,
+        store: store
+    }).populate({
         path: 'stock',
         select: 'stock buying quantity',
     });
@@ -527,17 +594,75 @@ const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json({ message: 'Payment added successfully' });
 });
 
-//delete Purchase
-const DeletePurchase = asyncErrorHandler(async (req, res, next) => {
+//add payments tp purchase
+const AddFullPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
+    const { store } = req.body;
+    
+    // Get current date with Algiers timezone
+    const currentDateTime = moment().utc(1); // Ensures UTC+1
 
     // Validate ID
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        return next(new CustomError('Invalid purchase ID provided.', 400));
+    if(!id || !store ||
+        !mongoose.Types.ObjectId.isValid(id) ||
+        !mongoose.Types.ObjectId.isValid(store)
+    ){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+
+    // Find the existing purchase
+    const existPurchase = await Purchase.findOne({
+        _id: id,
+        store: store
+    });
+    if (!existPurchase) {
+        const err = new CustomError('Purchase not found', 404);
+        return next(err);
+    }
+
+    //check if the purchase is closed
+    if (existPurchase.closed) {
+        const err = new CustomError('Your purchase is already closed', 400);
+        return next(err);
+    }
+
+    // Clear the payment array first
+    existPurchase.payment = [];
+    // Add the payment to the purchase
+    existPurchase.payment.push({
+        date: currentDateTime,
+        amount: Number(existPurchase.totalAmount)
+    });
+    existPurchase.closed = true;
+
+    // Save the updated purchase
+    const updatedPurchase = await existPurchase.save();
+
+    // Check if the purchase was updated successfully
+    if (!updatedPurchase) {
+        const err = new CustomError('Error while adding a full payment, try again.', 400);
+        return next(err);
+    }
+
+    res.status(200).json({ message: 'Full payment added successfully' });
+});
+
+//delete Purchase
+const DeletePurchase = asyncErrorHandler(async (req, res, next) => {
+    const { id, store } = req.params;
+
+    // Validate ID
+    if(!id || !store ||
+        !mongoose.Types.ObjectId.isValid(id) ||
+        !mongoose.Types.ObjectId.isValid(store)
+    ){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
     }
 
     // Check if Purchase exists
-    const existPurchase = await PurchaseService.findPurchaseById(id);
+    const existPurchase = await PurchaseService.findPurchaseByIdAndStore(id, store);
     if (!existPurchase) {
         return next(new CustomError('Purchase not found', 404));
     }
@@ -612,8 +737,10 @@ module.exports = {
     GetAllCreditedPurchases,
     GetAllNewPurchases,
     GetAllPurchasesByFournisseurForSpecificStore,
-    MakePurchaseCredited,
+    UpdatePurchaseCredited,
+    UpdatePurchaseDeposit,
     AddPaymentToPurchase,
+    AddFullPaymentToPurchase,
     DeletePurchase,
     GetStatisticsForStoreFournisseur
 }

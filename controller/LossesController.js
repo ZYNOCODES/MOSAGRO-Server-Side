@@ -35,7 +35,7 @@ const CreateLoss = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const { stock, quantity, price, reason } = req.body;
     //get current date
-    const currentDateTime = moment.tz('Africa/Algiers').format();
+    const currentDateTime = moment().utc(1); // Ensures UTC+1
     // Validate required fields
     if (!store || !mongoose.Types.ObjectId.isValid(store) || !price || !reason) {
         return next(new CustomError('All fields are required', 400));

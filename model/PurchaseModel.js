@@ -29,6 +29,11 @@ const PurchaseSchema = new mongoose.Schema({
         required: true,
         default: false
     },
+    deposit:{
+        type: Boolean,
+        required: true,
+        default: false
+    },
     payment:[
         {
             date:{

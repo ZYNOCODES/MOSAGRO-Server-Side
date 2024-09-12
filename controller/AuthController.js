@@ -98,7 +98,8 @@ const SignInStore = asyncErrorHandler(async (req, res, next) => {
         return next(new CustomError(errorMessage, 400));
     } else if (user.status == 'Active') {
         const timezone = 'Africa/Algiers';
-        const currentTime = moment.tz(timezone);
+        // Set to UTC time zone
+        const currentTime = moment().utc(1); // Ensures UTC+0
         // Get subscription details
         const subscription = await SubscriptionStore.findById(user.subscriptions[user.subscriptions.length - 1]);
         if (!subscription) {
@@ -365,7 +366,7 @@ const VerifyStoreOTP = asyncErrorHandler(async (req, res, next) => {
         }
 
         // Check if OTP has expired
-        const currentTime = moment().utc();
+        const currentTime = moment().utc(1);
         if (currentTime.isAfter(otpRecord.expiresAt)) {
             return next(new CustomError('OTP has expired', 400));
         }

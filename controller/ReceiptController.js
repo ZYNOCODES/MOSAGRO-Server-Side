@@ -18,7 +18,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
     const { client } = req.params;
     const { store, products, total, deliveredLocation, type, deliveredAmount } = req.body;
     //get current date with algeire timezome
-    const currentDateTime = moment.tz('Africa/Algiers').format();
+    const currentDateTime = moment().utc(1); // Ensures UTC+1
 
     // Check if all fields are provided
     if (!store || !products || !total || !client || !type ||
@@ -175,7 +175,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const { client, products, total, deliveredLocation, type, deliveredAmount, deliveredExpectedDate } = req.body;
     //get current date with algeire timezome
-    const currentDateTime = moment.tz('Africa/Algiers').format();
+    const currentDateTime = moment().utc(1); // Ensures UTC+1
 
     // Check if all fields are provided
     if (!store || !products || !total || !client || !type ||
@@ -531,7 +531,7 @@ const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
         delivered: true,
         status: 3,
         credit: credit,
-        expextedDeliveryDate: moment.tz('Africa/Algiers').format()
+        expextedDeliveryDate: moment().utc(1) // Ensures UTC+1
     });
     // Check if receipt updated successfully
     if (!updatedreceipt) {
@@ -678,7 +678,7 @@ const AddPaumentToCreditReceipt = asyncErrorHandler(async (req, res, next) => {
     // Add new payment
     existingReceipt.payment.push({
         amount: parseFloat(payment),
-        date: moment.tz('Africa/Algiers').format(),
+        date: moment().utc(1) // Ensures UTC+1
     });
 
     // Check if the receipt is fully paid

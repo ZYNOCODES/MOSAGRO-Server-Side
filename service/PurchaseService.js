@@ -3,6 +3,12 @@ const Purchase = require('../model/PurchaseModel');
 const findPurchaseById = async (id) => {
     return await Purchase.findById(id);
 };
+const findPurchaseByIdAndStore = async (id, store) => {
+    return await Purchase.findOne({
+        _id: id, 
+        store: store
+    });
+};
 // Count all Purchases between store and fournisseur
 const countPurchasesByStoreAndFournisseur = async (storeId, fournisseurId) => {
     return await Purchase.countDocuments({ store: storeId, fournisseur: fournisseurId });
@@ -48,6 +54,7 @@ const sumPaymentsForCreditedUnpaidPurchases = async (storeId, fournisseurId) => 
 
 module.exports = {
     findPurchaseById,
+    findPurchaseByIdAndStore,
     countPurchasesByStoreAndFournisseur,
     sumAmountsForAllPurchases,
     sumPaymentsForAllPurchases,

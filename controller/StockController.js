@@ -52,7 +52,7 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
     }
 
     //get current datetime
-    const currentDateTime = moment.tz('Africa/Algiers').format();
+    const currentDateTime = moment().utc(1); // Ensures UTC+1
 
     const session = await mongoose.startSession();
     session.startTransaction();

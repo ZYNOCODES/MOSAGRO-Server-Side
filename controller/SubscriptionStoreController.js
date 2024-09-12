@@ -13,7 +13,7 @@ const mongoose = require('mongoose');
 //create a new brand
 const CreateSubsecriptionStore = asyncErrorHandler(async (req, res, next) => {
     const timezone = 'Africa/Algiers';
-    const currentTime = moment.tz(timezone);
+    const currentTime = moment().utc(1); // Ensures UTC+1
     const { Store, Subscription } = req.body;
     // check if all required fields are provided
     if(!Store || !Subscription){

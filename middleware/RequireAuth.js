@@ -10,7 +10,7 @@ require('moment-timezone');
 
 const requireAuth = asyncErrorHandler(async (req, res, next) => {
     const timezone = 'Africa/Algiers';
-    const currentTime = moment.tz(timezone);
+    const currentTime = moment().utc(1); // Ensures UTC+1
     // Check if User is logged in
     const {authorization} = req.headers;
     
