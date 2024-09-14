@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
 const Receipt = require('../model/ReceiptModel.js');
+const ReceiptStatus = require('../model/ReceiptStatusModel.js');
 const Stock = require('../model/StockModel');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
@@ -10,15 +11,14 @@ const { findStoreById } = require('../service/StoreService.js');
 const { findReceiptById, findNoneDeliveredReceiptByStore, findCreditedReceipt } = require('../service/ReceiptService.js');
 const { checkUserStore } = require('../service/MyStoreService.js');
 const ReceiptService = require('../service/ReceiptService.js');
-const moment = require('moment');
-require('moment-timezone');
+const moment = require('../util/Moment.js');
 
 //create a receipt
 const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
     const { client } = req.params;
     const { store, products, total, deliveredLocation, type, deliveredAmount } = req.body;
     //get current date with algeire timezome
-    const currentDateTime = moment().utc(1); // Ensures UTC+1
+    const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
 
     // Check if all fields are provided
     if (!store || !products || !total || !client || !type ||
@@ -79,56 +79,55 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
         var totalProfit = 0;
         //check if the all products exist
         for (const item of products) {
-            const existingProduct = await Stock.findOne({
+            const existingStock = await Stock.findOne({
                 _id: item.stock,
                 store: store
             }).populate({
                 path: 'product',
                 select: 'name'
             }).session(session);
-            if (!existingProduct) {
+            if (!existingStock) {
                 await session.abortTransaction();
                 session.endSession();
                 return next(new CustomError(`Product not found, clear all products and try again.`, 404));
             }
             //check if the product quantity is enough
-            if (existingProduct.quantity < item.quantity) {
+            if (existingStock.quantity < item.quantity) {
                 await session.abortTransaction();
                 session.endSession();
                 return next(
                     new CustomError(
-                    `This quantity ${item.quantity} of ${existingProduct.product.name} is no availble`,
+                    `This quantity ${item.quantity} of ${existingStock.product.name} is no availble`,
                     400)
                 );
             }
             //check if all price is equal to the selling price and threre is no manipulation
-            if (Number(existingProduct.selling) != Number(item.price)) {
+            if (Number(existingStock.selling) != Number(item.price)) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError(`This price ${item.price} of ${existingProduct.product.name} is not valid`,400));
+                return next(new CustomError(`This price ${item.price} of ${existingStock.product.name} is not valid`,400));
             }
             //check if Quantity limitation
-            if (existingProduct.quantityLimit > 0 &&
-                existingProduct.quantityLimit < item.quantity) {
+            if (existingStock.quantityLimit > 0 &&
+                existingStock.quantityLimit < item.quantity) {
                 await session.abortTransaction();
                 session.endSession();
                 return next(
                     new CustomError(
-                    `This quantity ${item.quantity} of ${existingProduct.product.name} is limited to ${existingProduct.quantityLimit} items maximum`,
+                    `This quantity ${item.quantity} of ${existingStock.product.name} is limited to ${existingStock.quantityLimit} items maximum`,
                     400)
                 );
             }
             //update stock quantity
-            // existingProduct.quantity -= item.quantity;
-            // await existingProduct.save({ session });
+            // existingStock.quantity -= item.quantity;
+            // await existingStock.save({ session });
             
             //calculate profit
             totalProfit += (
-                item.price - existingProduct.buying
+                item.price - existingStock.buying
             ) * item.quantity;
             //add product id to the product object
-            item.product = existingProduct.product;
-
+            item.product = existingStock.product;
         }
         // Check if the total profit is not negative
         if (totalProfit < 0) {
@@ -144,12 +143,27 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
             return next(new CustomError('Code already exists. Repeat the process', 405));
         }
 
+        // Create a new receipt status
+        const newReceiptStatus = await ReceiptStatus.create([
+            {
+                products: products,
+                date: currentDateTime
+            }
+        ], { session });
+        //check if new status was created
+        if (!newReceiptStatus || !newReceiptStatus[0]) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Error while creating new receipt status, try again.', 400));
+        }
+
+
         // Create a new receipt
-        await Receipt.create([{
+        const newReceipt = await Receipt.create([{
             code: code,
             store: store,
             client: client,
-            products: products,
+            products: [newReceiptStatus[0]._id],
             total: total,
             profit: totalProfit,
             date: currentDateTime,
@@ -157,7 +171,12 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
             deliveredLocation: type != 'delivery' ? null : deliveredLocation,
             delivered: false,
             status: 0
-        }], { session });        
+        }], { session }); 
+        if(!newReceipt || !newReceipt[0]){
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Error while creating new receipt, try again', 400));
+        }       
 
         await session.commitTransaction();
         session.endSession();
@@ -175,7 +194,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const { client, products, total, deliveredLocation, type, deliveredAmount, deliveredExpectedDate } = req.body;
     //get current date with algeire timezome
-    const currentDateTime = moment().utc(1); // Ensures UTC+1
+    const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
 
     // Check if all fields are provided
     if (!store || !products || !total || !client || !type ||
@@ -239,55 +258,55 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
         var totalProfit = 0;
         //check if the all products exist
         for (const item of products) {
-            const existingProduct = await Stock.findOne({
+            const existingStock = await Stock.findOne({
                 _id: item.stock,
                 store: store
             }).populate({
                 path: 'product',
                 select: 'name'
             }).session(session);
-            if (!existingProduct) {
+            if (!existingStock) {
                 await session.abortTransaction();
                 session.endSession();
                 return next(new CustomError(`Product not found, clear all products and try again.`, 404));
             }
             //check if the product quantity is enough
-            if (existingProduct.quantity < item.quantity) {
+            if (existingStock.quantity < item.quantity) {
                 await session.abortTransaction();
                 session.endSession();
                 return next(
                     new CustomError(
-                    `This quantity ${item.quantity} of ${existingProduct.product.name} is no availble`,
+                    `This quantity ${item.quantity} of ${existingStock.product.name} is no availble`,
                     400)
                 );
             }
             //check if all price is equal to the selling price and threre is no manipulation
-            if (Number(existingProduct.selling) != Number(item.price)) {
+            if (Number(existingStock.selling) != Number(item.price)) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError(`This price ${item.price} of ${existingProduct.product.name} is not valid`,400));
+                return next(new CustomError(`This price ${item.price} of ${existingStock.product.name} is not valid`,400));
             }
             //check if Quantity limitation
-            if (existingProduct.quantityLimit > 0 &&
-                existingProduct.quantityLimit < item.quantity) {
+            if (existingStock.quantityLimit > 0 &&
+                existingStock.quantityLimit < item.quantity) {
                 await session.abortTransaction();
                 session.endSession();
                 return next(
                     new CustomError(
-                    `This quantity ${item.quantity} of ${existingProduct.product.name} is limited to ${existingProduct.quantityLimit} items maximum`,
+                    `This quantity ${item.quantity} of ${existingStock.product.name} is limited to ${existingStock.quantityLimit} items maximum`,
                     400)
                 );
             }
             //update stock quantity
-            // existingProduct.quantity -= item.quantity;
-            // await existingProduct.save({ session });
+            // existingStock.quantity -= item.quantity;
+            // await existingStock.save({ session });
             
             //calculate profit
             totalProfit += (
-                item.price - existingProduct.buying
+                item.price - existingStock.buying
             ) * item.quantity;
             //add product id to the product object
-            item.product = existingProduct.product;
+            item.product = existingStock.product;
         }
         // Check if the total profit is not negative
         if (totalProfit < 0) {
@@ -303,12 +322,25 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
             return next(new CustomError('Code already exists. Repeat the process', 405));
         }
 
+        // Create a new receipt status
+        const newReceiptStatus = await ReceiptStatus.create([
+            {
+                products: products,
+                date: currentDateTime
+            }
+        ], { session });
+        //check if new status was created
+        if (!newReceiptStatus || !newReceiptStatus[0]) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Error while creating new receipt status, try again.', 400));
+        }
         // Create a new receipt
         const newReceipt = await Receipt.create([{
             code: code,
             store: store,
             client: client,
-            products: products,
+            products: [newReceiptStatus[0]._id],
             total: Number(total) + Number(deliveredAmount),
             profit: totalProfit,
             date: currentDateTime,
@@ -318,7 +350,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
             delivered: false,
             status: 0
         }], { session });        
-        if(!newReceipt || newReceipt.length < 1){
+        if(!newReceipt || !newReceipt[0]){
             await session.abortTransaction();
             session.endSession();
             return next(new CustomError('Error while creating new receipt, try again', 400));
@@ -331,6 +363,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
+        console.log(error)
         return next(new CustomError('Error while creating new receipt, try again', 500));
     }
 });
@@ -345,9 +378,6 @@ const GetReceiptByID = asyncErrorHandler(async (req, res, next) => {
     .populate({
         path: 'client',
         select: 'firstName lastName phoneNumber email wilaya commune'
-    }).populate({
-        path: 'products.product',
-        select: 'name size boxItems'
     });
     if(!existingreceipt){
         return next(new CustomError('Receipt not found', 404));
@@ -372,14 +402,47 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
     }).populate({
         path: 'client',
         select: 'firstName lastName phoneNumber'
-    }).populate({
-        path: 'products.product',
-        select: 'name size'
     });
+
     if(receipts.length <= 0){
         const err = new CustomError('No receipts found for you', 400);
         return next(err);
     }
+
+    // For each receipt, fetch the last receipt status
+    for (let i = 0; i < receipts.length; i++) {
+        let receipt = receipts[i];  // Access receipt using index
+
+        if (receipt.products && receipt.products.length > 0) {
+            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            
+            // Find the last product's receipt status
+            const lastReceiptStatus = await ReceiptStatus.findOne({
+                _id: lastProductId
+            }).populate({
+                path: 'products.product',
+                select: 'name size brand boxItems',
+                populate:{
+                    path: 'brand',
+                    select: 'name'
+                }
+            });
+            
+            if (!lastReceiptStatus) {
+                return next(new CustomError('Receipt status not found', 404));
+            }
+
+            // Create an updated receipt with ordersList and replace the original receipt
+            receipts[i] = {
+                ...receipt.toObject(),  // Copy the original receipt's properties
+                products: lastReceiptStatus.products  // Attach the ordersList
+            };
+        } else {
+            const err = new CustomError('No products found for this receipt', 400);
+            return next(err);
+        }
+    }
+
     res.status(200).json(receipts);
 });
 //get all delivered receipts by store
@@ -401,14 +464,46 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
     }).populate({
         path: 'client',
         select: 'firstName lastName phoneNumber'
-    }).populate({
-        path: 'products.product',
-        select: 'name size'
     });
     if(receipts.length <= 0){
         const err = new CustomError('No delivered receipts found for you', 400);
         return next(err);
     }
+
+    // For each receipt, fetch the last receipt status
+    for (let i = 0; i < receipts.length; i++) {
+        let receipt = receipts[i];  // Access receipt using index
+
+        if (receipt.products && receipt.products.length > 0) {
+            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            
+            // Find the last product's receipt status
+            const lastReceiptStatus = await ReceiptStatus.findOne({
+                _id: lastProductId
+            }).populate({
+                path: 'products.product',
+                select: 'name size brand boxItems',
+                populate:{
+                    path: 'brand',
+                    select: 'name'
+                }
+            });
+            
+            if (!lastReceiptStatus) {
+                return next(new CustomError('Receipt status not found', 404));
+            }
+
+            // Create an updated receipt with ordersList and replace the original receipt
+            receipts[i] = {
+                ...receipt.toObject(),  // Copy the original receipt's properties
+                products: lastReceiptStatus.products  // Attach the ordersList
+            };
+        } else {
+            const err = new CustomError('No products found for this receipt', 400);
+            return next(err);
+        }
+    }
+
     res.status(200).json(receipts);
 });
 //get all delivered receipts by store which are credited by the client
@@ -438,6 +533,41 @@ const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res
         const err = new CustomError('No credited delivered receipts found for you', 400);
         return next(err);
     }
+
+    // For each receipt, fetch the last receipt status
+    for (let i = 0; i < receipts.length; i++) {
+        let receipt = receipts[i];  // Access receipt using index
+
+        if (receipt.products && receipt.products.length > 0) {
+            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            
+            // Find the last product's receipt status
+            const lastReceiptStatus = await ReceiptStatus.findOne({
+                _id: lastProductId
+            }).populate({
+                path: 'products.product',
+                select: 'name size brand boxItems',
+                populate:{
+                    path: 'brand',
+                    select: 'name'
+                }
+            });
+            
+            if (!lastReceiptStatus) {
+                return next(new CustomError('Receipt status not found', 404));
+            }
+
+            // Create an updated receipt with ordersList and replace the original receipt
+            receipts[i] = {
+                ...receipt.toObject(),  // Copy the original receipt's properties
+                products: lastReceiptStatus.products  // Attach the ordersList
+            };
+        } else {
+            const err = new CustomError('No products found for this receipt', 400);
+            return next(err);
+        }
+    }
+
     res.status(200).json(receipts);
 });
 //get all receipts by client
@@ -454,18 +584,46 @@ const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
     }
     const receipts = await Receipt.find({
         client: id
-    }).populate({
-        path: 'products.product',
-        select: 'name size brand',
-        populate: {
-            path: 'brand',
-            select: 'name'
-        }
     });
     if(receipts.length <= 0){
         const err = new CustomError('No receipts found for you', 400);
         return next(err);
     }
+
+    // For each receipt, fetch the last receipt status
+    for (let i = 0; i < receipts.length; i++) {
+        let receipt = receipts[i];  // Access receipt using index
+
+        if (receipt.products && receipt.products.length > 0) {
+            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            
+            // Find the last product's receipt status
+            const lastReceiptStatus = await ReceiptStatus.findOne({
+                _id: lastProductId
+            }).populate({
+                path: 'products.product',
+                select: 'name size brand boxItems',
+                populate:{
+                    path: 'brand',
+                    select: 'name'
+                }
+            });
+            
+            if (!lastReceiptStatus) {
+                return next(new CustomError('Receipt status not found', 404));
+            }
+
+            // Create an updated receipt with ordersList and replace the original receipt
+            receipts[i] = {
+                ...receipt.toObject(),  // Copy the original receipt's properties
+                products: lastReceiptStatus.products  // Attach the ordersList
+            };
+        } else {
+            const err = new CustomError('No products found for this receipt', 400);
+            return next(err);
+        }
+    }
+
     res.status(200).json(receipts);
 });
 //get all receipts by client for a specific store
@@ -495,19 +653,46 @@ const GetAllReceiptsByClientForStore = asyncErrorHandler(async (req, res, next) 
     const receipts = await Receipt.find({
         client: client,
         store: store,
-    }).populate({
-        path: 'products.product',
-        select: 'name size brand',
-        populate: {
-            path: 'brand',
-            select: 'name',
-        }
     });
 
     // Check if any receipts were found
     if (receipts.length <= 0) {
         const err = new CustomError('No receipts found for this client', 400);
         return next(err);
+    }
+
+    // For each receipt, fetch the last receipt status
+    for (let i = 0; i < receipts.length; i++) {
+        let receipt = receipts[i];  // Access receipt using index
+
+        if (receipt.products && receipt.products.length > 0) {
+            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            
+            // Find the last product's receipt status
+            const lastReceiptStatus = await ReceiptStatus.findOne({
+                _id: lastProductId
+            }).populate({
+                path: 'products.product',
+                select: 'name size brand boxItems',
+                populate:{
+                    path: 'brand',
+                    select: 'name'
+                }
+            });
+            
+            if (!lastReceiptStatus) {
+                return next(new CustomError('Receipt status not found', 404));
+            }
+
+            // Create an updated receipt with ordersList and replace the original receipt
+            receipts[i] = {
+                ...receipt.toObject(),  // Copy the original receipt's properties
+                products: lastReceiptStatus.products  // Attach the ordersList
+            };
+        } else {
+            const err = new CustomError('No products found for this receipt', 400);
+            return next(err);
+        }
     }
 
     // Send the response with all data in the same object
@@ -531,7 +716,7 @@ const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
         delivered: true,
         status: 3,
         credit: credit,
-        expextedDeliveryDate: moment().utc(1) // Ensures UTC+1
+        expextedDeliveryDate: moment.getCurrentDateTime() // Ensures UTC+1
     });
     // Check if receipt updated successfully
     if (!updatedreceipt) {
@@ -696,7 +881,7 @@ const AddPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
     // Add new payment
     existingReceipt.payment.push({
         amount: parseFloat(amount),
-        date: moment().utc(1) // Ensures UTC+1
+        date: moment.getCurrentDateTime() // Ensures UTC+1
     });
 
     // Check if the receipt is fully paid
@@ -721,7 +906,7 @@ const AddFullPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.body;
     
     // Get current date with Algiers timezone
-    const currentDateTime = moment().utc(1); // Ensures UTC+1
+    const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
 
     // Validate ID
     if(!id || !store ||

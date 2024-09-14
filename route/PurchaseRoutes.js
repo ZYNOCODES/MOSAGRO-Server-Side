@@ -26,7 +26,7 @@ router.post('/create/:store', checkAuthrozation([process.env.STORE_TYPE]), Creat
 //get specific Purchase
 router.get('/:id/:store', checkAuthrozation([process.env.STORE_TYPE]), GetPurchaseByID);
 //get all Purchases non credited by store
-router.get('/all/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllClosedPurchases);
+router.get('/all/closed/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllClosedPurchases);
 //get all Purchases credited by store
 router.get('/all/credited/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllCreditedPurchases);
 //get all new Purchases by store

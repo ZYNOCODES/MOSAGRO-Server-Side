@@ -239,7 +239,7 @@ const GetPurchaseByID = asyncErrorHandler(async (req, res, next) => {
 const GetAllClosedPurchases = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     if(!store || !mongoose.Types.ObjectId.isValid(store)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('All fields are requiredddd', 400);
         return next(err);
     }
     

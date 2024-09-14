@@ -3,6 +3,12 @@ const Receipt = require('../model/ReceiptModel');
 const findReceiptById = async (id) => {
     return await Receipt.findById(id);
 };
+const findReceiptByIdAndStore = async (id, store) => {
+    return await Receipt.findOne({
+        _id: id,
+        store: store
+    });
+};
 const findNoneDeliveredReceiptByStore = async (store, id, session) => {
     if (session) 
         return await Receipt.findOne({
@@ -91,6 +97,7 @@ const sumCreditsAndUnpaidReceipts = async (storeId, clientId) => {
 
 module.exports = {
     findReceiptById,
+    findReceiptByIdAndStore,
     findNoneDeliveredReceiptByStore,
     findCreditedReceipt,
     countReceiptsByStoreAndClient,

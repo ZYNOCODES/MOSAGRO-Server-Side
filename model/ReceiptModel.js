@@ -16,24 +16,9 @@ const receiptSchema = new mongoose.Schema({
         required: true
     },
     products: [{
-        stock:{
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'stock',
-            required: true
-        },
-        product:{
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'product',
-            required: true
-        },
-        quantity:{
-            type: Number,
-            required: true
-        },
-        price:{
-            type: Number,
-            required: true
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'receiptStatus',
+        required: true
     }],
     total:{
         type: Number,
