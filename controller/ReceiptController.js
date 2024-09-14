@@ -521,7 +521,10 @@ const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res
     const receipts = await Receipt.find({
         store: id,
         delivered: true,
-        credit: true
+        $or: [
+            { credit: true },
+            { deposit: true }
+        ]
     }).populate({
         path: 'client',
         select: 'firstName lastName phoneNumber'

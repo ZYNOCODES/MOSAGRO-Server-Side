@@ -301,7 +301,10 @@ const GetAllCreditedPurchases = asyncErrorHandler(async (req, res, next) => {
     //get all purchases by store
     const purchases = await Purchase.find({
         store: store,
-        credit: true,
+        $or: [
+            { credit: true },
+            { deposit: true }
+        ],
         closed: false
     }).populate({
         path: 'fournisseur',
@@ -351,6 +354,7 @@ const GetAllNewPurchases = asyncErrorHandler(async (req, res, next) => {
     const purchases = await Purchase.find({
         store: store,
         credit: false,
+        deposit: false,
         closed: false,
         payment: { $size: 0 }
     }).populate({
