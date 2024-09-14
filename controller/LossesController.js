@@ -5,8 +5,7 @@ const Stock = require('../model/StockModel');
 const CustomError = require('../util/CustomError.js');
 const { findStockByID_IDStore } = require('../service/StockService.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
-const moment = require('moment');
-require('moment-timezone');
+const moment = require('../util/Moment.js');
 
 //fetch all losses
 const GetAllLosses = asyncErrorHandler(async (req, res, next) => {
@@ -35,7 +34,7 @@ const CreateLoss = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const { stock, quantity, price, reason } = req.body;
     //get current date
-    const currentDateTime = moment().utc(1); // Ensures UTC+1
+    const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
     // Validate required fields
     if (!store || !mongoose.Types.ObjectId.isValid(store) || !price || !reason) {
         return next(new CustomError('All fields are required', 400));

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const SubscriptionStore = require('../model/SubscriptionStoreModel.js');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
@@ -5,15 +6,13 @@ const SubscriptionStoreService = require('../service/SubscriptionStoreService.js
 const SubscriptionService = require('../service/SubscriptionService.js');
 const StoreService = require('../service/StoreService.js');
 const StoreModel = require('../model/StoreModel');
-const moment = require('moment');
-require('moment-timezone');
-const mongoose = require('mongoose');
+const moment = require('../util/Moment.js');
 
 
 //create a new brand
 const CreateSubsecriptionStore = asyncErrorHandler(async (req, res, next) => {
     const timezone = 'Africa/Algiers';
-    const currentTime = moment().utc(1); // Ensures UTC+1
+    const currentTime = moment.getCurrentDateTime(); // Ensures UTC+1
     const { Store, Subscription } = req.body;
     // check if all required fields are provided
     if(!Store || !Subscription){

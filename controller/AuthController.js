@@ -20,8 +20,8 @@ const NodeMailer = require('../util/NodeMailer.js');
 const {
     createToken
 } = require('../util/JWT.js');
-const moment = require('moment');
-require('moment-timezone');
+const moment = require('../util/Moment.js');
+
 
 //login Admin
 const SignInAdmin = asyncErrorHandler(async (req, res, next) => {
@@ -99,7 +99,7 @@ const SignInStore = asyncErrorHandler(async (req, res, next) => {
     } else if (user.status == 'Active') {
         const timezone = 'Africa/Algiers';
         // Set to UTC time zone
-        const currentTime = moment().utc(1); // Ensures UTC+0
+        const currentTime = moment.getCurrentDateTime(); // Ensures UTC+0
         // Get subscription details
         const subscription = await SubscriptionStore.findById(user.subscriptions[user.subscriptions.length - 1]);
         if (!subscription) {
@@ -274,7 +274,7 @@ const SignUpStore = asyncErrorHandler(async (req, res, next) => {
         const hashOTP = await bcrypt.hashPassword(otp.toString());
 
         // Set to UTC time zone
-        const currentTime = moment().utc(1); // Ensures UTC+0
+        const currentTime = moment.getCurrentDateTime(); // Ensures UTC+0
 
         // Save OTP in the database with an expiry time of 1 hour
         const existingOTP = await EmailOTPVerification.findOne({ store: storeByEmail._id });
@@ -366,7 +366,7 @@ const VerifyStoreOTP = asyncErrorHandler(async (req, res, next) => {
         }
 
         // Check if OTP has expired
-        const currentTime = moment().utc(1);
+        const currentTime = moment.getCurrentDateTime();
         if (currentTime.isAfter(otpRecord.expiresAt)) {
             return next(new CustomError('OTP has expired', 400));
         }

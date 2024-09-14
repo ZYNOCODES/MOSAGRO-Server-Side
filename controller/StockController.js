@@ -7,8 +7,8 @@ const StockService = require('../service/StockService.js');
 const StoreService = require('../service/StoreService.js');
 const ProductService = require('../service/ProductService.js');
 const StockStatusService = require('../service/StockStatusService.js');
-const moment = require('moment');
-require('moment-timezone');
+const moment = require('../util/Moment.js');
+
 
 //Create a new stock
 const CreateStock = asyncErrorHandler(async (req, res, next) => {
@@ -52,7 +52,7 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
     }
 
     //get current datetime
-    const currentDateTime = moment().utc(1); // Ensures UTC+1
+    const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
 
     const session = await mongoose.startSession();
     session.startTransaction();

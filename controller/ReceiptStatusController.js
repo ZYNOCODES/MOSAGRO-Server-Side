@@ -5,7 +5,6 @@ const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const ReceiptService = require('../service/ReceiptService.js');
 const moment = require('../util/Moment.js');
-const path = require('path');
 
 //add new ReceiptStatus to specific receipt
 const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next) => {

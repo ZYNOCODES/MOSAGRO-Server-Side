@@ -5,12 +5,12 @@ const Admin = require('../model/AdminModel');
 const SubscriptionStore = require('../model/SubscriptionStoreModel');
 const CustomError = require('../util/CustomError');
 const asyncErrorHandler = require('../util/asyncErrorHandler');
-const moment = require('moment');
-require('moment-timezone');
+const moment = require('../util/Moment.js');
+
 
 const requireAuth = asyncErrorHandler(async (req, res, next) => {
     const timezone = 'Africa/Algiers';
-    const currentTime = moment().utc(1); // Ensures UTC+1
+    const currentTime = moment.getCurrentDateTime(); // Ensures UTC+1
     // Check if User is logged in
     const {authorization} = req.headers;
     

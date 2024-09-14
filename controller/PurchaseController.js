@@ -10,8 +10,8 @@ const PurchaseService = require('../service/PurchaseService.js');
 const StockService = require('../service/StockService.js');
 const StockStatusService = require('../service/StockStatusService.js');
 const CitiesService = require('../service/CitiesService.js');
-const moment = require('moment');
-require('moment-timezone');
+const moment = require('../util/Moment.js');
+
 
 //create a new Purchase
 const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
@@ -89,7 +89,7 @@ const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
             throw new CustomError('The total amount does not match the sum of the products', 400);
         }
         // Set to UTC time zone
-        const currentDateTime = moment().utc(1); // Ensures UTC+1
+        const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
         let stockStatusIDs = [];
         for (const product of productDetails) {
             const stock = await StockService.findStockByStoreAndProduct(store, product.productID);
@@ -518,7 +518,7 @@ const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     const { amount, store } = req.body;
     
     // Get current date with Algiers timezone
-    const currentDateTime = moment().utc(1); // Ensures UTC+1
+    const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
 
     // Validate ID
     if(!id || !store ||
@@ -594,7 +594,7 @@ const AddFullPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.body;
     
     // Get current date with Algiers timezone
-    const currentDateTime = moment().utc(1); // Ensures UTC+1
+    const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
 
     // Validate ID
     if(!id || !store ||
