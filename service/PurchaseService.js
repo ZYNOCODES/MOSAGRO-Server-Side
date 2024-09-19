@@ -1,4 +1,3 @@
-const { trusted } = require('mongoose');
 const Purchase = require('../model/PurchaseModel');
 
 const findPurchaseById = async (id) => {

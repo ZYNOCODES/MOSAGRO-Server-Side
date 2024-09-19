@@ -10,7 +10,6 @@ const moment = require('../util/Moment.js');
 const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next) => {
     const { receipt } = req.params;
     const { products, store } = req.body;
-    console.log(products);
     // Check if all required fields are provided
     if (!receipt || validator.isEmpty(receipt.toString()) ||
         !mongoose.Types.ObjectId.isValid(receipt) ||

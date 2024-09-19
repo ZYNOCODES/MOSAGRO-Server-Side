@@ -160,73 +160,6 @@ const SignInClient = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json({token});
 });
 
-//update singup store
-const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    const { Password, FirstName, LastName, Category, Wilaya, Commune, R_Commerce, Address, storeName } = req.body;
-
-    // Validate required fields
-    if ([id, Password, FirstName, LastName, Address, Category, storeName, Wilaya, Commune, R_Commerce].some(field => !field || validator.isEmpty(field.toString()))) {
-        return next(new CustomError('All fields are required', 400));
-    }
-
-    // Check if the store is already verified and has a password (indicating a signed-up account)
-    const existingStore = await Store.findOne({ 
-        _id: id, 
-        emailVerification: true 
-    });
-    
-    if (!existingStore) {
-        return next(new CustomError('Store not found. Please check your details or sign up.', 404));
-    }
-    
-    if (existingStore.password) {
-        return next(new CustomError('Account already verified. Please log in.', 400));
-    }
-
-    // Check if the category exists
-    const existCategory = await CategoryService.findCategoryById(Category);
-    if (!existCategory) {
-        return next(new CustomError('Category not found', 404));
-    }
-
-    // Check if the wilaya and commune exist
-    const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
-    if (!existWilaya) {
-        return next(new CustomError('The wilaya and its commune are incorrect', 404));
-    }
-
-    // Hash the password
-    const hash = await bcrypt.hashPassword(Password);
-
-    // Generate a unique codification for the store
-    const storeCode = await Codification.StoreCode(existWilaya.codeC, "S");
-    if (!storeCode) {
-        return next(new CustomError('Error generating store code. Please try again', 500));
-    }
-
-    // Update the store data
-    existingStore.password = hash;
-    existingStore.firstName = FirstName;
-    existingStore.lastName = LastName;
-    existingStore.storeAddress = Address;
-    existingStore.storeName = storeName;
-    existingStore.storeLocation = null; // Reset location as null (if needed)
-    existingStore.wilaya = Wilaya;
-    existingStore.commune = Commune;
-    existingStore.r_commerce = R_Commerce;
-    existingStore.categories = [existCategory._id];
-    existingStore.code = storeCode;
-
-    // Save the updated store
-    const updatedStore = await existingStore.save();
-    if (!updatedStore) {
-        return next(new CustomError('Error while updating store. Please try again', 500));
-    }
-
-    // Return success response
-    res.status(200).json({ message: 'Store updated successfully' });
-});
 //singup store by sending email otp verification
 const SignUpStore = asyncErrorHandler(async (req, res, next) => {
     const { Email } = req.body;
@@ -343,6 +276,73 @@ const SignUpStore = asyncErrorHandler(async (req, res, next) => {
     } finally {
         session.endSession(); // End session whether success or failure
     }
+});
+//update singup store
+const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const { Password, FirstName, LastName, Category, Wilaya, Commune, R_Commerce, Address, storeName } = req.body;
+
+    // Validate required fields
+    if ([id, Password, FirstName, LastName, Address, Category, storeName, Wilaya, Commune, R_Commerce].some(field => !field || validator.isEmpty(field.toString()))) {
+        return next(new CustomError('All fields are required', 400));
+    }
+
+    // Check if the store is already verified and has a password (indicating a signed-up account)
+    const existingStore = await Store.findOne({ 
+        _id: id, 
+        emailVerification: true 
+    });
+    
+    if (!existingStore) {
+        return next(new CustomError('Store not found. Please check your details or sign up.', 404));
+    }
+    
+    if (existingStore.password) {
+        return next(new CustomError('Account already verified. Please log in.', 400));
+    }
+
+    // Check if the category exists
+    const existCategory = await CategoryService.findCategoryById(Category);
+    if (!existCategory) {
+        return next(new CustomError('Category not found', 404));
+    }
+
+    // Check if the wilaya and commune exist
+    const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
+    if (!existWilaya) {
+        return next(new CustomError('The wilaya and its commune are incorrect', 404));
+    }
+
+    // Hash the password
+    const hash = await bcrypt.hashPassword(Password);
+
+    // Generate a unique codification for the store
+    const storeCode = await Codification.StoreCode(existWilaya.codeC, "S");
+    if (!storeCode) {
+        return next(new CustomError('Error generating store code. Please try again', 500));
+    }
+
+    // Update the store data
+    existingStore.password = hash;
+    existingStore.firstName = FirstName;
+    existingStore.lastName = LastName;
+    existingStore.storeAddress = Address;
+    existingStore.storeName = storeName;
+    existingStore.storeLocation = null; // Reset location as null (if needed)
+    existingStore.wilaya = Wilaya;
+    existingStore.commune = Commune;
+    existingStore.r_commerce = R_Commerce;
+    existingStore.categories = [existCategory._id];
+    existingStore.code = storeCode;
+
+    // Save the updated store
+    const updatedStore = await existingStore.save();
+    if (!updatedStore) {
+        return next(new CustomError('Error while updating store. Please try again', 500));
+    }
+
+    // Return success response
+    res.status(200).json({ message: 'Store updated successfully' });
 });
 //verifie email otp for store
 const VerifyStoreOTP = asyncErrorHandler(async (req, res, next) => {
