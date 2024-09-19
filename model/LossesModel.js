@@ -6,15 +6,6 @@ const lossesSchema = new mongoose.Schema({
         ref: 'store',
         required: true
     },
-    stock: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'stock',
-        required: false
-    },
-    quantity: {
-        type: Number,
-        required: false
-    },
     price: {
         type: Number,
         required: true

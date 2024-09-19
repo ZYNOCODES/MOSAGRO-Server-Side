@@ -77,7 +77,6 @@ const UpdateBrandName = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json({ message: 'Brand updated successfully' });
 });
 
-
 //delete brand
 const DeleteBrand = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;

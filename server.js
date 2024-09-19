@@ -6,7 +6,8 @@ const body = require('body-parser');
 const ErrorHandler = require('./controller/ErrorController');
 //security
 const cors = require('cors');
-const limiter = require('./middleware/RateLimiting');
+const RemoveSpacesMiddleware = require('./middleware/RemoveSpacesMiddleware');
+
 
 //routes
 const Authroutes = require('./route/AuthRoutes');
@@ -38,7 +39,7 @@ const app = express();
 app.use(cors());
 app.use(body.json({limit: '50mb'}));
 app.use(body.urlencoded({limit: '50mb', extended: true}));
-app.use(limiter);
+app.use(RemoveSpacesMiddleware);
 
 //routes
 app.use('/api/Product', Productroutes); 

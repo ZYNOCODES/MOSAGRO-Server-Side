@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
 const Losses = require('../model/LossesModel');
-const Stock = require('../model/StockModel');
 const CustomError = require('../util/CustomError.js');
-const { findStockByID_IDStore } = require('../service/StockService.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const moment = require('../util/Moment.js');
+const StoreService = require('../service/StoreService');
+const LossesService = require('../service/LossesService');
 
 //fetch all losses
 const GetAllLosses = asyncErrorHandler(async (req, res, next) => {
@@ -15,15 +15,18 @@ const GetAllLosses = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
+    //check if store exists
+    const store = await StoreService.findStoreById(id);
+    if(!store){
+        const err = new CustomError('Store not found', 404);
+        return next(err);
+    }
     //get all losses by store id
     const losses = await Losses.find({
-        store: id
-    }).populate({
-        path: 'stock.product',
-        select: 'name size image'
+        store: store._id
     });
     //check if there are no losses
-    if(losses.length < 1){
+    if(!losses || losses.length < 1){
         const err = new CustomError('No losses found', 404);
         return next(err);
     }
@@ -32,98 +35,164 @@ const GetAllLosses = asyncErrorHandler(async (req, res, next) => {
 //create a loss
 const CreateLoss = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    const { stock, quantity, price, reason } = req.body;
+    const { price, reason } = req.body;
     //get current date
     const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
     // Validate required fields
     if (!store || !mongoose.Types.ObjectId.isValid(store) || !price || !reason) {
         return next(new CustomError('All fields are required', 400));
     }
-    const session = await mongoose.startSession();
-    try{
-        session.startTransaction();
-        //check if stock exist
-        let existStock = null;
-        if(stock){
-            if (!mongoose.Types.ObjectId.isValid(stock)) {
-                return next(new CustomError('Invalid stock ID', 400));
-            }
-            if (!quantity || !validator.isNumeric(quantity.toString())) {
-                return next(new CustomError('Quantity is required and must be a valid number', 400));
-            }
-            existStock = await findStockByID_IDStore(stock, store, session);
-            if(!existStock){
-                await session.abortTransaction();
-                session.endSession();
-                const err = new CustomError('Stock not found', 404);
-                return next(err);
-            }
-            //check if quantity is greater than stock quantity
-            if(quantity > existStock.quantity){
-                await session.abortTransaction();
-                session.endSession();
-                const err = new CustomError('Quantity is greater than stock quantity', 400);
-                return next(err);
-            }
-            //update stock quantity
-            const newQuantity = existStock.quantity - quantity;
-            const updatedStock = await Stock.findByIdAndUpdate(stock, {
-                quantity: newQuantity
-            }).session(session);
-            //check if stock was updated
-            if(!updatedStock){
-                await session.abortTransaction();
-                session.endSession();
-                const err = new CustomError('Error while updating stock, try again.', 400);
-                return next(err);
-            }
-        }
-        //create a new loss
-        const newLoss = await Losses.create([{
-            store,
-            stock: stock || undefined,
-            quantity: stock ? quantity : undefined,
-            price,
-            reason,
-            date: currentDateTime
-        }], { session });
-        //check if loss was created
-        if(!newLoss){
-            await session.abortTransaction();
-            session.endSession();
-            const err = new CustomError('Error while creating loss, try again.', 400);
-            return next(err);
-        }
-        await session.commitTransaction();
-        session.endSession();
-        res.status(200).json(newLoss);
-    }catch(err){
-        await session.abortTransaction();
-        session.endSession();
-        console.log(err);
-        return next(new CustomError('Error while creating new loss, try again', 500));
+    //check if price is a number
+    if(!validator.isNumeric(price.toString()) || Number(price) < 0){
+        return next(new CustomError('Price must be a positive number', 400));
     }
+
+    //create a new loss
+    const newLoss = await Losses.create({
+        store,
+        price,
+        reason: reason.toString(),
+        date: currentDateTime
+    });
+    //check if loss was created
+    if(!newLoss){
+        const err = new CustomError('Error while creating loss, try again.', 400);
+        return next(err);
+    }
+
+    res.status(200).json({message: 'Loss created successfully'});
+});
+//update a loss
+const UpdateLoss = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const { store, price, reason } = req.body;
+    // Validate required fields
+    if (!store || !mongoose.Types.ObjectId.isValid(store) || 
+        !id || !mongoose.Types.ObjectId.isValid(id)
+    ) {
+        return next(new CustomError('All fields are required', 400));
+    }
+    //validate optional fields
+    if(!price && !reason){
+        return next(new CustomError('At least one field is required', 400));
+    }
+    //check if price is a number
+    if(price && !validator.isNumeric(price) || price < 0){
+        return next(new CustomError('Price must be a positive number', 400));
+    }
+    //check if reason is a string
+    if(reason && !validator.isString(reason)){
+        return next(new CustomError('Reason must be a string', 400));
+    }
+    //check if store exists
+    const storeExists = await StoreService.findStoreById(store);
+    if(!storeExists){
+        const err = new CustomError('Store not found', 404);
+        return next(err);
+    }
+    //check if loss exists
+    const existingLoss = await LossesService.findLossesById(id);
+    if(!existingLoss){
+        const err = new CustomError('Loss not found', 404);
+        return next(err);
+    }
+
+    //update
+    if(price) existingLoss.price = price;
+    if(reason) existingLoss.reason = reason;
+    
+    //save updated loss
+    const updatedLoss = await existingLoss.save();
+
+    //check if loss was updated
+    if(!updatedLoss){
+        const err = new CustomError('Error while updating loss, try again.', 400);
+        return next(err);
+    }
+
+    res.status(200).json({message: 'Loss updated successfully'});
 });
 //delete a loss
 const DeleteLoss = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
+    const { id, store } = req.params;
     //check if all required fields are provided
-    if(!id || !mongoose.Types.ObjectId.isValid(id)){
+    if(!id || !mongoose.Types.ObjectId.isValid(id)
+        || !store || !mongoose.Types.ObjectId.isValid(store)
+    ){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
-    //delete a loss
-    const loss = await Losses.findByIdAndDelete(id);
+
+    //check if store exists
+    const storeExists = await StoreService.findStoreById(store);
+    if(!storeExists){
+        const err = new CustomError('Store not found', 404);
+        return next(err);
+    }
+
+    //check if loss exists
+    const existingLoss = await LossesService.findLossesById(id);
+    if(!existingLoss){
+        const err = new CustomError('Loss not found', 404);
+        return next(err);
+    }
+
+    //delete loss
+    const deletedLoss = await existingLoss.deleteOne();
+
     //check if loss was deleted
-    if(!loss){
+    if(!deletedLoss){
         const err = new CustomError('Error while deleting loss, try again.', 400);
         return next(err);
     }
+
     res.status(200).json({message: 'Loss deleted successfully'});
+});
+//get statistics losses for specific store
+const GetStatisticsForStore = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+
+    // Validate store and Client IDs
+    if (!store || !mongoose.Types.ObjectId.isValid(store)) {
+        return next(new CustomError('All fields are required', 400));
+    }
+
+    // Check if the store exists
+    const existStore = await StoreService.findStoreById(store);
+    if (!existStore) {
+        return next(new CustomError('Store not found', 404));
+    }
+
+
+    // Get statistics for the store
+    const existingLosses = await Losses.find({ store: store }).select('price');
+    //check if there are no losses
+    if(existingLosses.length < 1){
+        return next(new CustomError('No losses found', 404));
+    }
+
+    // Calculate the total losses
+    const count = existingLosses.length;
+    let total = 0;
+
+    existingLosses.forEach((loss) => {
+        if (loss.price >= 0) {
+            total += loss.price;
+        }
+    });
+
+
+    // Respond with the statistics
+    res.status(200).json({
+        count: count,
+        total: total,
+    });
 });
 
 module.exports = {
     GetAllLosses,
     CreateLoss,
-    DeleteLoss
+    UpdateLoss,
+    DeleteLoss,
+    GetStatisticsForStore
 };
