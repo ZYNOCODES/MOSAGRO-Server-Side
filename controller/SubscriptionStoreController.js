@@ -2,52 +2,51 @@ const mongoose = require('mongoose');
 const SubscriptionStore = require('../model/SubscriptionStoreModel.js');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
-const SubscriptionStoreService = require('../service/SubscriptionStoreService.js');
 const SubscriptionService = require('../service/SubscriptionService.js');
 const StoreService = require('../service/StoreService.js');
 const StoreModel = require('../model/StoreModel');
-const moment = require('../util/Moment.js');
-
+const moment = require('moment');
+const UtilMoment = require('../util/Moment.js');
 
 //create a new brand
 const CreateSubsecriptionStore = asyncErrorHandler(async (req, res, next) => {
-    const timezone = 'Africa/Algiers';
-    const currentTime = moment.getCurrentDateTime(); // Ensures UTC+1
-    const { Store, Subscription } = req.body;
+    const currentTime = UtilMoment.getCurrentDateTime(); // Ensures UTC+1
+    const { Store, Subscription, expiryMonths } = req.body;
     // check if all required fields are provided
     if(!Store || !Subscription){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
+    //check if expiryMonths is a number
+    if(isNaN(expiryMonths) || expiryMonths < 1){
+        const err = new CustomError('Expiry months must be a number greater than 0', 400);
+        return next(err);
+    }
     //check if store found
-    const store = await StoreService.findStoreById(Store);
-    if(!store){
+    const existingStore = await StoreService.findStoreById(Store);
+    if(!existingStore){
         const err = new CustomError('Store not found', 404);
+        return next(err);
+    }
+    //check if subscription found
+    const existingSubscription = await SubscriptionService.findSubscriptionById(Subscription);
+    if(!existingSubscription){
+        const err = new CustomError('Subscription not found', 404);
         return next(err);
     }
     // Check if store already has an active subscription
     let lastSubscription = null;
-    if (store.subscriptions && store.subscriptions.length > 0) {
-        lastSubscription = await SubscriptionStore.findById(store.subscriptions[store.subscriptions.length - 1]);
-        if (lastSubscription && currentTime.isBefore(lastSubscription.expiryDate)) {
+    if (existingStore.subscriptions && existingStore.subscriptions.length > 0) {
+        lastSubscription = await SubscriptionStore.findById(existingStore.subscriptions[existingStore.subscriptions.length - 1]);
+        if (lastSubscription && currentTime.isBefore(moment(lastSubscription.expiryDate))) {
             const err = new CustomError('Store already has an active subscription', 400);
             return next(err);
         }
     }
-    //check if subscription found
-    const subscription = await SubscriptionService.findSubscriptionById(Subscription);
-    if(!subscription){
-        const err = new CustomError('Subscription not found', 404);
-        return next(err);
-    }
+
     // Calculate the expiry date based on subscription duration
-    let ExpiryDate;
-    if (subscription.duration >= 1) {
-        ExpiryDate = currentTime.clone().add(subscription.duration, 'months');
-    } else {
-        const err = new CustomError('Invalid subscription duration', 400);
-        return next(err);
-    }
+    const ExpiryDate = currentTime.clone().add(expiryMonths, 'months');
+
     // Start a session for the transaction
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -55,8 +54,8 @@ const CreateSubsecriptionStore = asyncErrorHandler(async (req, res, next) => {
     try {
         // Create a new subscription store
         const newSubscriptionStore = await SubscriptionStore.create([{
-            store: Store,
-            subscription: Subscription,
+            store: existingStore._id,
+            subscription: existingSubscription._id,
             startDate: currentTime,
             expiryDate: ExpiryDate
         }], { session });
@@ -89,24 +88,35 @@ const CreateSubsecriptionStore = asyncErrorHandler(async (req, res, next) => {
 //Get all subscriptions for a specific store
 const GetAllSubsecriptionStoreByStore = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
+    // check if id is valid
+    if(!id || !mongoose.Types.ObjectId.isValid(id)){
+        const err = new CustomError('Invalid store ID', 400);
+        return next(err);
+    }
     // check if store found
-    const store = await StoreService.findStoreById(id);
-    if(!store){
+    const existingStore = await StoreService.findStoreById(id);
+    if(!existingStore){
         const err = new CustomError('Store not found', 404);
         return next(err);
     }
     // check if store has subscriptions
-    if (!store.subscriptions || store.subscriptions.length === 0) {
+    if (!existingStore.subscriptions || existingStore.subscriptions.length === 0) {
         const err = new CustomError('Store has no subscriptions', 400);
         return next(err);
     }
     // get all subscriptions for the store
-    const subscriptions = await SubscriptionStore.find({ store: id });
-    // get subscriptions details
-    for (let i = 0; i < subscriptions.length; i++) {
-        const subscription = await SubscriptionService.findSubscriptionById(subscriptions[i].subscription);
-        subscriptions[i].subscription = subscription;
+    const subscriptions = await SubscriptionStore.find({ 
+        store: existingStore._id 
+    }).populate({
+        path: 'subscription',
+        select: 'name'
+    });
+    // check if subscriptions found
+    if(!subscriptions || subscriptions.length === 0){
+        const err = new CustomError('No subscriptions found for this store', 404);
+        return next(err);
     }
+
     res.status(200).json(subscriptions);
 });
 

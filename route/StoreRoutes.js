@@ -1,6 +1,8 @@
 const express = require('express');
 const {
-    GetAllStores,
+    GetAllActiveStores,
+    GetAllPendingStores,
+    GetAllSuspendedStores,
     GetStore,
     UpdateStore
 } = require('../controller/StoreController');
@@ -16,8 +18,12 @@ router.use(requireAuth);
 router.get('/:id', GetStore);
 
 // ADMIN_API routes below
-//fetch all Stores
-router.get('/', checkAuthrozation([process.env.ADMIN_TYPE]), GetAllStores);
+//fetch all active Stores
+router.get('/all/active', checkAuthrozation([process.env.ADMIN_TYPE]), GetAllActiveStores);
+//fetch all pending Stores
+router.get('/all/pending', checkAuthrozation([process.env.ADMIN_TYPE]), GetAllPendingStores);
+//fetch all suspended Stores
+router.get('/all/suspended', checkAuthrozation([process.env.ADMIN_TYPE]), GetAllSuspendedStores);
 
 // STORE_API routes below
 //update Store info

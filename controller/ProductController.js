@@ -84,7 +84,7 @@ const GetAllProducts = asyncErrorHandler(async (req, res, next) => {
         }
     ]);
     if(!products || products.length < 1){
-        const err = new CustomError('Error while fetching products', 400);
+        const err = new CustomError('No products found', 400);
         return next(err);
     }
     res.status(200).json(products);

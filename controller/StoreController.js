@@ -5,14 +5,68 @@ const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const CitiesService = require('../service/CitiesService.js')
 
-//fetch all Stores
-const GetAllStores = asyncErrorHandler(async (req, res, next) => {
-    const Stores = await Store.find({});
-    if(!Stores){
-        const err = new CustomError('Error while fetching Stores', 400);
+//fetch all active Stores
+const GetAllActiveStores = asyncErrorHandler(async (req, res, next) => {
+    const Stores = await Store.find({
+        status: 'Active',
+        subscriptions: {$ne: []}
+    }).select('firstName lastName phoneNumber email wilaya commune');
+    if(!Stores || Stores.length <= 0){
+        const err = new CustomError('No Stores found', 404);
         return next(err);
     }
-    res.status(200).json(Stores);
+    //get wilaya and commune
+    const updatedStores = await Promise.all(Stores.map(async store => {
+        const storeObj = store.toObject();
+        const wilaya = await CitiesService.findCitiesFRByCodeC(store.wilaya, store.commune);
+        storeObj.wilaya = wilaya.wilaya;
+        storeObj.commune = wilaya.baladiya;
+        return storeObj;
+    }));
+
+    res.status(200).json(updatedStores);
+});
+//fetch all pending Stores
+const GetAllPendingStores = asyncErrorHandler(async (req, res, next) => {
+    const Stores = await Store.find({
+        status: 'En attente',
+        subscriptions: []
+    }).select('firstName lastName phoneNumber email wilaya commune storeAddress storeName');
+    if(!Stores || Stores.length <= 0){
+        const err = new CustomError('No Stores found', 404);
+        return next(err);
+    }
+    //get wilaya and commune
+    const updatedStores = await Promise.all(Stores.map(async store => {
+        const storeObj = store.toObject();
+        const wilaya = await CitiesService.findCitiesFRByCodeC(store.wilaya, store.commune);
+        storeObj.wilaya = wilaya.wilaya;
+        storeObj.commune = wilaya.baladiya;
+        return storeObj;
+    }));
+
+    res.status(200).json(updatedStores);
+});
+//fetch all suspended Stores
+const GetAllSuspendedStores = asyncErrorHandler(async (req, res, next) => {
+    const Stores = await Store.find({
+        status: 'Suspended',
+        subscriptions: {$ne: []}
+    }).select('firstName lastName phoneNumber email wilaya commune');
+    if(!Stores || Stores.length <= 0){
+        const err = new CustomError('No Stores found', 404);
+        return next(err);
+    }
+    //get wilaya and commune
+    const updatedStores = await Promise.all(Stores.map(async store => {
+        const storeObj = store.toObject();
+        const wilaya = await CitiesService.findCitiesFRByCodeC(store.wilaya, store.commune);
+        storeObj.wilaya = wilaya.wilaya;
+        storeObj.commune = wilaya.baladiya;
+        return storeObj;
+    }));
+
+    res.status(200).json(updatedStores);
 });
 //fetch specific Store
 const GetStore = asyncErrorHandler(async (req, res, next) => {
@@ -114,7 +168,9 @@ const UpdateStore = asyncErrorHandler(async (req, res, next) => {
 });
 
 module.exports = {
-    GetAllStores,
+    GetAllActiveStores,
+    GetAllPendingStores,
+    GetAllSuspendedStores,
     GetStore,
     UpdateStore
 }
