@@ -15,7 +15,7 @@ router.use(requireAuth);
 
 // SHARED_API routes below
 //fetch specific Store
-router.get('/:id', GetStore);
+router.get('/:id', checkAuthrozation([process.env.ADMIN_TYPE, process.env.STORE_TYPE]), GetStore);
 
 // ADMIN_API routes below
 //fetch all active Stores

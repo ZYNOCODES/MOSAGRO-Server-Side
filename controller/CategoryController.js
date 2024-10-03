@@ -14,7 +14,9 @@ const CreateCategory = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
     //check if the code is valid
-    const existCategory = await Category.findOne({name: Name});
+    const existCategory = await Category.findOne({
+        name: { $regex: new RegExp(`^${Name}$`, 'i') }
+    });
     if(existCategory){
         const err = new CustomError('An existing Category use that name. try again.', 400);
         return next(err);

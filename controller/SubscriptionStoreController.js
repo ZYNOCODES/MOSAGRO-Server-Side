@@ -56,8 +56,9 @@ const CreateSubsecriptionStore = asyncErrorHandler(async (req, res, next) => {
         const newSubscriptionStore = await SubscriptionStore.create([{
             store: existingStore._id,
             subscription: existingSubscription._id,
+            amount: existingSubscription.amount,
             startDate: currentTime,
-            expiryDate: ExpiryDate
+            expiryDate: ExpiryDate,
         }], { session });
 
         // Add Subscription ID to Store's subscriptions list

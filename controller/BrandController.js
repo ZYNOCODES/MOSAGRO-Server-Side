@@ -12,10 +12,12 @@ const CreateBrand = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
-    //check if the code is valid
-    const existCodeBrand = await Brand.findOne({code: Code});
-    if(existCodeBrand){
-        const err = new CustomError('An existing brand use that code. try again.', 400);
+    //check if the Name is valid
+    const existNameBrand = await Brand.findOne({
+        name: { $regex: new RegExp(`^${Name}$`, 'i') }
+    });
+    if(existNameBrand){
+        const err = new CustomError('An existing brand use that name. try again.', 400);
         return next(err);
     }
     //create a new brand

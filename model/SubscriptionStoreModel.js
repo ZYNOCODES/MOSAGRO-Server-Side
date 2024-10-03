@@ -11,6 +11,10 @@ const subscriptionStoreSchema = new mongoose.Schema({
         ref: 'subscription',
         required: true
     },
+    amount:{
+        type: Number,
+        required: true
+    },
     startDate: {
         type: Date,
         required: true

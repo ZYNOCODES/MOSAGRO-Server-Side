@@ -7,7 +7,15 @@ const findSubscriptionStoreByIDStore = async (Store) => {
         }
     )
 };
+const findSubscriptionStoreByIDSubscription = async (Subscription) => {
+    return await SubscriptionStore.findOne(
+        {
+            subscription: Subscription
+        }
+    )
+};
 
 module.exports = {
     findSubscriptionStoreByIDStore,
+    findSubscriptionStoreByIDSubscription
 }

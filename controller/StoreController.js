@@ -76,7 +76,22 @@ const GetStore = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
-    const store = await Store.findById(id);
+    const store = await Store.findById(id).select(
+        'firstName lastName phoneNumber phoneVerification email emailVerification wilaya commune storeAddress storeName storeLocation status r_commerce subscriptions categories'
+    ).populate([
+        {
+            path: 'subscriptions',
+            select: 'subscription startDate expiryDate amount',
+            populate: {
+                path: 'subscription',
+                select: 'name'
+            }
+        },
+        {
+            path: 'categories',
+            select: 'name'
+        }
+    ]);
     if(!store){
         const err = new CustomError('Store not found', 400);
         return next(err);

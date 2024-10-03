@@ -5,7 +5,7 @@ const subscriptionSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    duration:{
+    amount:{
         type: Number,
         required: true
     }

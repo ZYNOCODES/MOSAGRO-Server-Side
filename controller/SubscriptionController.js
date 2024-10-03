@@ -1,20 +1,19 @@
 const Subscription = require('../model/SubscriptionModel.js');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
+const SubscriptionStoreService = require('../service/SubscriptionStoreService');
 
 //create a new Subscription
 const CreateSubscription = asyncErrorHandler(async (req, res, next) => {
-    const { Name, Duration } = req.body;
+    const { Name, Amount } = req.body;
     // check if all required fields are provided
-    if(!Name || !Duration){
+    if(!Name || !Amount){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
     //check if the Subscription already exist
     const existSubscription = await Subscription.findOne({ 
-        $or: [
-            { name: Name }, 
-            { duration: Duration }] 
+        name: Name
     });
     if(existSubscription){
         const err = new CustomError('An existing Subscription use that name. try again.', 400);
@@ -23,7 +22,7 @@ const CreateSubscription = asyncErrorHandler(async (req, res, next) => {
     //create a new Subscription
     const newSubscription = await Subscription.create({
         name : Name,
-        duration : Duration
+        amount : Amount
     });
     //check if Subscription created successfully
     if(!newSubscription){
@@ -46,10 +45,10 @@ const GetAllSubscriptions = asyncErrorHandler(async (req, res, next) => {
 //update Subscription
 const UpdateSubscription = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { Name, Duration } = req.body;
+    const { Name, Amount } = req.body;
 
     // Check if at least one field is provided
-    if (!Name && !Duration) {
+    if (!Name && !Amount) {
         const err = new CustomError('One of the fields is required at least', 400);
         return next(err);
     }
@@ -64,7 +63,7 @@ const UpdateSubscription = asyncErrorHandler(async (req, res, next) => {
     // Prepare update fields
     const updateFields = {};
     if (Name) updateFields.name = Name;
-    if (Duration) updateFields.duration = Duration;
+    if (Amount) updateFields.amount = Amount;
 
     // Update Subscription
     const updatedSubscription = await Subscription.updateOne({ _id: id }, { $set: updateFields });
@@ -85,6 +84,12 @@ const DeleteSubscription = asyncErrorHandler(async (req, res, next) => {
     const subscription = await Subscription.findById(id);
     if(!subscription){
         const err = new CustomError('Subscription not found', 400);
+        return next(err);
+    }
+    //check if there is no subscription store related to this subscription
+    const existingStoreSubscription = await SubscriptionStoreService.findSubscriptionStoreByIDSubscription(subscription._id);
+    if (existingStoreSubscription) { 
+        const err = new CustomError('Cannot delete subscription as it is linked to a store.', 400);
         return next(err);
     }
     //delete Subscription
