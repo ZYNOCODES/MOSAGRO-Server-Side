@@ -5,9 +5,11 @@ const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const { ProductCode } = require('../util/Codification.js');
 const BrandService = require('../service/BrandService.js');
 const ProductService = require('../service/ProductService.js');
+const StockService = require('../service/StockService.js');
 const CategoryService = require('../service/CategoryService.js');
 const StoreService = require('../service/StoreService.js');
-
+const fs = require('fs');
+const path = require('path');
 
 //create a new product
 const CreateProduct = asyncErrorHandler(async (req, res, next) => {
@@ -21,7 +23,7 @@ const CreateProduct = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
     //check if image is provided
-    if(req.file == undefined){
+    if(!req.file || req.file == undefined){
         const err = new CustomError('Image is required', 400);
         return next(err);
     }
@@ -137,10 +139,14 @@ const GetProduct = asyncErrorHandler(async (req, res, next) => {
 //update a product
 const UpdateProduct = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { Name, Subname, Size, Brand, BoxItems } = req.body;
-
+    const { Name, Size, Brand, BoxItems, Category } = req.body;
+    // Check if id is provided
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        const err = new CustomError('Product ID is required', 400);
+        return next(err);
+    }
     // Check if at least one field is provided
-    if (!Name && !Subname && !Size && !Brand && !BoxItems) {
+    if (!Name && !Size && !Brand && !BoxItems && !Category && (!req.file || req.file == undefined)) {
         const err = new CustomError('One of the fields is required at least', 400);
         return next(err);
     }
@@ -155,18 +161,53 @@ const UpdateProduct = asyncErrorHandler(async (req, res, next) => {
     // Prepare update fields
     const updateFields = {};
     if (Name) updateFields.name = Name;
-    if (Subname) updateFields.subname = Subname;
     if (Size) updateFields.size = Size;
-    if (Brand) updateFields.brand = Brand;
     if (BoxItems) updateFields.boxItems = BoxItems;
+    if (Brand) {
+        // Check if Brand exists
+        const brand = await BrandService.findBrandById(Brand);
+        if (!brand) {
+            const err = new CustomError('Brand not found', 400);
+            return next(err);
+        }
+        updateFields.brand = Brand;
+    }
+    if (Category) {
+        // Check if Category exists
+        const category = await CategoryService.findCategoryById(Category);
+        if (!category) {
+            const err = new CustomError('Category not found', 400);
+            return next(err);
+        }
+        updateFields.category = Category;
+    }
+    if (req.file && req.file != undefined) {
+        updateFields.image = req.file.filename
+    }
     
     // Update Product
-    const updatedProduct = await Product.updateOne({ _id: id }, { $set: updateFields });
+    const updatedProduct = await Product.updateOne({ _id: product._id }, { $set: updateFields });
 
     // Check if Product updated successfully
     if (!updatedProduct) {
         const err = new CustomError('Error while updating Product, try again.', 400);
         return next(err);
+    }
+    
+    // Delete the image file from the server
+    if(product.image && req.file && req.file != undefined){
+        const imagePath = path.join(__dirname, '..', 'files', product.image);
+        fs.access(imagePath, fs.constants.F_OK, (err) => {
+            if (err) {
+                console.log('Image not found or already deleted:', err);
+            } else {
+                fs.unlink(imagePath, (unlinkErr) => {
+                    if (unlinkErr) {
+                        console.log('Error deleting image:', unlinkErr);
+                    }
+                });
+            }
+        });
     }
 
     res.status(200).json({ message: 'Product updated successfully' });
@@ -174,16 +215,44 @@ const UpdateProduct = asyncErrorHandler(async (req, res, next) => {
 //delete a product
 const DeleteProduct = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
+    // Check if id is provided
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        const err = new CustomError('Product ID is required', 400);
+        return next(err);
+    }
     const product = await Product.findOne({_id: id});
     if(!product){
         const err = new CustomError('Product not found', 404);
         return next(err);
     }
-    const deletedProduct = await Product.deleteOne({_id: id});
+    //check if product is used in any stock
+    const existStock = await StockService.findStockByProduct(id);
+    if(existStock){
+        const err = new CustomError('Product is used in some stores', 400);
+        return next(err);
+    }
+    const deletedProduct = await Product.deleteOne({_id: product._id});
     if(!deletedProduct){
         const err = new CustomError('Error while deleting product', 400);
         return next(err);
     }
+
+    // Delete the image file from the server
+    if(product.image){
+        const imagePath = path.join(__dirname, '..', 'files', product.image);
+        fs.access(imagePath, fs.constants.F_OK, (err) => {
+            if (err) {
+                console.log('Image not found or already deleted:', err);
+            } else {
+                fs.unlink(imagePath, (unlinkErr) => {
+                    if (unlinkErr) {
+                        console.log('Error deleting image:', unlinkErr);
+                    }
+                });
+            }
+        });
+    }
+
     res.status(200).json({message: 'Product deleted successfully'});
 });
 

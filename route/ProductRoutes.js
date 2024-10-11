@@ -29,7 +29,7 @@ router.get('/store/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllProd
 //get all products
 router.get('/', checkAuthrozation([process.env.ADMIN_TYPE]), GetAllProducts);
 //update a product
-router.patch('/:id', checkAuthrozation([process.env.ADMIN_TYPE]), UpdateProduct);
+router.patch('/:id', upload, checkAuthrozation([process.env.ADMIN_TYPE]), UpdateProduct);
 //delete a product
 router.delete('/:id', checkAuthrozation([process.env.ADMIN_TYPE]), DeleteProduct);
 

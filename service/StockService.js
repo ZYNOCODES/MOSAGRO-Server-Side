@@ -33,10 +33,17 @@ const createNewStock = async (product, store, session) => {
         selling: product.selling,
     }], { session });
 }
+
+const findStockByProduct = async (product) => {
+    return await Stock.findOne({            
+        product: product
+    });
+}
 module.exports = {
     findStockById,
     findStockByStoreAndProduct,
     findStockByStore,
     findStockByID_IDStore,
-    createNewStock
+    createNewStock,
+    findStockByProduct
 }
