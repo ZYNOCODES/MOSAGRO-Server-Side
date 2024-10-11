@@ -1,242 +1,253 @@
 const Publicity = require('../model/PublicityModel');
-const Stock = require('../model/StockModel');
-const Product = require('../model/ProductModel');
 const mongoose = require('mongoose');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
+const validator = require('validator');
+const fs = require('fs');
 const path = require('path');
 
-//fetch all Publicity
-const GetAllPublicitybyStore = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    if (!id) {
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
-    }
-    //check if ids is type of mongoose id
-    if(!mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('Invalid id', 404);
-        return next(err);
-    }
-    //get all Publicity by id store and where products.display is true
-    const publicity = await Publicity.findOne({
-        store: id,
-        'products.display': true
+//fetch all admin public publicities
+const fetchAllAdminPublicPublicities = asyncErrorHandler(async (req, res, next) => {
+    const publicities = await Publicity.find({
+        ownerModel: 'admin',
+        distination: 'public',
+        displayPublic: true
     });
-    //get stocks for
-    if(!publicity){
-        const err = new CustomError('No publicity found', 404);
+    //check if no publicities found
+    if (!publicities || publicities.length <= 0) {
+        const err = new CustomError('No publicities found', 404);
         return next(err);
     }
-    publicity.products = publicity.products.filter(product => product.display == true);
-    // Extract product IDs from publicity.products array
-    const stockIds = publicity.products.map(prod => prod.product);
-    //get all stocks for each product
-    const allProductsData = await Stock.find({ 
-        _id: { $in: stockIds }
+    res.status(200).json(publicities);
+});
+
+//fetch all store public publicities
+const fetchAllStorePublicPublicities = asyncErrorHandler(async (req, res, next) => {
+    const publicities = await Publicity.find({
+        ownerModel: 'store',
+        distination: 'public',
+        displayPublic: false
     }).populate({
-        path:'product',
-        select: '_id name size image'
+        path: 'owner',
+        select: 'firstName lastName phoneNumber'
     });
-    if(allProductsData.length <= 0){
-        const err = new CustomError('No product found in publicity', 404);
+    //check if no publicities found
+    if (!publicities || publicities.length <= 0) {
+        const err = new CustomError('No publicities found', 404);
         return next(err);
     }
-    //add title 
-    const updatedPublicity = allProductsData.map((prod, index) => {
-        return {
-            ...prod.toObject(),
-            title: publicity.products[index].title
-        };
-    });
-    res.status(200).json(updatedPublicity);
+    res.status(200).json(publicities);
 });
-//add Publicity
-const AddPublicity = asyncErrorHandler(async (req, res, next) => {
-    const { id, product, title } = req.body;
-    if (!id || !product) {
+
+//fetch all store publicities by store id from admin
+const fetchAllStorePublicitiesFromAdmin = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    if (!store || !mongoose.Types.ObjectId.isValid(store)) {
+        const err = new CustomError('Invalid store id', 400);
+        return next(err);
+    }
+    const publicities = await Publicity.find({
+        owner: store,
+        ownerModel: 'store',
+    });
+    //check if no publicities found
+    if (!publicities || publicities.length <= 0) {
+        const err = new CustomError('No publicities found', 404);
+        return next(err);
+    }
+
+    res.status(200).json(publicities);
+});
+
+//fetch all store publicities by store id
+const fetchAllStorePublicities = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    if (!store || !mongoose.Types.ObjectId.isValid(store)) {
+        const err = new CustomError('Invalid store id', 400);
+        return next(err);
+    }
+    const publicities = await Publicity.find({
+        owner: store,
+        ownerModel: 'store',
+    });
+    //check if no publicities found
+    if (!publicities || publicities.length <= 0) {
+        const err = new CustomError('No publicities found', 404);
+        return next(err);
+    }
+
+    res.status(200).json(publicities);
+});
+
+//fetch all public publicities
+const fetchAllPublicPublicities = asyncErrorHandler(async (req, res, next) => {
+    const publicities = await Publicity.find({
+        distination: 'public',
+        displayPublic: true
+    });
+    //check if no publicities found
+    if (!publicities || publicities.length <= 0) {
+        const err = new CustomError('No publicities found', 404);
+        return next(err);
+    }
+    res.status(200).json(publicities);
+});
+
+//create publicity from store
+const createPublicityFromStore = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    const { distination } = req.body;
+    if (!store || !mongoose.Types.ObjectId.isValid(store) ||
+        !distination || !validator.isIn(distination, ['private', 'public'])) {
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
-    //check if ids is type of mongoose id
-    if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(product)){
-        const err = new CustomError('Invalid id', 404);
+    //check if image is provided
+    if(!req.file || req.file == undefined){
+        const err = new CustomError('Image is required', 400);
         return next(err);
     }
-    //get all Publicity by id user
-    const publicity = await Publicity.findOne({ store: id });
-    if(publicity){
-        //check if product exist is user stock
-        const foundProduct = await Stock.findOne({
-            store: id,
-            _id: product
-        });
-        if(!foundProduct){
-            const err = new CustomError('Product not found in your stock', 404);
-            return next(err);
-        }
-        //check if product is already in Publicity
-        const findedProduct = publicity.products.find((p) => p.product == product);
-        if(findedProduct){
-            const err = new CustomError('Product already in publicity list', 400);
-            return next(err);
-        }
-        //add product to Publicity
-        publicity.products.push({
-            title: title,
-            product: product
-        });
-        const updatedPublicity = await publicity.save();
-        if(!updatedPublicity){
-            const err = new CustomError('Error while adding product to publicity list', 500);
-            return next(err);
-        }
-        return res.status(200).json({ message: 'Product added to publicity list'});
-    }
-    //check if product exist is user stock
-    const foundProduct = await Stock.findOne({
-        store: id,
-        _id: product
+    const filename = req.file.filename;
+
+    const publicity = await Publicity.create({
+        owner: store,
+        ownerModel: 'store',
+        distination,
+        displayPublic: false,
+        image: filename
     });
-    if(!foundProduct){
-        const err = new CustomError('Product not found in your stock', 404);
+    //check if publicity not created
+    if (!publicity) {
+        const err = new CustomError('Publicity not created, try again', 400);
         return next(err);
     }
-    //create new Publicity
-    const newPublicity = await Publicity.create({
-        store: id,
-        products: [{
-            title: title,
-            product: product
-        }]
-    });
-    if(!newPublicity){
-        const err = new CustomError('Error while creating publicity', 500);
-        return next(err);
-    }
-    res.status(200).json({ message: 'Product added to publicity list'});
+    res.status(200).json({ message: 'Publicity created successfully' });
 });
-//remove Publicity
-const RemovePublicity = asyncErrorHandler(async (req, res, next) => {
+
+//create publicity from admin
+const createPublicityFromAdmin = asyncErrorHandler(async (req, res, next) => {
+    //check if user is admin
+    const admin = req.user._id;
+    if (!admin) {
+        const err = new CustomError('Invalid user id', 400);
+        return next(err);
+    }
+    //check if image is provided
+    if(!req.file || req.file == undefined){
+        const err = new CustomError('Image is required', 400);
+        return next(err);
+    }
+    const filename = req.file.filename;
+
+    const publicity = await Publicity.create({
+        owner: admin,
+        ownerModel: 'admin',
+        distination: 'public',
+        displayPublic: true,
+        image: filename
+    });
+    //check if publicity not created
+    if (!publicity) {
+        const err = new CustomError('Publicity not created, try again', 400);
+        return next(err);
+    }
+    res.status(200).json({ message: 'Publicity created successfully' });
+});
+
+//update publicity by id from admin to public
+const makePublicityPublic = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { product } = req.body;
-    if (!id || !product) {
-        const err = new CustomError('All fields are required', 400);
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        const err = new CustomError('Invalid publicity id', 400);
         return next(err);
     }
-    //check if ids is type of mongoose id
-    if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(product)){
-        const err = new CustomError('Invalid id', 404);
+    const publicity = await Publicity.findByIdAndUpdate(id, {
+        distination: 'public',
+        displayPublic: true
+    });
+    //check if publicity not found
+    if (!publicity) {
+        const err = new CustomError('Publicity not found', 404);
         return next(err);
     }
-    //get all Publicity by id store
-    const publicity = await Publicity.findOne({ store: id });
-    if(!publicity){
-        const err = new CustomError('no publicity found', 404);
-        return next(err);
-    }
-    //check if product is already in Publicity
-    const findedProduct = publicity.products.find((p) => p.product == product);
-    if(!findedProduct){
-        const err = new CustomError('product not in publicity list', 400);
-        return next(err);
-    }
-    //remove product from Publicity
-    publicity.products = publicity.products.filter((item) => item.product != product);
-    const updatedPublicity = await publicity.save();
-    if(!updatedPublicity){
-        const err = new CustomError('Error while removing product from publicity', 500);
-        return next(err);
-    }
-    res.status(200).json({ message: 'Product removed from publicity list' });
+    res.status(200).json({ message: 'Publicity updated successfully' });
 });
-//get all publicities
-const GetAllPublicPublicities = asyncErrorHandler(async (req, res, next) => {
-    // Get all Publicity documents
-    const publicities = await Publicity.find({});
 
-    // Handle case where no publicities are found
-    if (publicities.length === 0) {
-        const err = new CustomError('No public publicity found', 404);
-        return next(err);
-    }
-
-    // Filter and map publicities to include only products with display true and distination 'public'
-    const filteredPublicities = await Promise.all(publicities.map(async (pub) => {
-        const filteredProducts = pub.products.filter(product => 
-            product.display === true && product.distination === 'public'
-        );
-
-        // Extract product IDs from filtered products
-        const stockIds = filteredProducts.map(prod => prod.product);
-
-        // Fetch all stocks for each product
-        const allProductsData = await Stock.find({ 
-            _id: { $in: stockIds }
-        }).populate({
-            path: 'product',
-            select: '_id name size image'
-        });
-        //add title 
-        const updatedPublicity = allProductsData.map((prod, index) => {
-            return {
-                ...prod.toObject(),
-                title: filteredProducts[index].title
-            };
-        });
-
-        return updatedPublicity;
-    }));
-
-    const results = filteredPublicities.filter(item => item.length >= 1);
-
-    // Handle case where no products are found for any publicity
-    if (results.length <= 0) {
-        const err = new CustomError('No public publicity found', 404);
-        return next(err);
-    }
-
-    res.status(200).json(results);
-});
-//make specific publicity public
-const ChangePublicityDistination = asyncErrorHandler(async (req, res, next) => {
+//delete publicity by id from admin
+const deletePublicityFromAdmin = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { product, status } = req.body;
-    if (!id) {
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        const err = new CustomError('Invalid publicity id', 400);
+        return next(err);
+    }
+    const publicity = await Publicity.findByIdAndDelete(id);
+    //check if publicity not found
+    if (!publicity) {
+        const err = new CustomError('Publicity not found', 404);
+        return next(err);
+    }
+
+    // Delete the image file from the server
+    const imagePath = path.join(__dirname, '..', 'files', publicity.image);
+    fs.access(imagePath, fs.constants.F_OK, (err) => {
+        if (err) {
+            console.log('Image not found or already deleted:', err);
+        } else {
+            fs.unlink(imagePath, (unlinkErr) => {
+                if (unlinkErr) {
+                    console.log('Error deleting image:', unlinkErr);
+                }
+            });
+        }
+    });
+
+    res.status(200).json({ message: 'Publicity deleted successfully' });
+});
+
+//delete publicity by id from store
+const deletePublicityFromStore = asyncErrorHandler(async (req, res, next) => {
+    const { id, store } = req.params;
+    if (!id || !mongoose.Types.ObjectId.isValid(id) ||
+        !store || !mongoose.Types.ObjectId.isValid(store)
+    ) {
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
-    //check if ids is type of mongoose id
-    if(!mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('Invalid id', 404);
+    const publicity = await Publicity.findByIdAndDelete(id);
+    //check if publicity not found
+    if (!publicity) {
+        const err = new CustomError('Publicity not found', 404);
         return next(err);
     }
-    //get all Publicity by id store
-    const publicity = await Publicity.findOne({ store: id });
-    if(!publicity){
-        const err = new CustomError('no publicity found', 404);
-        return next(err);
-    }
-    //check if product is already in Publicity
-    const findedProduct = publicity.products.find((p) => p.product == product);
-    if(!findedProduct){
-        const err = new CustomError('Product not in publicity list', 400);
-        return next(err);
-    }
-    //make publicity public
-    findedProduct.distination = status;
-    const updatedPublicity = await publicity.save();
-    if(!updatedPublicity){
-        const err = new CustomError('Error while making publicity public', 500);
-        return next(err);
-    }
-    res.status(200).json({ message: 'Publicity made ' + status});
+
+    
+    // Delete the image file from the server
+    const imagePath = path.join(__dirname, '..', 'files', publicity.image);
+    fs.access(imagePath, fs.constants.F_OK, (err) => {
+        if (err) {
+            console.log('Image not found or already deleted:', err);
+        } else {
+            fs.unlink(imagePath, (unlinkErr) => {
+                if (unlinkErr) {
+                    console.log('Error deleting image:', unlinkErr);
+                }
+            });
+        }
+    });
+
+    res.status(200).json({ message: 'Publicity deleted successfully' });
 });
+
 
 module.exports = {
-    GetAllPublicitybyStore,
-    AddPublicity,
-    RemovePublicity,
-    GetAllPublicPublicities,
-    ChangePublicityDistination
+    fetchAllAdminPublicPublicities,
+    fetchAllStorePublicPublicities,
+    fetchAllStorePublicitiesFromAdmin,
+    fetchAllStorePublicities,
+    fetchAllPublicPublicities,
+    createPublicityFromStore,
+    createPublicityFromAdmin,
+    deletePublicityFromAdmin,
+    deletePublicityFromStore,
+    makePublicityPublic,
 }

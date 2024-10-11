@@ -1,38 +1,46 @@
 const mongoose = require('mongoose');
 
 const publicitySchema = new mongoose.Schema({
-    store:{
+    owner: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'store',
+        refPath: 'ownerModel',
         required: true
     },
-    products: [{
-        product: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'stock',
-            required: true
-        },
-        title: {
-            type: String,
-            required: false,
-        },
-        distination: {
-            type: String,
-            enum: ['private', 'public'],
-            default: 'private',
-            required: true
-        },
-        display: {
-            type: Boolean,
-            required: true,
-            default: true,
-        },
-    }],
-},{
+    ownerModel: {
+        type: String,
+        enum: ['store', 'admin'],
+        required: true
+    },
+    distination: {
+        type: String,
+        enum: ['private', 'public'],
+        default: 'private',
+        required: true
+    },
+    displayPublic: {
+        type: Boolean,
+        default: false,
+    },
+    image: {
+        type: String,
+        required: true
+    },
+}, {
     timestamps: true,
     collection: 'publicity'
 });
 
-const publicity = mongoose.model('publicity', publicitySchema);
+publicitySchema.pre('save', function (next) {
+    if (this.ownerModel === 'admin') {
+        this.distination = 'public';
+        this.displayPublic = true;
+    }else if(this.ownerModel === 'store'){
+        this.displayPublic = false;
+    }
 
-module.exports = publicity;
+    next();
+});
+
+const Publicity = mongoose.model('publicity', publicitySchema);
+
+module.exports = Publicity;
