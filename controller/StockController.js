@@ -12,7 +12,7 @@ const moment = require('../util/Moment.js');
 
 //Create a new stock
 const CreateStock = asyncErrorHandler(async (req, res, next) => {
-    const { Product, Store, BuyingPrice, SellingPrice, Quantity, 
+    const { Product, Store, BuyingPrice, SellingPrice, Quantity, QuantityUnity,
         LimitedQuantity, ExparationDate, BuyingMathode, Destocking } = req.body;
     // Check if all required fields are provided
     if (!Product || !Store || !BuyingMathode ||
@@ -25,9 +25,10 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
         return next(new CustomError('All fields are required', 400));
     }
     //check if Quantity is a positive number
-    if(!Quantity || Number(Quantity) <= 0 || !validator.isNumeric(Quantity.toString())){
+    if(!Quantity || !QuantityUnity || Number(QuantityUnity) <= 0 || Number(Quantity) <= 0 || !validator.isNumeric(Quantity.toString())){
         return next(new CustomError('Quantity must be a positive number > 0', 400));
     }
+
     //check if BuyingPrice and SellingPrice is a positive number
     if(Number(BuyingPrice) <= 0 || Number(SellingPrice) <= 0){
         return next(new CustomError('Buying and Selling price must be a positive number > 0', 400));
@@ -74,8 +75,8 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
         }
 
         // recalculate the quantity 
-        const newQuantity = Number(Quantity) * Number(product.boxItems);
-
+        const newQuantity = (Number(Quantity) * Number(product.boxItems)) + Number(QuantityUnity);
+      
         // Check if stock already exists
         const stock = await StockService.findStockByStoreAndProduct(Store, Product, session);
         if (stock) {
