@@ -298,8 +298,8 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
                 );
             }
             //update stock quantity
-            // existingStock.quantity -= item.quantity;
-            // await existingStock.save({ session });
+            existingStock.quantity -= item.quantity;
+            await existingStock.save({ session });
             
             //calculate profit
             totalProfit += (

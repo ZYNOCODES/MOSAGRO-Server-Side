@@ -31,6 +31,7 @@ const LossesRoutes = require('./route/LossesRoutes');
 const StockStatusRoutes = require('./route/StockStatusRoutes');
 const FournisseurRoutes = require('./route/FournisseurRoutes');
 const PurchaseRoutes = require('./route/PurchaseRoutes');
+const SousPurchaseRoutes = require('./route/SousPurchaseRoutes');
 
 //express app
 const app = express();
@@ -63,6 +64,7 @@ app.use('/api/Losses', LossesRoutes);
 app.use('/api/StockStatus', StockStatusRoutes);
 app.use('/api/Fournisseur', FournisseurRoutes);
 app.use('/api/Purchase', PurchaseRoutes);
+app.use('/api/SousPurchase', SousPurchaseRoutes);
 
 
 //error handling

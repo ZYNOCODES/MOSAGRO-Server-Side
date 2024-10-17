@@ -19,9 +19,9 @@ const PurchaseSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    stock: [{
+    sousPurchases: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'stockStatus',
+        ref: 'SousPurchase',
         required: true
     }],
     credit:{
@@ -50,7 +50,12 @@ const PurchaseSchema = new mongoose.Schema({
         type: Boolean,
         required: true,
         default: false
-    }
+    },
+    discount:{
+        type: Number,
+        required: true,
+        default: 0
+    },
 },{
     timestamps: true,
     collection: 'purchase'

@@ -27,6 +27,11 @@ const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next
         return next(new CustomError('Receipt not found', 404));
     }
 
+    //check if receipt is already fully paid
+    if (existingReceipt.status == 10) {
+        return next(new CustomError('Receipt is already fully paid you cannot update it', 400));
+    }
+
     //get last receipt status
     const lastReceiptStatus = await ReceiptStatus.findOne({
         _id: existingReceipt.products[existingReceipt.products.length - 1]

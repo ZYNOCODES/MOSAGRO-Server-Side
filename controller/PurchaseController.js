@@ -10,17 +10,17 @@ const PurchaseService = require('../service/PurchaseService.js');
 const StockService = require('../service/StockService.js');
 const StockStatusService = require('../service/StockStatusService.js');
 const CitiesService = require('../service/CitiesService.js');
+const SousPurchaseService = require('../service/SousPurchaseService.js');
 const moment = require('../util/Moment.js');
 
 
 //create a new Purchase
 const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    const { fournisseur, amount, products } = req.body;
+    const { fournisseur, amount, products, Discount } = req.body;
     // check if all required fields are provided
     if(!store || !mongoose.Types.ObjectId.isValid(store) || 
-        !fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur) ||
-         !amount || !products
+        !fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur) || !products
     ){
         const err = new CustomError('All fields are required', 400);
         return next(err);
@@ -31,8 +31,14 @@ const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
     // Check if the amount is valid
-    if (!validator.isNumeric(amount.toString()) || isNaN(amount) || Number(amount) <= 0) {
+    if (isNaN(amount) || !validator.isNumeric(amount.toString()) || Number(amount) <= 0) {
         const err = new CustomError('Enter a valid positive amount', 400);
+        return next(err);
+    }
+
+    //check if the Discount is valid
+    if (isNaN(Discount) || !validator.isNumeric(Discount.toString()) || Number(Discount) < 0 || Number(Discount) > 100) {
+        const err = new CustomError('Enter a valid positive discount between 0 and 100', 400);
         return next(err);
     }
 
@@ -90,7 +96,7 @@ const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
         }
         // Set to UTC time zone
         const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
-        let stockStatusIDs = [];
+        let newSousPurchse = [];
         for (const product of productDetails) {
             const stock = await StockService.findStockByStoreAndProduct(store, product.productID);
             if (stock) {
@@ -117,8 +123,13 @@ const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
                     throw new CustomError('Error while updating stock, try again.', 400);
                 }
 
-                //add stock status id to stockStatusIDs
-                stockStatusIDs.push(stockStatus[0]._id);
+                //add stock status id to sous newSousPurchse array of objects 
+                newSousPurchse.push({
+                    sousStock: stockStatus[0]._id,
+                    quantity: product.newQuantity,
+                    price: product.buying
+                });
+
             } else {
                 // Create new stock and stock status if it doesn't exist
                 const newStock = await StockService.createNewStock(product, store, session);
@@ -139,26 +150,43 @@ const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
                 if (!stockStatus) {
                     throw new CustomError('Error while creating stock status, try again.', 400);
                 }
-
-                //add stock status id to stockStatusIDs
-                stockStatusIDs.push(stockStatus[0]._id);
+                //add stock status id to sous newSousPurchse array of objects 
+                newSousPurchse.push({
+                    sousStock: stockStatus[0]._id,
+                    quantity: product.newQuantity,
+                    price: product.buying
+                });
             }
         }
 
-        //check if stockStatusIDs is empty
-        if(stockStatusIDs.length < 1 || stockStatusIDs.length != productDetails.length){
+        //check if newSousPurchse is empty
+        if(newSousPurchse.length < 1 || newSousPurchse.length != productDetails.length){
             throw new CustomError('Error while creating stock status, try again.', 400);
         }
+
+        // Create a new Purchase status
+        const newSousPurchase = await SousPurchaseService.createSousPurchase(newSousPurchse, currentDateTime, session);
+        //check if new status was created
+        if (!newSousPurchase || !newSousPurchase[0]) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Error while creating new purchase status, try again.', 400));
+        }
+
+        const totalAmountwithDiscount = Number(Discount) > 0 ?
+            totalAmount - ((totalAmount * Discount) / 100) : totalAmount;
+
         // Create new Purchase
         const newPurchase = await Purchase.create([{
             store: store,
             fournisseur: fournisseur,
             date: currentDateTime,
-            totalAmount: totalAmount,
+            totalAmount: totalAmountwithDiscount,
             credit: false,
             closed: false,
             deposit: false,
-            stock: stockStatusIDs,
+            sousPurchases: [newSousPurchase[0]._id],
+            discount: Discount
         }], { session });
 
         if (!newPurchase) {
@@ -196,17 +224,21 @@ const GetPurchaseByID = asyncErrorHandler(async (req, res, next) => {
         path: 'fournisseur',
         select: 'firstName lastName phoneNumber address wilaya commune'
     }).populate({
-        path: 'stock',
-        select: 'stock buying quantity',
+        path: 'sousPurchases',
+        select: 'sousStocks',
         populate: {
-            path: 'stock',
-            select: 'product',
+            path: 'sousStocks.sousStock',
+            select: 'stock buying quantity',
             populate: {
-                path: 'product',
-                select: 'name size brand boxItems',
+                path: 'stock',
+                select: 'product',
                 populate: {
-                    path: 'brand',
-                    select: 'name'
+                    path: 'product',
+                    select: 'name size brand boxItems',
+                    populate: {
+                        path: 'brand',
+                        select: 'name'
+                    }
                 }
             }
         }
@@ -257,27 +289,36 @@ const GetAllClosedPurchases = asyncErrorHandler(async (req, res, next) => {
     }).populate({
         path: 'fournisseur',
         select: 'firstName lastName'
-    }).populate({
-        path: 'stock',
-        select: 'stock buying quantity',
-        populate: {
-            path: 'stock',
-            select: 'product',
-            populate: {
-                path: 'product',
-                select: 'name size brand',
-                populate: {
-                    path: 'brand',
-                    select: 'name'
-                }
-            }
-        }
     });
 
     //check if purchases found
     if(!purchases || purchases.length < 1){
         const err = new CustomError('No purchases found', 400);
         return next(err);
+    }
+
+    // For each purchase, fetch the last sous purchase
+    for (let i = 0; i < purchases.length; i++) {
+        let purchase = purchases[i];
+
+        if (purchase.sousPurchases && purchase.sousPurchases.length > 0) {
+            
+            const lastSousPurchase = await SousPurchaseService.findLastSousPurchaseByPurchasePopulated(
+                purchase.sousPurchases[purchase.sousPurchases.length - 1]
+            );
+            
+            if (!lastSousPurchase) {
+                return next(new CustomError('Sous purchase not found', 404));
+            }
+
+            purchases[i] = {
+                ...purchase.toObject(),
+                sousPurchases: lastSousPurchase.sousStocks
+            };
+        } else {
+            const err = new CustomError('No sous purchase found for this purchase', 400);
+            return next(err);
+        }
     }
 
     res.status(200).json(purchases);
@@ -309,27 +350,36 @@ const GetAllCreditedPurchases = asyncErrorHandler(async (req, res, next) => {
     }).populate({
         path: 'fournisseur',
         select: 'firstName lastName'
-    }).populate({
-        path: 'stock',
-        select: 'stock buying quantity',
-        populate: {
-            path: 'stock',
-            select: 'product',
-            populate: {
-                path: 'product',
-                select: 'name size brand',
-                populate: {
-                    path: 'brand',
-                    select: 'name'
-                }
-            }
-        }
     });
 
     //check if purchases found
     if(!purchases || purchases.length < 1){
         const err = new CustomError('No purchases found', 400);
         return next(err);
+    }
+
+    // For each purchase, fetch the last sous purchase
+    for (let i = 0; i < purchases.length; i++) {
+        let purchase = purchases[i];
+
+        if (purchase.sousPurchases && purchase.sousPurchases.length > 0) {
+            
+            const lastSousPurchase = await SousPurchaseService.findLastSousPurchaseByPurchasePopulated(
+                purchase.sousPurchases[purchase.sousPurchases.length - 1]
+            );
+            
+            if (!lastSousPurchase) {
+                return next(new CustomError('Sous purchase not found', 404));
+            }
+
+            purchases[i] = {
+                ...purchase.toObject(),
+                sousPurchases: lastSousPurchase.sousStocks
+            };
+        } else {
+            const err = new CustomError('No sous purchase found for this purchase', 400);
+            return next(err);
+        }
     }
 
     res.status(200).json(purchases);
@@ -360,27 +410,36 @@ const GetAllNewPurchases = asyncErrorHandler(async (req, res, next) => {
     }).populate({
         path: 'fournisseur',
         select: 'firstName lastName'
-    }).populate({
-        path: 'stock',
-        select: 'stock buying quantity',
-        populate: {
-            path: 'stock',
-            select: 'product',
-            populate: {
-                path: 'product',
-                select: 'name size brand',
-                populate: {
-                    path: 'brand',
-                    select: 'name'
-                }
-            }
-        }
     });
 
     //check if purchases found
     if(!purchases || purchases.length < 1){
         const err = new CustomError('No purchases found', 400);
         return next(err);
+    }
+
+    // For each purchase, fetch the last sous purchase
+    for (let i = 0; i < purchases.length; i++) {
+        let purchase = purchases[i];
+
+        if (purchase.sousPurchases && purchase.sousPurchases.length > 0) {
+            
+            const lastSousPurchase = await SousPurchaseService.findLastSousPurchaseByPurchasePopulated(
+                purchase.sousPurchases[purchase.sousPurchases.length - 1]
+            );
+            
+            if (!lastSousPurchase) {
+                return next(new CustomError('Sous purchase not found', 404));
+            }
+
+            purchases[i] = {
+                ...purchase.toObject(),
+                sousPurchases: lastSousPurchase.sousStocks
+            };
+        } else {
+            const err = new CustomError('No sous purchase found for this purchase', 400);
+            return next(err);
+        }
     }
 
     res.status(200).json(purchases);
@@ -395,43 +454,48 @@ const GetAllPurchasesByFournisseurForSpecificStore = asyncErrorHandler(async (re
         return next(err);
     }
 
-    //check if the store exist
-    const existStore = await StoreService.findStoreById(store);
-    if(!existStore){
-        const err = new CustomError('Store not found', 404);
-        return next(err);
-    }
     //check if the fournisseur exist
     const existFournisseur = await FournisseurService.findFournisseurByIdANDStore(fournisseur, store);
     if(!existFournisseur){
         const err = new CustomError('Fournisseur not found', 404);
         return next(err);
     }
+
     //get all purchases by store
     const purchases = await Purchase.find({
         store: store,
         fournisseur: fournisseur
-    }).populate({
-        path: 'stock',
-        select: 'stock buying quantity',
-        populate:{
-            path: 'stock',
-            select: 'product',
-            populate: {
-                path: 'product',
-                select: 'name size brand',
-                populate: {
-                    path: 'brand',
-                    select: 'name' 
-                }
-            }
-        }
     });
     //check if purchases found
     if(!purchases || purchases.length < 1){
         const err = new CustomError('No purchases found', 400);
         return next(err);
     }
+
+    // For each purchase, fetch the last sous purchase
+    for (let i = 0; i < purchases.length; i++) {
+        let purchase = purchases[i];
+
+        if (purchase.sousPurchases && purchase.sousPurchases.length > 0) {
+            
+            const lastSousPurchase = await SousPurchaseService.findLastSousPurchaseByPurchasePopulated(
+                purchase.sousPurchases[purchase.sousPurchases.length - 1]
+            );
+            
+            if (!lastSousPurchase) {
+                return next(new CustomError('Sous purchase not found', 404));
+            }
+
+            purchases[i] = {
+                ...purchase.toObject(),
+                sousPurchases: lastSousPurchase.sousStocks
+            };
+        } else {
+            const err = new CustomError('No sous purchase found for this purchase', 400);
+            return next(err);
+        }
+    }
+
     //return the purchases
     res.status(200).json(purchases);
 });
@@ -543,9 +607,6 @@ const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     const existPurchase = await Purchase.findOne({
         _id: id,
         store: store,
-    }).populate({
-        path: 'stock',
-        select: 'stock buying quantity',
     });
     if (!existPurchase) {
         const err = new CustomError('Purchase not found', 404);
