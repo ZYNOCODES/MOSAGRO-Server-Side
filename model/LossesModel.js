@@ -1,9 +1,14 @@
 const mongoose = require('mongoose');
 
 const lossesSchema = new mongoose.Schema({
-    store: {
+    owner: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'store',
+        refPath: 'ownerModel',
+        required: true
+    },
+    ownerModel: {
+        type: String,
+        enum: ['store', 'admin'],
         required: true
     },
     price: {
