@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const myStoresSchema = new mongoose.Schema({
     user:{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'user',
+        ref: 'client',
         required: true
     },
     store: {

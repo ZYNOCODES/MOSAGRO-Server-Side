@@ -51,7 +51,7 @@ app.use('/api/SubscriptionStore', SubscriptionStoreRoutes);
 app.use('/api/Subscription', SubscriptionRoutes);
 app.use('/api/Store', StoreRoutes);
 app.use('/api/Admin', AdminRoutes);
-app.use('/api/User', UserRoutes);
+app.use('/api/Client', UserRoutes);
 app.use('/api/Stock', StockRoutes);
 app.use('/api/MyStores', MyStoresRoutes);
 app.use('/api/Favorite', FavoriteRoutes);

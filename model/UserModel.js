@@ -49,13 +49,23 @@ const UserSchema = new mongoose.Schema({
     },
     r_commerce:{
         type: String,
-        required: false
+        required: true
+    },
+    isRCVerified:{
+        type: Boolean,
+        required: true,
+        default: false
+    },
+    isBlocked:{
+        type: Boolean,
+        required: true,
+        default: false
     },
 },{
     timestamps: true,
-    collection: 'user'
+    collection: 'client'
 });
 
-const User = mongoose.model('user', UserSchema);
+const User = mongoose.model('client', UserSchema);
 
 module.exports = User;

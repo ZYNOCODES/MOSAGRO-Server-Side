@@ -8,11 +8,14 @@ const {
     ApproveUserToAccessStore,
     RejectUserToAccessStore,
     MakeUserSeller,
-    DeleteStoreFromMyStores
+    DeleteStoreFromMyStores,
+    AddNewAddressToUser
 } = require('../controller/MyStoresController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
+const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
+const checkAdminOwnership = require('../middleware/CheckAdminOwnership');
 
 //secure routes below
 router.use(requireAuth);
@@ -38,5 +41,7 @@ router.patch('/makeSeller/:id', checkAuthrozation([process.env.STORE_TYPE]), Mak
 router.patch('/approve/:id', checkAuthrozation([process.env.STORE_TYPE]), ApproveUserToAccessStore);
 //delete a store from MyStores
 router.delete('/delete/:store', checkAuthrozation([process.env.STORE_TYPE]), DeleteStoreFromMyStores);
+//add new address to user
+router.patch('/addAddress/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, AddNewAddressToUser);
 
 module.exports = router;

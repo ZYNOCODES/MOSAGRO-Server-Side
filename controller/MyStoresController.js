@@ -315,6 +315,52 @@ const MakeUserSeller = asyncErrorHandler(async (req, res, next) => {
         'Client is now a simple customer'
     }`});
 });
+//add addresse to a user
+const AddNewAddressToUser = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    const { user, address } = req.body;
+    if (!user || !address ||
+        !mongoose.Types.ObjectId.isValid(user) ||
+        validator.isEmpty(address.toString())
+    ) {
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+
+    //check if user already exists
+    const existingUser = await ClientService.findClientById(user);
+    if(!existingUser){
+        const err = new CustomError('User not found', 404);
+        return next(err);
+    }
+
+    //check if store already exists
+    const myStore = await MyStores.findOne({ 
+        user: existingUser._id,
+        store: store,
+    });
+    if(!myStore){
+        const err = new CustomError('Client not found in your list', 400);
+        return next(err);
+    }
+
+    //check if address already exists
+    const addressExists = existingUser.storeAddresses.find((add) => add == address);
+    if(addressExists){
+        const err = new CustomError('Address already exists', 400);
+        return next(err);
+    }
+    //push new address to user
+    existingUser.storeAddresses.push(address);
+
+    //save user
+    const updatedUser = await existingUser.save();
+    if(!updatedUser){
+        const err = new CustomError('Error while adding address to user', 400);
+        return next(err);
+    }
+    res.status(200).json({message: 'Address added successfully'});
+});
 //delete store from myStores
 const DeleteStoreFromMyStores = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
@@ -356,5 +402,6 @@ module.exports = {
     ApproveUserToAccessStore,
     RejectUserToAccessStore,
     MakeUserSeller,
-    DeleteStoreFromMyStores
+    DeleteStoreFromMyStores,
+    AddNewAddressToUser
 }

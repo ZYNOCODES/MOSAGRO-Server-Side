@@ -492,107 +492,11 @@ const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const {
         Email, Password, FirstName, LastName, PhoneNumber, Address, 
-        Wilaya, Commune
+        Wilaya, Commune, RC
     } = req.body;
     // Check if all required fields are provided
     if ([store, Password, FirstName, LastName, PhoneNumber, Address, 
-        Wilaya, Commune].some(field => !field || validator.isEmpty(field))) {
-        return next(new CustomError('All fields are required', 400));
-    }
-
-    // Check if the store exists
-    const existStore = await StoreService.findStoreById(store);
-    if (!existStore) {
-        return next(new CustomError('Store not found', 404));
-    }
-
-    // Check if the phone number already exists
-    const existingUserByPhone = await UserService.findUserByPhone(PhoneNumber);
-    if (existingUserByPhone) {
-        return next(new CustomError('Phone number already exists', 400));
-    }
-
-    // Validate and check if the email already exists
-    if (Email) {
-        if (!validator.isEmail(Email)) {
-            return next(new CustomError('Invalid email address', 400));
-        }
-
-        const existingUserByEmail = await UserService.findUserByEmail(Email);
-        if (existingUserByEmail) {
-            return next(new CustomError('Email already exists', 400));
-        }
-    }
-
-    // Check if the Wilaya and Commune exist
-    const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
-    if (!existWilaya) {
-        return next(new CustomError('Invalid Wilaya or Commune', 404));
-    }
-
-    // Hash the password
-    const hash = await bcrypt.hashPassword(Password);
-
-    // Generate codification for the user
-    const code = await Codification.UserCode(existWilaya.codeC, "C");
-    if (code == null) {
-        return next(new CustomError('Code generation failed, please retry again', 400));
-    }
-
-    // Start a session for the transaction
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
-    try {
-
-        // Create the new user
-        const newUser = await User.create([{
-            email: Email,
-            password: hash,
-            firstName: FirstName,
-            lastName: LastName,
-            phoneNumber: PhoneNumber,
-            storeAddresses: [Address],
-            code: code,
-            wilaya: existWilaya.codeW,
-            commune: existWilaya.codeC
-        }], { session });
-        //check if the user created successfully
-        if (!newUser) {
-            return next(new CustomError('Error while creating the user', 500));
-        }
-        // Create the MyStore entry
-        await MyStores.create([{
-            user: newUser[0]._id,
-            store: existStore._id,
-            status: 'approved',
-        }], { session });
-
-        // Commit the transaction if everything is successful
-        await session.commitTransaction();
-
-        // Return a detailed success message
-        res.status(200).json({ message: `Client profile created successfully.`,});
-
-    } catch (error) {
-        // Abort the transaction in case of any errors
-        await session.abortTransaction();
-        next(new CustomError('An error occurred while creating the client profile', 500));
-    } finally {
-        // End the session
-        session.endSession();
-    }
-});
-//create new seller from a store
-const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
-    const { store } = req.params;
-    const {
-        Email, Password, FirstName, LastName, PhoneNumber, Address, 
-        Wilaya, Commune
-    } = req.body;
-    // Check if all required fields are provided
-    if ([store, Password, FirstName, LastName, PhoneNumber, Address, 
-        Wilaya, Commune].some(field => !field || validator.isEmpty(field))) {
+        Wilaya, Commune, RC].some(field => !field || validator.isEmpty(field))) {
         return next(new CustomError('All fields are required', 400));
     }
 
@@ -652,6 +556,104 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
             code: code,
             wilaya: existWilaya.codeW,
             commune: existWilaya.codeC,
+            r_commerce: RC.toString()
+        }], { session });
+        //check if the user created successfully
+        if (!newUser) {
+            return next(new CustomError('Error while creating the user', 500));
+        }
+        // Create the MyStore entry
+        await MyStores.create([{
+            user: newUser[0]._id,
+            store: existStore._id,
+            status: 'approved',
+        }], { session });
+
+        // Commit the transaction if everything is successful
+        await session.commitTransaction();
+
+        // Return a detailed success message
+        res.status(200).json({ message: `Client profile created successfully.`,});
+
+    } catch (error) {
+        // Abort the transaction in case of any errors
+        await session.abortTransaction();
+        next(new CustomError('An error occurred while creating the client profile', 500));
+    } finally {
+        // End the session
+        session.endSession();
+    }
+});
+//create new seller from a store
+const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    const {
+        Email, Password, FirstName, LastName, PhoneNumber, Address, 
+        Wilaya, Commune, RC
+    } = req.body;
+    // Check if all required fields are provided
+    if ([store, Password, FirstName, LastName, PhoneNumber, Address, 
+        Wilaya, Commune, RC].some(field => !field || validator.isEmpty(field))) {
+        return next(new CustomError('All fields are required', 400));
+    }
+
+    // Check if the store exists
+    const existStore = await StoreService.findStoreById(store);
+    if (!existStore) {
+        return next(new CustomError('Store not found', 404));
+    }
+
+    // Check if the phone number already exists
+    const existingUserByPhone = await UserService.findUserByPhone(PhoneNumber);
+    if (existingUserByPhone) {
+        return next(new CustomError('Phone number already exists', 400));
+    }
+
+    // Validate and check if the email already exists
+    if (Email) {
+        if (!validator.isEmail(Email)) {
+            return next(new CustomError('Invalid email address', 400));
+        }
+
+        const existingUserByEmail = await UserService.findUserByEmail(Email);
+        if (existingUserByEmail) {
+            return next(new CustomError('Email already exists', 400));
+        }
+    }
+
+    // Check if the Wilaya and Commune exist
+    const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
+    if (!existWilaya) {
+        return next(new CustomError('Invalid Wilaya or Commune', 404));
+    }
+
+    // Hash the password
+    const hash = await bcrypt.hashPassword(Password);
+
+    // Generate codification for the user
+    const code = await Codification.UserCode(existWilaya.codeC, "C");
+    if (code == null) {
+        return next(new CustomError('Code generation failed, please retry again', 400));
+    }
+
+    // Start a session for the transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+
+        // Create the new user
+        const newUser = await User.create([{
+            email: Email,
+            password: hash,
+            firstName: FirstName,
+            lastName: LastName,
+            phoneNumber: PhoneNumber,
+            storeAddresses: [Address],
+            code: code,
+            wilaya: existWilaya.codeW,
+            commune: existWilaya.codeC,
+            r_commerce: RC.toString()
         }], { session });
         //check if the user created successfully
         if (!newUser) {

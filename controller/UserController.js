@@ -5,22 +5,51 @@ const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const CitiesService = require('../service/CitiesService.js')
 
-//fetch all Users
-const GetAllUsers = asyncErrorHandler(async (req, res, next) => {
-    const Users = await User.find({});
-    if(!Users){
-        const err = new CustomError('Error while fetching Users', 400);
+//fetch all Clients unverified
+const GetAllClientsUnverified = asyncErrorHandler(async (req, res, next) => {
+    const Users = await User.find({
+        isRCVerified: false,
+        isBlocked: false
+    }).select('firstName lastName phoneNumber wilaya commune r_commerce email');
+    if(!Users || Users.length <= 0){
+        const err = new CustomError('No client found', 404);
         return next(err);
     }
-    res.status(200).json(Users);
+    //for each user, get the wilaya and commune
+    const response = await Promise.all(Users.map(async (user) => {
+        const wilaya = await CitiesService.findCitiesFRByCodeC(user.wilaya, user.commune);
+        return {
+            ...user.toObject(),
+            wilaya: wilaya.wilaya,
+            commune: wilaya.baladiya
+        }
+    }));
+    res.status(200).json(response);
+});
+//fetch all Clients blocked
+const GetAllClientsBlocked = asyncErrorHandler(async (req, res, next) => {
+    const Users = await User.find({
+        isBlocked: true
+    }).select('firstName lastName phoneNumber wilaya commune r_commerce email');
+    if(!Users || Users.length <= 0){
+        const err = new CustomError('No client found', 404);
+        return next(err);
+    }
+    //for each user, get the wilaya and commune
+    const response = await Promise.all(Users.map(async (user) => {
+        const wilaya = await CitiesService.findCitiesFRByCodeC(user.wilaya, user.commune);
+        return {
+            ...user.toObject(),
+            wilaya: wilaya.wilaya,
+            commune: wilaya.baladiya
+        }
+    }));
+    res.status(200).json(response);
 });
 //fetch specific user by id
-const GetUserByIdForStore = asyncErrorHandler(async (req, res, next) => {
+const GetClientByIdForStore = asyncErrorHandler(async (req, res, next) => {
     const { id, store } = req.params;
-    if(!id || !store ||
-        !mongoose.Types.ObjectId.isValid(id) ||
-        !mongoose.Types.ObjectId.isValid(store)
-    ){
+    if(!id || !mongoose.Types.ObjectId.isValid(id)){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
@@ -54,8 +83,8 @@ const GetUserByIdForStore = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json(response);
 });
 
-
 module.exports = {
-    GetAllUsers,
-    GetUserByIdForStore,
+    GetAllClientsUnverified,
+    GetAllClientsBlocked,
+    GetClientByIdForStore,
 }

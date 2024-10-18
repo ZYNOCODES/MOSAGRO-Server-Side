@@ -12,7 +12,7 @@ const receiptSchema = new mongoose.Schema({
     },
     client:{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'user',
+        ref: 'client',
         required: true
     },
     products: [{
