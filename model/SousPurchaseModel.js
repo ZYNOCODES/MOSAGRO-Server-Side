@@ -22,9 +22,9 @@ const SousPurchaseSchema = new mongoose.Schema({
     },
 },{
     timestamps: true,
-    collection: 'SousPurchase'
+    collection: 'sousPurchase'
 });
 
-const SousPurchase = mongoose.model('SousPurchase', SousPurchaseSchema);
+const SousPurchase = mongoose.model('sousPurchase', SousPurchaseSchema);
 
 module.exports = SousPurchase;

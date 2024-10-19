@@ -10,7 +10,7 @@ const GetAllClientsUnverified = asyncErrorHandler(async (req, res, next) => {
     const Users = await User.find({
         isRCVerified: false,
         isBlocked: false
-    }).select('firstName lastName phoneNumber wilaya commune r_commerce email');
+    }).select('firstName lastName phoneNumber wilaya commune r_commerce email isRCVerified isBlocked');
     if(!Users || Users.length <= 0){
         const err = new CustomError('No client found', 404);
         return next(err);
@@ -30,7 +30,7 @@ const GetAllClientsUnverified = asyncErrorHandler(async (req, res, next) => {
 const GetAllClientsBlocked = asyncErrorHandler(async (req, res, next) => {
     const Users = await User.find({
         isBlocked: true
-    }).select('firstName lastName phoneNumber wilaya commune r_commerce email');
+    }).select('firstName lastName phoneNumber wilaya commune r_commerce email isRCVerified isBlocked');
     if(!Users || Users.length <= 0){
         const err = new CustomError('No client found', 404);
         return next(err);
@@ -45,6 +45,87 @@ const GetAllClientsBlocked = asyncErrorHandler(async (req, res, next) => {
         }
     }));
     res.status(200).json(response);
+});
+//fetch all clients verified
+const GetAllClientsVerified = asyncErrorHandler(async (req, res, next) => {
+    const Users = await User.find({
+        isRCVerified: true,
+        isBlocked: false
+    }).select('firstName lastName phoneNumber wilaya commune r_commerce email isRCVerified isBlocked');
+    if(!Users || Users.length <= 0){
+        const err = new CustomError('No client found', 404);
+        return next(err);
+    }
+    //for each user, get the wilaya and commune
+    const response = await Promise.all(Users.map(async (user) => {
+        const wilaya = await CitiesService.findCitiesFRByCodeC(user.wilaya, user.commune);
+        return {
+            ...user.toObject(),
+            wilaya: wilaya.wilaya,
+            commune: wilaya.baladiya
+        }
+    }));
+    res.status(200).json(response);
+});
+//block specific client
+const BlockClient = asyncErrorHandler(async (req, res, next) => {
+    const { client } = req.body;
+    if(!client || !mongoose.Types.ObjectId.isValid(client)){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+    const existingClient = await User.findById(client);
+    if(!existingClient){
+        const err = new CustomError('Client not found', 404);
+        return next(err);
+    }
+    existingClient.isBlocked = true;
+    const updatedClient = await existingClient.save();
+    if(!updatedClient){
+        const err = new CustomError('Error while blocking client', 500);
+        return next(err);
+    }
+    res.status(200).json({message: 'Client blocked successfully'});
+});
+//unblock specific client
+const UnblockClient = asyncErrorHandler(async (req, res, next) => {
+    const { client } = req.body;
+    if(!client || !mongoose.Types.ObjectId.isValid(client)){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+    const existingClient = await User.findById(client);
+    if(!existingClient){
+        const err = new CustomError('Client not found', 404);
+        return next(err);
+    }
+    existingClient.isBlocked = false;
+    const updatedClient = await existingClient.save();
+    if(!updatedClient){
+        const err = new CustomError('Error while unblocking client', 500);
+        return next(err);
+    }
+    res.status(200).json({message: 'Client unblocked successfully'});
+});
+//verify specific client
+const VerifyClient = asyncErrorHandler(async (req, res, next) => {
+    const { client } = req.body;
+    if(!client || !mongoose.Types.ObjectId.isValid(client)){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+    const existingClient = await User.findById(client);
+    if(!existingClient){
+        const err = new CustomError('Client not found', 404);
+        return next(err);
+    }
+    existingClient.isRCVerified = true;
+    const updatedClient = await existingClient.save();
+    if(!updatedClient){
+        const err = new CustomError('Error while verifying client', 500);
+        return next(err);
+    }
+    res.status(200).json({message: 'Client verified successfully'});
 });
 //fetch specific user by id
 const GetClientByIdForStore = asyncErrorHandler(async (req, res, next) => {
@@ -84,7 +165,11 @@ const GetClientByIdForStore = asyncErrorHandler(async (req, res, next) => {
 });
 
 module.exports = {
+    GetAllClientsVerified,
     GetAllClientsUnverified,
     GetAllClientsBlocked,
     GetClientByIdForStore,
+    BlockClient,
+    UnblockClient,
+    VerifyClient
 }
