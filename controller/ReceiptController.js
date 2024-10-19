@@ -573,6 +573,71 @@ const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res
 
     res.status(200).json(receipts);
 });
+//fetch all returned receipts by store
+const GetAllReturnedReceiptsByStore = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    //check all required fields
+    if( !id || !mongoose.Types.ObjectId.isValid(id)){
+        return next(new CustomError('All fields are required', 400));
+    }
+    //check if store exist
+    const existingStore = await findStoreById(id);
+    if(!existingStore){
+        return next(new CustomError('Store not found', 404));
+    }
+    const receipts = await Receipt.find({
+        store: id,
+        status: { $ne: 10 },
+        products: { $exists: true },
+        $expr: { $gt: [{ $size: "$products" }, 1] }
+    }).populate({
+        path: 'client',
+        select: 'firstName lastName phoneNumber'
+    }).populate({
+        path: 'products.product',
+        select: 'name size'
+    });
+    if(receipts.length <= 0){
+        const err = new CustomError('No returned receipts found for you', 400);
+        return next(err);
+    }
+
+    // For each receipt, fetch the last receipt status
+    for (let i = 0; i < receipts.length; i++) {
+        let receipt = receipts[i];  // Access receipt using index
+
+        if (receipt.products && receipt.products.length > 0) {
+            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            
+            // Find the last product's receipt status
+            const lastReceiptStatus = await ReceiptStatus.findOne({
+                _id: lastProductId
+            }).populate({
+                path: 'products.product',
+                select: 'name size brand boxItems',
+                populate:{
+                    path: 'brand',
+                    select: 'name'
+                }
+            });
+            
+            if (!lastReceiptStatus) {
+                return next(new CustomError('Receipt status not found', 404));
+            }
+
+            // Create an updated receipt with ordersList and replace the original receipt
+            receipts[i] = {
+                ...receipt.toObject(),  // Copy the original receipt's properties
+                products: lastReceiptStatus.products  // Attach the ordersList
+            };
+        } else {
+            const err = new CustomError('No products found for this receipt', 400);
+            return next(err);
+        }
+    }
+
+    res.status(200).json(receipts);
+});
 //get all receipts by client
 const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
@@ -1184,6 +1249,7 @@ module.exports = {
     GetReceiptByID,
     GetAllNonedeliveredReceiptsByStore,
     GetAlldeliveredReceiptsByStore,
+    GetAllReturnedReceiptsByStore,
     GetAllReceiptsByClient,
     ValidateMyReceipt,
     UpdateReceiptExpextedDeliveryDate,

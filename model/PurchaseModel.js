@@ -21,7 +21,7 @@ const PurchaseSchema = new mongoose.Schema({
     },
     sousPurchases: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'SousPurchase',
+        ref: 'sousPurchase',
         required: true
     }],
     credit:{

@@ -4,6 +4,7 @@ const {
     GetAllClosedPurchases,
     GetPurchaseByID,
     GetAllCreditedPurchases,
+    GetAllReturnedPurchases,
     GetAllNewPurchases,
     GetAllPurchasesByFournisseurForSpecificStore,
     UpdatePurchaseCredited,
@@ -29,6 +30,8 @@ router.get('/:id/:store', checkAuthrozation([process.env.STORE_TYPE]), GetPurcha
 router.get('/all/closed/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllClosedPurchases);
 //get all Purchases credited by store
 router.get('/all/credited/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllCreditedPurchases);
+//get all Purchases returned by store
+router.get('/all/returned/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllReturnedPurchases);
 //get all new Purchases by store
 router.get('/all/new/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllNewPurchases);
 //get all Purchases by fournisseur for specific store

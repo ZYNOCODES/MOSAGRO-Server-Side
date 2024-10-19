@@ -5,6 +5,7 @@ const {
     GetReceiptByID,
     GetAllNonedeliveredReceiptsByStore,
     GetAlldeliveredReceiptsByStore,
+    GetAllReturnedReceiptsByStore,
     GetAllReceiptsByClient,
     ValidateMyReceipt,
     UpdateReceiptExpextedDeliveryDate,
@@ -34,6 +35,8 @@ router.get('/delivred/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAlld
 router.get('/noneDelivred/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllNonedeliveredReceiptsByStore);
 //get all delivered receipts credited
 router.get('/delivredCredited/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAlldeliveredReceiptsByStoreCredited);
+//get all returned receipts
+router.get('/returned/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllReturnedReceiptsByStore);
 //get all receipts by client for store
 router.get('/clientForStore/:client/:store', checkAuthrozation([process.env.STORE_TYPE]), GetAllReceiptsByClientForStore);
 //validate receipt

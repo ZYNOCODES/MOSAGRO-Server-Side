@@ -385,6 +385,65 @@ const GetAllCreditedPurchases = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json(purchases);
 });
 
+//fetch all returned Purchases
+const GetAllReturnedPurchases = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    if(!store || !mongoose.Types.ObjectId.isValid(store)){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+    
+    //check if the store exist
+    const existStore = await StoreService.findStoreById(store);
+    if(!existStore){
+        const err = new CustomError('Store not found', 404);
+        return next(err);
+    }
+
+    //get all purchases by store
+    const purchases = await Purchase.find({
+        store: store,
+        sousPurchases: { $exists: true },
+        $expr: { $gt: [{ $size: "$sousPurchases" }, 1] },
+        closed: false
+    }).populate({
+        path: 'fournisseur',
+        select: 'firstName lastName'
+    });
+
+    //check if purchases found
+    if(!purchases || purchases.length < 1){
+        const err = new CustomError('No returned purchases found', 400);
+        return next(err);
+    }
+
+    // For each purchase, fetch the last sous purchase
+    for (let i = 0; i < purchases.length; i++) {
+        let purchase = purchases[i];
+
+        if (purchase.sousPurchases && purchase.sousPurchases.length > 0) {
+            
+            const lastSousPurchase = await SousPurchaseService.findLastSousPurchaseByPurchasePopulated(
+                purchase.sousPurchases[purchase.sousPurchases.length - 1]
+            );
+            
+            if (!lastSousPurchase) {
+                return next(new CustomError('Sous purchase not found', 404));
+            }
+
+            purchases[i] = {
+                ...purchase.toObject(),
+                sousPurchases: lastSousPurchase.sousStocks
+            };
+        } else {
+            const err = new CustomError('No sous purchase found for this purchase', 400);
+            return next(err);
+        }
+    }
+
+    res.status(200).json(purchases);
+});
+
 //fetch all new Purchases
 const GetAllNewPurchases = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
@@ -803,6 +862,7 @@ module.exports = {
     GetAllClosedPurchases,
     GetPurchaseByID,
     GetAllCreditedPurchases,
+    GetAllReturnedPurchases,
     GetAllNewPurchases,
     GetAllPurchasesByFournisseurForSpecificStore,
     UpdatePurchaseCredited,
