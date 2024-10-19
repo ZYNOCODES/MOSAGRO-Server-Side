@@ -3,7 +3,8 @@ const User = require('../model/UserModel');
 const MyStores = require('../model/MyStoresModel');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
-const CitiesService = require('../service/CitiesService.js')
+const CitiesService = require('../service/CitiesService.js');
+const validator = require('validator');
 
 //fetch all Clients unverified
 const GetAllClientsUnverified = asyncErrorHandler(async (req, res, next) => {
@@ -109,7 +110,7 @@ const UnblockClient = asyncErrorHandler(async (req, res, next) => {
 });
 //verify specific client
 const VerifyClient = asyncErrorHandler(async (req, res, next) => {
-    const { client } = req.body;
+    const { client, RC } = req.body;
     if(!client || !mongoose.Types.ObjectId.isValid(client)){
         const err = new CustomError('All fields are required', 400);
         return next(err);
@@ -119,7 +120,11 @@ const VerifyClient = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('Client not found', 404);
         return next(err);
     }
+
+    if(RC && !validator.isEmpty(RC)) existingClient.r_commerce = RC;
     existingClient.isRCVerified = true;
+    existingClient.isBlocked = false;
+
     const updatedClient = await existingClient.save();
     if(!updatedClient){
         const err = new CustomError('Error while verifying client', 500);
