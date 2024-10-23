@@ -405,7 +405,6 @@ const GetAllReturnedPurchases = asyncErrorHandler(async (req, res, next) => {
         store: store,
         sousPurchases: { $exists: true },
         $expr: { $gt: [{ $size: "$sousPurchases" }, 1] },
-        closed: false
     }).populate({
         path: 'fournisseur',
         select: 'firstName lastName'
