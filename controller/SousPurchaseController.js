@@ -29,11 +29,6 @@ const CreateNewSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next)
         return next(new CustomError('Purchase not found', 404));
     }
 
-    //check if Purchase is already closed
-    if (existingPurchase.closed) {
-        return next(new CustomError('Purchase is already closed', 400));
-    }
-
     //get last sous Purchase
     const lastSousPurchase = await SousPurchaseService.findLastSousPurchaseByPurchase(
         existingPurchase.sousPurchases[existingPurchase.sousPurchases.length - 1]
@@ -104,10 +99,28 @@ const CreateNewSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next)
             return acc + (Number(sousPurchase.price) * Number(sousPurchase.quantity));
         }, 0);
 
-        existingPurchase.totalAmount = Number(existingPurchase.discount) > 0 
-            ? newtotal - (newtotal * (Number(existingPurchase.discount) / 100)) : newtotal;
+        const totalAmount = Number(existingPurchase.discount) > 0 
+        ? newtotal - (newtotal * (Number(existingPurchase.discount) / 100)) : newtotal;
+        existingPurchase.totalAmount = totalAmount;
         existingPurchase.sousPurchases.push(newSousPurchase[0]._id);
-
+        const currentPaymentsTotal = existingPurchase.payment.reduce((acc, payment) => acc + payment.amount, 0);
+        if (currentPaymentsTotal > totalAmount) {
+            //start subtracting from the last payment
+            let remainingAmount = currentPaymentsTotal - totalAmount;
+            const updatedPayments = existingPurchase.payment.map((payment) => {
+                if (remainingAmount > 0) {
+                    if (payment.amount > remainingAmount) {
+                        payment.amount = payment.amount - remainingAmount;
+                        remainingAmount = 0;
+                    }else{
+                        remainingAmount = remainingAmount - payment.amount;
+                        payment.amount = 0;
+                    }
+                }
+                return payment;
+            });
+            existingPurchase.payment = updatedPayments;
+        }
         //save Purchase
         const updatedPurchase = await existingPurchase.save({ session });
         if (!updatedPurchase) {

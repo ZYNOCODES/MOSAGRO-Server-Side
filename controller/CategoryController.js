@@ -33,6 +33,49 @@ const CreateCategory = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json({message: 'Category created successfully'});
 });
 
+//add Category to store
+const AddCategoryToStore = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    const { category } = req.body;
+    // check if all required fields are provided
+    if(!store || !category
+        || !mongoose.Types.ObjectId.isValid(store) 
+        || !mongoose.Types.ObjectId.isValid(category)
+    ){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+    //check if the store exist
+    const existStore = await StoreService.findStoreById(store);
+    if(!existStore){
+        const err = new CustomError('Store not found', 400);
+        return next(err);
+    }
+    //check if the category exist
+    const existCategory = await CategoryService.findCategoryById(category);
+    if(!existCategory){
+        const err = new CustomError('Category not found', 400);
+        return next(err);
+    }
+
+    //check if the category already exist in the store
+    const exist = existStore.categories.find((cat) => cat.equals(existCategory._id));
+    if(exist){
+        const err = new CustomError('Category already exist in the store', 400);
+        return next(err);
+    }
+
+    //add category to store
+    existStore.categories.push(existCategory._id);
+    const updatedStore = await existStore.save();
+    //check if category added to store successfully
+    if(!updatedStore){
+        const err = new CustomError('Error while adding category to store try again.', 400);
+        return next(err);
+    }
+    res.status(200).json({message: 'Category added to store successfully'});
+});
+
 //fetch all Categorys
 const GetAllCategorys = asyncErrorHandler(async (req, res, next) => {
     const Categorys = await Category.find({});
@@ -45,15 +88,15 @@ const GetAllCategorys = asyncErrorHandler(async (req, res, next) => {
 
 //fetch all Categorys
 const GetAllCategorysForStore = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
+    const { store } = req.params;
     // check if all required fields are provided
-    if(!id || !mongoose.Types.ObjectId.isValid(id)){
+    if(!store || !mongoose.Types.ObjectId.isValid(store)){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
     
     //check if the store exist
-    const existStore = await StoreService.findStoreById(id);
+    const existStore = await StoreService.findStoreById(store);
     if(!existStore){
         const err = new CustomError('Store not found', 400);
         return next(err);
@@ -121,10 +164,54 @@ const DeleteCategory = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json({message: 'Category deleted successfully'});
 });
 
+//delete Category from store
+const DeleteCategoryFromStore = asyncErrorHandler(async (req, res, next) => {
+    const { store, category } = req.params;
+    // check if all required fields are provided
+    if(!store || !category
+        || !mongoose.Types.ObjectId.isValid(store) 
+        || !mongoose.Types.ObjectId.isValid(category)
+    ){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+    //check if the store exist
+    const existStore = await StoreService.findStoreById(id);
+    if(!existStore){
+        const err = new CustomError('Store not found', 400);
+        return next(err);
+    }
+    //check if the category exist
+    const existCategory = await CategoryService.findCategoryById(category);
+    if(!existCategory){
+        const err = new CustomError('Category not found', 400);
+        return next(err);
+    }
+
+    //check if the category exist in the store
+    const exist = existStore.categories.find((cat) => cat.equals(existCategory._id));
+    if(!exist){
+        const err = new CustomError('Category not found in the store', 400);
+        return next(err);
+    }
+
+    //delete category from store
+    existStore.categories = existStore.categories.filter((cat) => cat !== existCategory._id);
+    const updatedStore = await existStore.save();
+    //check if category deleted from store successfully
+    if(!updatedStore){
+        const err = new CustomError('Error while deleting category from store try again.', 400);
+        return next(err);
+    }
+    res.status(200).json({message: 'Category deleted from store successfully'});
+});
+
 module.exports = {
     CreateCategory,
+    AddCategoryToStore,
     GetAllCategorys,
     GetAllCategorysForStore,
     UpdateCategoryName,
-    DeleteCategory
+    DeleteCategory,
+    DeleteCategoryFromStore
 }

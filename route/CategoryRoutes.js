@@ -1,14 +1,17 @@
 const express = require('express');
 const {
     CreateCategory,
+    AddCategoryToStore,
     GetAllCategorys,
     GetAllCategorysForStore,
     UpdateCategoryName,
-    DeleteCategory
+    DeleteCategory,
+    DeleteCategoryFromStore
 } = require('../controller/CategoryController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
+const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
 
 //get all Categorys
 router.get('/', GetAllCategorys);
@@ -18,7 +21,11 @@ router.use(requireAuth);
 
 // STORE_API routes below
 //get all Categorys for store
-router.get('/store/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllCategorysForStore);
+router.get('/store/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, GetAllCategorysForStore);
+//add Category to store
+router.patch('/store/add/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, AddCategoryToStore);
+//delete Category from store
+router.delete('/store/delete/:store/:category', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, DeleteCategoryFromStore);
 
 // ADMIN_API routes below
 //create new Category

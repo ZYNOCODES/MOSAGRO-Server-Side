@@ -459,7 +459,6 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
     }
     const receipts = await Receipt.find({
         store: id,
-        delivered: true,
         status: 10
     }).populate({
         path: 'client',
@@ -587,7 +586,6 @@ const GetAllReturnedReceiptsByStore = asyncErrorHandler(async (req, res, next) =
     }
     const receipts = await Receipt.find({
         store: id,
-        status: { $ne: 10 },
         products: { $exists: true },
         $expr: { $gt: [{ $size: "$products" }, 1] }
     }).populate({
@@ -1013,6 +1011,7 @@ const AddFullPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
         date: currentDateTime,
         amount: Number(existingReceipt.total)
     });
+    existingReceipt.delivered = true;
     existingReceipt.status = 10;
 
     // Save the updated Receipt

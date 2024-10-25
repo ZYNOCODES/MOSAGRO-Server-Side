@@ -27,11 +27,6 @@ const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next
         return next(new CustomError('Receipt not found', 404));
     }
 
-    //check if receipt is already fully paid
-    if (existingReceipt.status == 10) {
-        return next(new CustomError('Receipt is already fully paid you cannot update it', 400));
-    }
-
     //get last receipt status
     const lastReceiptStatus = await ReceiptStatus.findOne({
         _id: existingReceipt.products[existingReceipt.products.length - 1]
@@ -103,6 +98,25 @@ const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next
         existingReceipt.total = newtotal;
         existingReceipt.profit = newprofit;
         existingReceipt.products.push(newReceiptStatus[0]._id);
+        //update receipt payment list after modification of total
+        const currentPaymentsTotal = existingReceipt.payment.reduce((acc, payment) => acc + payment.amount, 0);
+        if (currentPaymentsTotal > newtotal) {
+            //start subtracting from the last payment
+            let remainingAmount = currentPaymentsTotal - newtotal;
+            const updatedPayments = existingReceipt.payment.map((payment) => {
+                if (remainingAmount > 0) {
+                    if (payment.amount > remainingAmount) {
+                        payment.amount = payment.amount - remainingAmount;
+                        remainingAmount = 0;
+                    }else{
+                        remainingAmount = remainingAmount - payment.amount;
+                        payment.amount = 0;
+                    }
+                }
+                return payment;
+            });
+            existingReceipt.payment = updatedPayments;
+        }
 
         //save receipt
         const updatedReceipt = await existingReceipt.save({ session });
