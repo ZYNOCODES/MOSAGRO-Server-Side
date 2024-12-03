@@ -157,7 +157,21 @@ const SignInClient = asyncErrorHandler(async (req, res, next) => {
     const token = createToken(user._id, process.env.CLIENT_TYPE);
 
     // Return user
-    res.status(200).json({token});
+    res.status(200).json({
+        token,
+        info: {
+            id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            phoneNumber: user.phoneNumber,
+            email: user.email,
+            wilaya: user.wilaya,
+            commune: user.commune,
+            r_commerce: user.r_commerce,
+            storeAddresses: user.storeAddresses,
+            isSeller: user.isSeller
+        }
+    });
 });
 
 //singup store by sending email otp verification

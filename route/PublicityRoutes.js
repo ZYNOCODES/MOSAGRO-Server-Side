@@ -24,10 +24,10 @@ router.use(requireAuth);
 // SHARED_API routes below
 // fetch all public publicities
 router.get('/fetchAllPublicPublicities', checkAuthrozation([process.env.ADMIN_TYPE, process.env.STORE_TYPE, process.env.CLIENT_TYPE]), fetchAllPublicPublicities);
+router.get('/fetchAllStorePublicities/:store', checkAuthrozation([process.env.STORE_TYPE, process.env.CLIENT_TYPE]), fetchAllStorePublicities);
 
 // STORE_API routes below
 // fetch all store publicities
-router.get('/fetchAllStorePublicities/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, fetchAllStorePublicities);
 // create publicity from store
 router.post('/createFromStore/:store', upload, checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, createPublicityFromStore);
 // delete publicity from store

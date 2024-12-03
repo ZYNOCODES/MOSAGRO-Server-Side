@@ -25,7 +25,11 @@ const GetAllMyStoresbyUser = asyncErrorHandler(async (req, res, next) => {
         status: 'approved'
     }).populate({
         path: 'store',
-        select: 'storeName storeAddress wilaya'
+        select: 'storeName storeAddress wilaya commune categories',
+        populate: {
+            path: 'categories',
+            select: '_id name',
+        },
     });
     
     //check
@@ -33,7 +37,22 @@ const GetAllMyStoresbyUser = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('No approved store found for you', 404);
         return next(err);
     }
-    res.status(200).json(myStores);
+
+    // Populate wilaya and commune manually
+    const populatedmyStores = await Promise.all(myStores.map(async (myStore) => {
+        const wilaya = await CitiesService.findCitiesFRByCodeC(myStore.store.wilaya, myStore.store.commune);
+
+        return {
+            ...myStore.toObject(),
+            store: {
+                ...myStore.store.toObject(),
+                wilaya: wilaya.wilaya,
+                commune: wilaya.baladiya,
+            }
+        };
+    }));
+    
+    res.status(200).json(populatedmyStores);
 });
 //fetch all approved users by store
 const GetAllUsersByStore = asyncErrorHandler(async (req, res, next) => {
