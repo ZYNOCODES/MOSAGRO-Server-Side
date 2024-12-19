@@ -650,6 +650,9 @@ const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
     }
     const receipts = await Receipt.find({
         client: id
+    }).populate({
+        path: 'store',
+        select: 'storeName phoneNumber storeAddress storeLocation',
     });
     if(receipts.length <= 0){
         const err = new CustomError('No receipts found for you', 400);
