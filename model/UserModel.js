@@ -35,10 +35,21 @@ const UserSchema = new mongoose.Schema({
         required: true,
         default: false
     },
-    storeAddresses: {
-        type: Array,
-        required: true
-    },
+    storeAddresses: [{
+        name:{
+            type: String,
+            required: true
+        },
+        address:{
+            type: String,
+            required: true
+        },
+        location:{
+            type: String,
+            required: false,
+            default: null
+        },
+    }],
     wilaya:{
         type: String,
         required: true,

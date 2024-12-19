@@ -337,8 +337,8 @@ const MakeUserSeller = asyncErrorHandler(async (req, res, next) => {
 //add addresse to a user
 const AddNewAddressToUser = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    const { user, address } = req.body;
-    if (!user || !address ||
+    const { user, address, name } = req.body;
+    if (!user || !address || !name ||
         !mongoose.Types.ObjectId.isValid(user) ||
         validator.isEmpty(address.toString())
     ) {
@@ -364,13 +364,19 @@ const AddNewAddressToUser = asyncErrorHandler(async (req, res, next) => {
     }
 
     //check if address already exists
-    const addressExists = existingUser.storeAddresses.find((add) => add == address);
+    const addressExists = existingUser.storeAddresses.find((add) => 
+        add.address == address && add.name == name
+    );
     if(addressExists){
-        const err = new CustomError('Address already exists', 400);
+        const err = new CustomError('Address already exists with this name and address', 400);
         return next(err);
     }
     //push new address to user
-    existingUser.storeAddresses.push(address);
+    existingUser.storeAddresses.push({
+        name: name,
+        address: address,
+        location: null
+    });
 
     //save user
     const updatedUser = await existingUser.save();

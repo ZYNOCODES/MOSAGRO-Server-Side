@@ -97,7 +97,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
                 session.endSession();
                 return next(
                     new CustomError(
-                    `This quantity ${item.quantity} of ${existingStock.product.name} is no availble`,
+                    `This quantity ${item.quantity} of ${existingStock.product.name} is no availble you can buy only ${existingStock.quantity}`,
                     400)
                 );
             }
@@ -119,8 +119,8 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
                 );
             }
             //update stock quantity
-            // existingStock.quantity -= item.quantity;
-            // await existingStock.save({ session });
+            existingStock.quantity -= item.quantity;
+            await existingStock.save({ session });
             
             //calculate profit
             totalProfit += (

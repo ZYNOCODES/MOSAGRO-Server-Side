@@ -487,7 +487,11 @@ const SignUpClient = asyncErrorHandler(async (req, res, next) => {
         email: Email, emailVerification: false,
         firstName: FirstName, 
         lastName: LastName, 
-        storeAddresses: [Address], 
+        storeAddresses: [{
+            name: 'default address',
+            address: Address,
+            location: null
+        }], 
         wilaya: Wilaya, commune: Commune, 
         r_commerce: R_Commerce
     });
@@ -566,7 +570,11 @@ const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
             firstName: FirstName,
             lastName: LastName,
             phoneNumber: PhoneNumber,
-            storeAddresses: [Address],
+            storeAddresses: [{
+                name: 'default address',
+                address: Address,
+                location: null
+            }],
             code: code,
             wilaya: existWilaya.codeW,
             commune: existWilaya.codeC,
