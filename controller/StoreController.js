@@ -10,7 +10,7 @@ const GetAllActiveStores = asyncErrorHandler(async (req, res, next) => {
     const Stores = await Store.find({
         status: 'Active',
         subscriptions: {$ne: []}
-    }).select('firstName lastName phoneNumber email wilaya commune');
+    }).select('firstName lastName phoneNumber email wilaya commune storeAddress storeName');
     if(!Stores || Stores.length <= 0){
         const err = new CustomError('No Stores found', 404);
         return next(err);
