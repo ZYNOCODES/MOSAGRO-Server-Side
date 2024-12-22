@@ -1,10 +1,6 @@
 const mongoose = require('mongoose');
 
 const receiptSchema = new mongoose.Schema({
-    code:{
-        type: String,
-        required: true
-    },
     store:{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'store',

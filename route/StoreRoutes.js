@@ -3,6 +3,7 @@ const {
     GetAllActiveStores,
     GetAllPendingStores,
     GetAllSuspendedStores,
+    GetAllActiveStoresNonLinkedToAClient,
     GetStore,
     UpdateStore
 } = require('../controller/StoreController');
@@ -16,10 +17,12 @@ router.use(requireAuth);
 // SHARED_API routes below
 //fetch specific Store
 router.get('/:id', checkAuthrozation([process.env.ADMIN_TYPE, process.env.STORE_TYPE]), GetStore);
-//fetch all active Stores
-router.get('/all/active', checkAuthrozation([process.env.ADMIN_TYPE, process.env.CLIENT_TYPE]), GetAllActiveStores);
+//fetch all active Stores not linked to a client
+router.get('/all/active/:client', checkAuthrozation([process.env.CLIENT_TYPE]), GetAllActiveStoresNonLinkedToAClient);
 
 // ADMIN_API routes below
+//fetch all active Stores
+router.get('/all/active', checkAuthrozation([process.env.ADMIN_TYPE]), GetAllActiveStores);
 //fetch all pending Stores
 router.get('/all/pending', checkAuthrozation([process.env.ADMIN_TYPE]), GetAllPendingStores);
 //fetch all suspended Stores

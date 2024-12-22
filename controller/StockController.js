@@ -214,16 +214,10 @@ const FetchStockByID = asyncErrorHandler(async (req, res, next) => {
 });
 //fetch all stock by store
 const FetchStockByStore = asyncErrorHandler(async (req, res, next) => {
-    const { Store } = req.params;
-    //check if store already exist
-    const store = await StoreService.findStoreById(Store);
-    if(!store){
-        const err = new CustomError('Store not found', 404);
-        return next(err);
-    }
+    const { store } = req.params;
     //fetch all stock by store
     const stocks = await Stock.find({
-        store: Store
+        store: store
     }).populate({
         path:'product',
         select: '_id code name size image brand boxItems',

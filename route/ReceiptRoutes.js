@@ -22,6 +22,8 @@ const {
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
+const checkStoreAccessibility = require('../middleware/CheckStoreAccessibility');
+const checkClientOwnership = require('../middleware/CheckClientOwnership');
 
 //secure routes below
 router.use(requireAuth);
@@ -62,9 +64,9 @@ router.patch('/credit/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateR
 
 // Client_API routes
 //create new receipt
-router.post('/:client', checkAuthrozation([process.env.CLIENT_TYPE]), CreateReceipt);
+router.post('/:client/:store', checkAuthrozation([process.env.CLIENT_TYPE]), checkStoreAccessibility, CreateReceipt);
 //get all receipts by client
-router.get('/client/:id', checkAuthrozation([process.env.CLIENT_TYPE]), GetAllReceiptsByClient);
+router.get('/client/:client', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllReceiptsByClient);
 
 
 module.exports = router;

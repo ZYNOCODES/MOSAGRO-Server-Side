@@ -4,13 +4,14 @@ const Store = require('../model/StoreModel');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const CitiesService = require('../service/CitiesService.js')
+const MyStoreService = require('../service/MyStoreService.js')
 
 //fetch all active Stores
 const GetAllActiveStores = asyncErrorHandler(async (req, res, next) => {
     const Stores = await Store.find({
         status: 'Active',
         subscriptions: {$ne: []}
-    }).select('firstName lastName phoneNumber email wilaya commune storeAddress storeName');
+    }).select('firstName lastName phoneNumber email wilaya commune storeAddress storeName categories');
     if(!Stores || Stores.length <= 0){
         const err = new CustomError('No Stores found', 404);
         return next(err);
@@ -53,6 +54,37 @@ const GetAllSuspendedStores = asyncErrorHandler(async (req, res, next) => {
         status: 'Suspended',
         subscriptions: {$ne: []}
     }).select('firstName lastName phoneNumber email wilaya commune');
+    if(!Stores || Stores.length <= 0){
+        const err = new CustomError('No Stores found', 404);
+        return next(err);
+    }
+    //get wilaya and commune
+    const updatedStores = await Promise.all(Stores.map(async store => {
+        const storeObj = store.toObject();
+        const wilaya = await CitiesService.findCitiesFRByCodeC(store.wilaya, store.commune);
+        storeObj.wilaya = wilaya.wilaya;
+        storeObj.commune = wilaya.baladiya;
+        return storeObj;
+    }));
+
+    res.status(200).json(updatedStores);
+});
+//fetch all active Stores
+const GetAllActiveStoresNonLinkedToAClient = asyncErrorHandler(async (req, res, next) => {
+    const { client } = req.params;
+    if(!client || !mongoose.Types.ObjectId.isValid(client)){
+        const err = new CustomError('Client ID is required', 400);
+        return next(err);
+    }
+    //get linked stores
+    const linkedStores = await MyStoreService.findMyStoresByUser(client);
+    const linkedStoresIDs = linkedStores.map(store => store.store);
+    //get all active stores
+    const Stores = await Store.find({
+        _id: {$nin: linkedStoresIDs},
+        status: 'Active',
+        subscriptions: {$ne: []}
+    }).select('firstName lastName phoneNumber email wilaya commune storeAddress storeName categories');
     if(!Stores || Stores.length <= 0){
         const err = new CustomError('No Stores found', 404);
         return next(err);
@@ -186,6 +218,7 @@ module.exports = {
     GetAllActiveStores,
     GetAllPendingStores,
     GetAllSuspendedStores,
+    GetAllActiveStoresNonLinkedToAClient,
     GetStore,
     UpdateStore
 }

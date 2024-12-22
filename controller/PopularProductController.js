@@ -8,18 +8,20 @@ const path = require('path');
 
 //fetch all PopularProduct
 const GetAllPopularProductbyStore = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    if (!id) {
+    const { store } = req.params;
+    if (!store) {
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
     //check if ids is type of mongoose id
-    if(!mongoose.Types.ObjectId.isValid(id)){
+    if(!mongoose.Types.ObjectId.isValid(store)){
         const err = new CustomError('Invalid id', 404);
         return next(err);
     }
     //get all PopularProduct by id user
-    const popularProduct = await PopularProduct.findOne({ store: id });
+    const popularProduct = await PopularProduct.findOne({ 
+        store: store
+    });
     //get stocks for
     if(!popularProduct){
         const err = new CustomError('No popular product found', 404);
@@ -30,7 +32,11 @@ const GetAllPopularProductbyStore = asyncErrorHandler(async (req, res, next) => 
         _id: { $in: popularProduct.products }
     }).populate({
         path:'product',
-        select: '_id name size image'
+        select: '_id code name size image brand boxItems',
+        populate: {
+            path: 'brand',
+            select: 'name'
+        }
     });
     if(allProductsData.length <= 0){
         const err = new CustomError('No popular product found', 404);

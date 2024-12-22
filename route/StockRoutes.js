@@ -10,16 +10,18 @@ const {
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
+const checkStoreAccessibility = require('../middleware/CheckStoreAccessibility');
+const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
 
 //secure routes below
 router.use(requireAuth);
 
-// SHARED_API routes below
+// CLIENT_API routes below
+//fetch stock by store
+router.get('/store/:store/:client', checkAuthrozation([process.env.CLIENT_TYPE]), checkStoreAccessibility, FetchStockByStore);
 
 
 // STORE_API routes below
-
-
 //fetch stock by store
 router.get('/:id', FetchStockByID);
 //create new stock
@@ -29,8 +31,8 @@ router.patch('/update/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateS
 //update stock quantity limitation
 router.patch('/update/quantitylimit/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateStockQuantityLimitation);
 //delete stock
-router.delete('/delete/:id', checkAuthrozation([process.env.STORE_TYPE]), DeleteStock);
+router.delete('/delete/:store', checkAuthrozation([process.env.STORE_TYPE]), DeleteStock);
 //fetch stock by store
-router.get('/store/:Store', FetchStockByStore);
+router.get('/store/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, FetchStockByStore);
 
 module.exports = router;

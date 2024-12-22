@@ -15,15 +15,13 @@ const moment = require('../util/Moment.js');
 
 //create a receipt
 const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
-    const { client } = req.params;
-    const { store, products, total, deliveredLocation, type, deliveredAmount } = req.body;
+    const { store, client } = req.params;
+    const { products, total, deliveredLocation, type, deliveredAmount } = req.body;
     //get current date with algeire timezome
     const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
 
     // Check if all fields are provided
-    if (!store || !products || !total || !client || !type ||
-        !mongoose.Types.ObjectId.isValid(client) || 
-        !mongoose.Types.ObjectId.isValid(store) ||
+    if (!products || !total || !type ||
         !Array.isArray(products) || !validator.isNumeric(total.toString())
     ) {
         return next(new CustomError('All fields are required', 400));
@@ -53,28 +51,6 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
     session.startTransaction();
 
     try {
-        // Check if client exists
-        const existingClient = await findUserById(client, session);
-        if (!existingClient) {
-            await session.abortTransaction();
-            session.endSession();
-            return next(new CustomError('User not found', 404));
-        }
-
-        // Check if store exists
-        const existingStore = await findStoreById(store, session);
-        if (!existingStore) {
-            await session.abortTransaction();
-            session.endSession();
-            return next(new CustomError('Store not found', 404));
-        }
-        //check if client is a client for the store
-        const isClient = await checkUserStore(client, store, session);
-        if (!isClient) {
-            await session.abortTransaction();
-            session.endSession();
-            return next(new CustomError('You are not a client for this store', 405));
-        }
         //calculate total profit
         var totalProfit = 0;
         //check if the all products exist
@@ -135,14 +111,6 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
             session.endSession();
             return next(new CustomError('Total profit cannot be negative', 405));
         }
-        // Generate receipt code
-        const code = await ReceiptCode(existingClient.code, session);
-        if (code == null) {
-            await session.abortTransaction();
-            session.endSession();
-            return next(new CustomError('Code already exists. Repeat the process', 405));
-        }
-
         // Create a new receipt status
         const newReceiptStatus = await ReceiptStatus.create([
             {
@@ -156,11 +124,8 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
             session.endSession();
             return next(new CustomError('Error while creating new receipt status, try again.', 400));
         }
-
-
         // Create a new receipt
         const newReceipt = await Receipt.create([{
-            code: code,
             store: store,
             client: client,
             products: [newReceiptStatus[0]._id],
@@ -638,18 +603,9 @@ const GetAllReturnedReceiptsByStore = asyncErrorHandler(async (req, res, next) =
 });
 //get all receipts by client
 const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    //check required fields
-    if( !id || !mongoose.Types.ObjectId.isValid(id)){
-        return next(new CustomError('All fields are required', 400));
-    }
-    //check if client exist
-    const existingClient = await findUserById(id);
-    if(!existingClient){
-        return next(new CustomError('Client not found', 404));
-    }
+    const { client } = req.params;
     const receipts = await Receipt.find({
-        client: id
+        client: client
     }).populate({
         path: 'store',
         select: 'storeName phoneNumber storeAddress storeLocation',

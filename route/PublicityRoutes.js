@@ -16,7 +16,7 @@ const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
 const { upload } = require('../util/ImageUploader');
-
+const checkStoreAccessibility = require('../middleware/CheckStoreAccessibility');
 
 //secure routes below
 router.use(requireAuth);
@@ -24,10 +24,14 @@ router.use(requireAuth);
 // SHARED_API routes below
 // fetch all public publicities
 router.get('/fetchAllPublicPublicities', checkAuthrozation([process.env.ADMIN_TYPE, process.env.STORE_TYPE, process.env.CLIENT_TYPE]), fetchAllPublicPublicities);
-router.get('/fetchAllStorePublicities/:store', checkAuthrozation([process.env.STORE_TYPE, process.env.CLIENT_TYPE]), fetchAllStorePublicities);
+
+// CLIENT_API routes below
+// fetch all store publicities
+router.get('/fetchAllStorePublicities/:store/:client', checkAuthrozation([process.env.CLIENT_TYPE]), checkStoreAccessibility, fetchAllStorePublicities);
 
 // STORE_API routes below
 // fetch all store publicities
+router.get('/fetchAllStorePublicities/:store', checkAuthrozation([process.env.STORE_TYPE]), fetchAllStorePublicities);
 // create publicity from store
 router.post('/createFromStore/:store', upload, checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, createPublicityFromStore);
 // delete publicity from store

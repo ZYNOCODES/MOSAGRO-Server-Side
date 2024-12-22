@@ -20,7 +20,7 @@ const checkStoreOwnership = asyncErrorHandler(async (req, res, next) => {
     //check if the store exist
     const existStore = await StoreService.findStoreById(store);
     if (!existStore) {
-        const err = new CustomError('Store not found', 400);
+        const err = new CustomError('Store not found', 401);
         return next(err);
     }
 
