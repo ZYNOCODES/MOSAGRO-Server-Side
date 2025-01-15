@@ -3,6 +3,7 @@ const {
     CreateStock,
     FetchStockByID,
     FetchStockByStore,
+    FetchStockByStoreClient,
     UpdateStock,
     UpdateStockQuantityLimitation,
     DeleteStock,
@@ -12,13 +13,15 @@ const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 const checkStoreAccessibility = require('../middleware/CheckStoreAccessibility');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
+const checkClientOwnership = require('../middleware/CheckClientOwnership');
+
 
 //secure routes below
 router.use(requireAuth);
 
 // CLIENT_API routes below
-//fetch stock by store
-router.get('/store/:store/:client', checkAuthrozation([process.env.CLIENT_TYPE]), checkStoreAccessibility, FetchStockByStore);
+//fetch stock by store and client
+router.get('/store/:id/:store', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, FetchStockByStoreClient);
 
 
 // STORE_API routes below

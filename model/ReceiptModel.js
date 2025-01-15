@@ -24,6 +24,11 @@ const receiptSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    deliveryCost:{
+        type: Number,
+        required: false,
+        default: null
+    },
     date:{
         type: String,
         required: true

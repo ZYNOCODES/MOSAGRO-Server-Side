@@ -146,7 +146,10 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ message: 'The order is submitted successfully' });
+        res.status(200).json({ 
+            message: 'The order is submitted successfully',
+            OrderID: newReceipt[0]._id
+        });
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
@@ -339,8 +342,7 @@ const GetReceiptByID = asyncErrorHandler(async (req, res, next) => {
     if( !id || !mongoose.Types.ObjectId.isValid(id)){
         return next(new CustomError('All fields are required', 400));
     }
-    const existingreceipt = await Receipt.findById(id)
-    .populate({
+    const existingreceipt = await Receipt.findById(id).populate({
         path: 'client',
         select: 'firstName lastName phoneNumber email wilaya commune'
     });
@@ -348,6 +350,50 @@ const GetReceiptByID = asyncErrorHandler(async (req, res, next) => {
         return next(new CustomError('Receipt not found', 404));
     }
     res.status(200).json(existingreceipt);
+});
+//get specific Receipt for client
+const GetReceiptByIDForClient = asyncErrorHandler(async (req, res, next) => {
+    const { receipt } = req.params;
+    //check all required fields
+    if( !receipt || !mongoose.Types.ObjectId.isValid(receipt)){
+        return next(new CustomError('All fields are required', 400));
+    }
+    const existingreceipt = await Receipt.findById({
+        _id: receipt
+    }).populate({
+        path: 'store',
+        select: 'storeName'
+    });
+    //check existingreceipt
+    if(!existingreceipt){
+        return next(new CustomError('Receipt not found', 404));
+    }
+    //fetch last receipt status
+    const lastReceiptStatus = existingreceipt.products[existingreceipt.products.length - 1];
+            
+    // Find the last receipt status
+    const lastReceiptStatusData = await ReceiptStatus.findOne({
+        _id: lastReceiptStatus
+    }).populate({
+        path: 'products.product',
+        select: 'name size brand boxItems image',
+        populate:{
+            path: 'brand',
+            select: 'name'
+        }
+    });
+
+    if (!lastReceiptStatusData) {
+        return next(new CustomError('Receipt status not found', 404));
+    }
+
+    //the return object combinision
+    const returnObject = {
+        reciept: existingreceipt.toObject(),
+        recieptStatus: lastReceiptStatusData.toObject()
+    }
+    console.log(returnObject)
+    res.status(200).json(returnObject);
 });
 //get all none delivered receipts by store
 const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) => {
@@ -603,9 +649,11 @@ const GetAllReturnedReceiptsByStore = asyncErrorHandler(async (req, res, next) =
 });
 //get all receipts by client
 const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
-    const { client } = req.params;
+    const { id } = req.params;
     const receipts = await Receipt.find({
-        client: client
+        client: id,
+        delivered: false,
+        status: { $ne: 10 }
     }).populate({
         path: 'store',
         select: 'storeName phoneNumber storeAddress storeLocation',
@@ -649,6 +697,57 @@ const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
         }
     }
 
+    res.status(200).json(receipts);
+});
+//get all archive receipts by client
+const GetAllArchiveReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const receipts = await Receipt.find({
+        client: id,
+        delivered: true,
+        status: 10
+    }).populate({
+        path: 'store',
+        select: 'storeName phoneNumber storeAddress storeLocation',
+    });
+    if(receipts.length <= 0){
+        const err = new CustomError('No receipts found for you', 400);
+        return next(err);
+    }
+
+    // For each receipt, fetch the last receipt status
+    for (let i = 0; i < receipts.length; i++) {
+        let receipt = receipts[i];  // Access receipt using index
+
+        if (receipt.products && receipt.products.length > 0) {
+            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            
+            // Find the last product's receipt status
+            const lastReceiptStatus = await ReceiptStatus.findOne({
+                _id: lastProductId
+            }).populate({
+                path: 'products.product',
+                select: 'name size brand boxItems',
+                populate:{
+                    path: 'brand',
+                    select: 'name'
+                }
+            });
+            
+            if (!lastReceiptStatus) {
+                return next(new CustomError('Receipt status not found', 404));
+            }
+
+            // Create an updated receipt with ordersList and replace the original receipt
+            receipts[i] = {
+                ...receipt.toObject(),  // Copy the original receipt's properties
+                products: lastReceiptStatus.products  // Attach the ordersList
+            };
+        } else {
+            const err = new CustomError('No products found for this receipt', 400);
+            return next(err);
+        }
+    }
     res.status(200).json(receipts);
 });
 //get all receipts by client for a specific store
@@ -1205,10 +1304,12 @@ module.exports = {
     CreateReceipt,
     CreateReceiptFromStore,
     GetReceiptByID,
+    GetReceiptByIDForClient,
     GetAllNonedeliveredReceiptsByStore,
     GetAlldeliveredReceiptsByStore,
     GetAllReturnedReceiptsByStore,
     GetAllReceiptsByClient,
+    GetAllArchiveReceiptsByClient,
     ValidateMyReceipt,
     UpdateReceiptExpextedDeliveryDate,
     DeleteReceipt,

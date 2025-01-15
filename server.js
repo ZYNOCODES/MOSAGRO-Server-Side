@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const body = require('body-parser');
+const path = require('path');
 const ErrorHandler = require('./controller/ErrorController');
 //security
 const cors = require('cors');

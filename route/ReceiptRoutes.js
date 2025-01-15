@@ -3,10 +3,12 @@ const {
     CreateReceipt,
     CreateReceiptFromStore,
     GetReceiptByID,
+    GetReceiptByIDForClient,
     GetAllNonedeliveredReceiptsByStore,
     GetAlldeliveredReceiptsByStore,
     GetAllReturnedReceiptsByStore,
     GetAllReceiptsByClient,
+    GetAllArchiveReceiptsByClient,
     ValidateMyReceipt,
     UpdateReceiptExpextedDeliveryDate,
     DeleteReceipt,
@@ -66,7 +68,10 @@ router.patch('/credit/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateR
 //create new receipt
 router.post('/:client/:store', checkAuthrozation([process.env.CLIENT_TYPE]), checkStoreAccessibility, CreateReceipt);
 //get all receipts by client
-router.get('/client/:client', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllReceiptsByClient);
-
+router.get('/client/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllReceiptsByClient);
+//get all archive receipts by client
+router.get('/client/archive/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllArchiveReceiptsByClient);
+//get specific receipt for client
+router.get('/client/:id/:receipt', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetReceiptByIDForClient);
 
 module.exports = router;

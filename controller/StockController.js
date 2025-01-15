@@ -7,6 +7,7 @@ const StockService = require('../service/StockService.js');
 const StoreService = require('../service/StoreService.js');
 const ProductService = require('../service/ProductService.js');
 const StockStatusService = require('../service/StockStatusService.js');
+const FavoriteService = require('../service/FavoriteService.js');
 const moment = require('../util/Moment.js');
 
 
@@ -212,7 +213,7 @@ const FetchStockByID = asyncErrorHandler(async (req, res, next) => {
     }
     res.status(200).json(stock);
 });
-//fetch all stock by store
+//fetch all stock by store 
 const FetchStockByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     //fetch all stock by store
@@ -231,6 +232,49 @@ const FetchStockByStore = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
     res.status(200).json(stocks);
+});
+//fetch all stock by store for client
+const FetchStockByStoreClient = asyncErrorHandler(async (req, res, next) => {
+    const { id, store } = req.params;
+    //check if id is valid
+    if(!mongoose.Types.ObjectId.isValid(store)){
+        const err = new CustomError('Invalid store id', 400);
+        return next(err);
+    }
+    //fetch all stock by store
+    const stocks = await Stock.find({
+        store: store
+    }).populate({
+        path:'product',
+        select: '_id code name size image brand boxItems',
+        populate: {
+            path: 'brand',
+            select: 'name'
+        }
+    });
+    if(!stocks || stocks.length <= 0){
+        const err = new CustomError('No stock found', 404);
+        return next(err);
+    }
+    //check every stock if is a favorite stock by client
+    const updatedStocks = await Promise.all(
+        stocks.map(async (item) => {
+            const isFavorite = await FavoriteService.checkProductInFavorite(
+                id,
+                store,
+                item._id
+            );
+            return {
+                ...item.toObject(), // Ensure the Mongoose document is converted to a plain object
+                isFavorite: isFavorite,
+            };
+        })
+    );
+    if(!updatedStocks || updatedStocks.length <= 0){
+        const err = new CustomError('No stock found', 404);
+        return next(err);
+    }
+    res.status(200).json(updatedStocks);
 });
 //update stock
 const UpdateStock = asyncErrorHandler(async (req, res, next) => {
@@ -314,6 +358,7 @@ module.exports = {
     CreateStock,
     FetchStockByID,
     FetchStockByStore,
+    FetchStockByStoreClient,
     UpdateStock,
     UpdateStockQuantityLimitation,
     DeleteStock,

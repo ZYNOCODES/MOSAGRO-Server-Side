@@ -6,6 +6,11 @@ const favoriteSchema = new mongoose.Schema({
         ref: 'client',
         required: true
     },
+    store:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'store',
+        required: true
+    },
     products: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'stock',
