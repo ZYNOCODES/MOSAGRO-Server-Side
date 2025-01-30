@@ -6,10 +6,11 @@ const popularProductSchema = new mongoose.Schema({
         ref: 'store',
         required: true
     },
-    products: [{
+    stock: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'stock',
-    }]
+        required: true
+    }
 },{
     timestamps: true,
     collection: 'popularProduct'

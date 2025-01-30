@@ -16,15 +16,17 @@ const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
 const checkAdminOwnership = require('../middleware/CheckAdminOwnership');
+const checkClientOwnership = require('../middleware/CheckClientOwnership');
+
 
 //secure routes below
 router.use(requireAuth);
 
 // CLIENT_API routes below
 //get all MyStores
-router.get('/:id', checkAuthrozation([process.env.CLIENT_TYPE]), GetAllMyStoresbyUser);
+router.get('/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllMyStoresbyUser);
 //create new MyStores
-router.post('/:id', checkAuthrozation([process.env.CLIENT_TYPE]), AddStoreToMyList);
+router.post('/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, AddStoreToMyList);
 
 // STORE_API routes below
 //get all users by store

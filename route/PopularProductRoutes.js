@@ -1,6 +1,7 @@
 const express = require('express');
 const {
     GetAllPopularProductbyStore,
+    GetAllPopularProductbyStoreForClient,
     AddPopularProduct,
     RemovePopularProduct
 } = require('../controller/PopularProductController');
@@ -9,6 +10,7 @@ const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 const checkStoreAccessibility = require('../middleware/CheckStoreAccessibility');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
+const checkClientOwnership = require('../middleware/CheckClientOwnership');
 
 //secure routes below
 router.use(requireAuth);
@@ -16,8 +18,8 @@ router.use(requireAuth);
 // SHARED_API routes below
 
 // CLIENT_API routes below
-//get all PopularProduct
-router.get('/:store/:client', checkAuthrozation([process.env.CLIENT_TYPE]), checkStoreAccessibility, GetAllPopularProductbyStore);
+//get all PopularProduct for client
+router.get('/client/:store/:client', checkAuthrozation([process.env.CLIENT_TYPE]), checkStoreAccessibility, GetAllPopularProductbyStoreForClient);
 
 // STORE_API routes below
 //create new PopularProduct
