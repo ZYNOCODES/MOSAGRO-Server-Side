@@ -1,6 +1,7 @@
 const express = require('express');
 const {
     GetAllMyStoresbyUser,
+    GetAllNonActiveMyStoresbyUser,
     GetAllUsersByStore,
     GetAllNotApprovedUsersByStore,
     GetAllSellersUsersByStore,
@@ -25,6 +26,8 @@ router.use(requireAuth);
 // CLIENT_API routes below
 //get all MyStores
 router.get('/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllMyStoresbyUser);
+//get all non active MyStores
+router.get('/nonActive/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllNonActiveMyStoresbyUser);
 //create new MyStores
 router.post('/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, AddStoreToMyList);
 

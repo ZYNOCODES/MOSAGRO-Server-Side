@@ -17,6 +17,8 @@ router.use(requireAuth);
 // SHARED_API routes below
 //fetch specific Store
 router.get('/:id', checkAuthrozation([process.env.ADMIN_TYPE, process.env.STORE_TYPE]), GetStore);
+
+//CLIENT_API routes below
 //fetch all active Stores not linked to a client
 router.get('/all/active/:client', checkAuthrozation([process.env.CLIENT_TYPE]), GetAllActiveStoresNonLinkedToAClient);
 

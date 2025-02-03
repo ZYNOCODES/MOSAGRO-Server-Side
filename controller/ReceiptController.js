@@ -392,7 +392,6 @@ const GetReceiptByIDForClient = asyncErrorHandler(async (req, res, next) => {
         reciept: existingreceipt.toObject(),
         recieptStatus: lastReceiptStatusData.toObject()
     }
-    console.log(returnObject)
     res.status(200).json(returnObject);
 });
 //get all none delivered receipts by store

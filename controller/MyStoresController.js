@@ -45,6 +45,44 @@ const GetAllMyStoresbyUser = asyncErrorHandler(async (req, res, next) => {
     
     res.status(200).json(populatedmyStores);
 });
+//fetch all MyStores
+const GetAllNonActiveMyStoresbyUser = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    //get all MyStores by id user and get only stores.status == 'approved' 
+    const myStores = await MyStores.find({ 
+        user: id, 
+        status: { $in: ['pending', 'rejected'] }
+    }).populate({
+        path: 'store',
+        select: 'storeName storeAddress wilaya commune categories',
+        populate: {
+            path: 'categories',
+            select: '_id name',
+        },
+    });
+    
+    //check
+    if(myStores.length <= 0){
+        const err = new CustomError('No approved store found for you', 404);
+        return next(err);
+    }
+
+    // Populate wilaya and commune manually
+    const populatedmyStores = await Promise.all(myStores.map(async (myStore) => {
+        const wilaya = await CitiesService.findCitiesFRByCodeC(myStore.store.wilaya, myStore.store.commune);
+
+        return {
+            ...myStore.toObject(),
+            store: {
+                ...myStore.store.toObject(),
+                wilaya: wilaya.wilaya,
+                commune: wilaya.baladiya,
+            }
+        };
+    }));
+    
+    res.status(200).json(populatedmyStores);
+});
 //fetch all approved users by store
 const GetAllUsersByStore = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
@@ -401,6 +439,7 @@ const DeleteStoreFromMyStores = asyncErrorHandler(async (req, res, next) => {
 
 module.exports = {
     GetAllMyStoresbyUser,
+    GetAllNonActiveMyStoresbyUser,
     GetAllUsersByStore,
     GetAllNotApprovedUsersByStore,
     GetAllSellersUsersByStore,

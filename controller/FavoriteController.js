@@ -49,7 +49,7 @@ const GetFavoriteProductsById = asyncErrorHandler(async (req, res, next) => {
         _id: id 
     }).select('products').populate({
         path: 'products',
-        select: '_id product',
+        select: '_id product buying selling quantity buyingMathode quantityLimit destocking',
         populate: [
             {
                 path:'product',
