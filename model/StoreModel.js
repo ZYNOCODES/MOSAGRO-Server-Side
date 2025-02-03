@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
 
 const storeSchema = new mongoose.Schema({
-    code: {
-        type: String,
-        required: false,
-        default: null
-    },
     password: {
         type: String,
         required: false,

@@ -11,7 +11,6 @@ const CategoryService = require('../service/CategoryService.js');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const bcrypt = require('../util/bcrypt.js');
-const Codification = require('../util/Codification.js');
 const validator = require('validator');
 const SubscriptionStore = require('../model/SubscriptionStoreModel');
 const MyStores = require('../model/MyStoresModel');
@@ -330,12 +329,6 @@ const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
     // Hash the password
     const hash = await bcrypt.hashPassword(Password);
 
-    // Generate a unique codification for the store
-    const storeCode = await Codification.StoreCode(existWilaya.codeC, "S");
-    if (!storeCode) {
-        return next(new CustomError('Error generating store code. Please try again', 500));
-    }
-
     // Update the store data
     existingStore.password = hash;
     existingStore.firstName = FirstName;
@@ -347,7 +340,6 @@ const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
     existingStore.commune = Commune;
     existingStore.r_commerce = R_Commerce;
     existingStore.categories = [existCategory._id];
-    existingStore.code = storeCode;
 
     // Save the updated store
     const updatedStore = await existingStore.save();
@@ -473,15 +465,8 @@ const SignUpClient = asyncErrorHandler(async (req, res, next) => {
     
     //hash password
     const hash = await bcrypt.hashPassword(Password);
-    //generate codification for a user
-    var code = await Codification.UserCode(existWilaya.codeC, "C");
-    //check if the user already exist with that code
-    if(code == null){
-        const err = new CustomError('Code already existe. try again', 404);
-        return next(err);
-    }
+
     const newUser = await User.create({
-        code: code, 
         password: hash,
         phoneNumber: PhoneNumber, phoneVerification: false,
         email: Email, emailVerification: false,
@@ -551,12 +536,6 @@ const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
     // Hash the password
     const hash = await bcrypt.hashPassword(Password);
 
-    // Generate codification for the user
-    const code = await Codification.UserCode(existWilaya.codeC, "C");
-    if (code == null) {
-        return next(new CustomError('Code generation failed, please retry again', 400));
-    }
-
     // Start a session for the transaction
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -575,7 +554,6 @@ const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
                 address: Address,
                 location: null
             }],
-            code: code,
             wilaya: existWilaya.codeW,
             commune: existWilaya.codeC,
             r_commerce: RC.toString()
@@ -652,12 +630,6 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
     // Hash the password
     const hash = await bcrypt.hashPassword(Password);
 
-    // Generate codification for the user
-    const code = await Codification.UserCode(existWilaya.codeC, "C");
-    if (code == null) {
-        return next(new CustomError('Code generation failed, please retry again', 400));
-    }
-
     // Start a session for the transaction
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -672,7 +644,6 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
             lastName: LastName,
             phoneNumber: PhoneNumber,
             storeAddresses: [Address],
-            code: code,
             wilaya: existWilaya.codeW,
             commune: existWilaya.codeC,
             r_commerce: RC.toString()

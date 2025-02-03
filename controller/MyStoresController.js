@@ -5,6 +5,7 @@ const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const CitiesService = require('../service/CitiesService.js')
 const StoreService = require('../service/StoreService.js');
 const ClientService = require('../service/ClientService.js');
+const NotificationService = require('../service/NotificationService.js');
 const validator = require('validator');
 
 //fetch all MyStores
@@ -212,41 +213,69 @@ const GetAllSellersUsersByStore = asyncErrorHandler(async (req, res, next) => {
 const AddStoreToMyList = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const { store } = req.body;
-    //check if all feals are filled
-    if(!store || !mongoose.Types.ObjectId.isValid(store)){
-        const err = new CustomError('Please fill all fields', 400);
-        return next(err);
+
+    // Check if all fields are filled and store ID is valid
+    if (!store || !mongoose.Types.ObjectId.isValid(store)) {
+        return next(new CustomError('Please fill all fields', 400));
     }
 
-    //check if store exists
+    // Check if store exists
     const existingStore = await StoreService.findStoreById(store);
     if (!existingStore) {
         return next(new CustomError('Store not found', 404));
     }
 
-    //check if store already exists
+    // Check if store is already in the user's list
     const myStore = await MyStores.findOne({ 
         user: id,
         store: existingStore._id
     });
-    if(myStore){
-        const err = new CustomError('Store already exists in your list', 400);
-        return next(err);
+    if (myStore) {
+        return next(new CustomError('Store already exists in your list', 400));
     }
 
-    //create new myStores
-    const newMyStore = await MyStores.create({
-        user: id,
-        store: existingStore._id,
-        status: 'pending'
-    });
+    // Start a session for transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    if (!newMyStore) {
-        const err = new CustomError('Error while adding store', 400);
-        return next(err);
+    try {
+        // Create new MyStores entry
+        const newMyStore = await MyStores.create([{
+            user: id,
+            store: existingStore._id,
+            status: 'pending'
+        }], { session });
+
+        if (!newMyStore || !newMyStore[0]) {
+            throw new CustomError('Error while adding store', 400);
+        }
+
+        // Create new notification
+        const newNotification = await NotificationService.createNewNotificationForStore(
+            existingStore._id,
+            'store_access_request',
+            session
+        );
+
+        if (!newNotification || !newNotification[0]) {
+            throw new CustomError('Error while creating new notification, try again', 400);
+        }
+
+        // Commit the transaction
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(200).json({ 
+            message: 'Store added to your list successfully, wait for it to be approved by the owner.' 
+        });
+
+    } catch (error) {
+        // Abort transaction on error
+        await session.abortTransaction();
+        session.endSession();
+        next(new CustomError('Error while adding store to client list', 500));
+        console.log(error);
     }
-
-    res.status(200).json({ message: 'Store added to your list successfully, wait for it to be approved by the owner.' });
 });
 //approve user to access store by setting stores.status == 'approved'
 const ApproveUserToAccessStore = asyncErrorHandler(async (req, res, next) => {

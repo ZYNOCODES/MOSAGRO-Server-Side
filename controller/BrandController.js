@@ -1,7 +1,6 @@
 const Brand = require('../model/BrandModel.js');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
-const { BrandCode } = require('../util/Codification.js');
 const BrandService = require('../service/BrandService.js');
 
 //create a new brand

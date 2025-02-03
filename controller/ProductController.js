@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const Product = require('../model/ProductModel');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
-const { ProductCode } = require('../util/Codification.js');
 const BrandService = require('../service/BrandService.js');
 const ProductService = require('../service/ProductService.js');
 const StockService = require('../service/StockService.js');
@@ -47,17 +46,9 @@ const CreateProduct = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('Product already exists', 400);
         return next(err);
     }
-    //generate codification for a product
-    const code = await ProductCode(brand.code, Name, Size);
-    //check if the product already exist with that code
-    if(code == null){
-        const err = new CustomError('Error while creating product try again.', 400);
-        return next(err);
-    }
 
     //create a new product
     const newProduct = await Product.create({
-        code : code,
         name : Name,
         size : Size,
         brand : Brand,

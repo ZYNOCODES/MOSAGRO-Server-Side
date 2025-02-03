@@ -8,7 +8,8 @@ const ErrorHandler = require('./controller/ErrorController');
 //security
 const cors = require('cors');
 const RemoveSpacesMiddleware = require('./middleware/RemoveSpacesMiddleware');
-
+//node-cron
+const { startSubscriptionExpiryCronJob } = require('./controller/NodeCronController');
 
 //routes
 const Authroutes = require('./route/AuthRoutes');
@@ -33,6 +34,7 @@ const StockStatusRoutes = require('./route/StockStatusRoutes');
 const FournisseurRoutes = require('./route/FournisseurRoutes');
 const PurchaseRoutes = require('./route/PurchaseRoutes');
 const SousPurchaseRoutes = require('./route/SousPurchaseRoutes');
+const NotificationRoutes = require('./route/NotificationRoutes');
 
 //express app
 const app = express();
@@ -42,6 +44,9 @@ app.use(cors());
 app.use(body.json({limit: '50mb'}));
 app.use(body.urlencoded({limit: '50mb', extended: true}));
 app.use(RemoveSpacesMiddleware);
+
+//node-cron
+startSubscriptionExpiryCronJob();
 
 //routes
 app.use('/api/Product', Productroutes); 
@@ -66,7 +71,7 @@ app.use('/api/StockStatus', StockStatusRoutes);
 app.use('/api/Fournisseur', FournisseurRoutes);
 app.use('/api/Purchase', PurchaseRoutes);
 app.use('/api/SousPurchase', SousPurchaseRoutes);
-
+app.use('/api/Notification', NotificationRoutes);
 
 //error handling
 app.use(ErrorHandler);
