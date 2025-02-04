@@ -1,7 +1,8 @@
 const express = require('express');
 const {
     getNotificationsByStore,
-    getNotificationsByClient,
+    getNonReadedNotificationsByClient,
+    getReadedNotificationsByClient,
     markNotificationAsRead,
     markAllNotificationsAsRead,
 } = require('../controller/NotificationController');
@@ -17,9 +18,9 @@ router.use(requireAuth);
 
 // SHEARED_API routes below
 //mark notification as read
-router.patch('/:id', checkAuthrozation([process.env.CLIENT_TYPE, process.env.STORE_TYPE]), markNotificationAsRead);
+router.patch('/asRead/:id', checkAuthrozation([process.env.CLIENT_TYPE, process.env.STORE_TYPE]), markNotificationAsRead);
 //mark all notifications as read
-router.patch('/all/:client', checkAuthrozation([process.env.CLIENT_TYPE, process.env.STORE_TYPE]), markAllNotificationsAsRead);
+router.patch('/asRead/all/:client', checkAuthrozation([process.env.CLIENT_TYPE, process.env.STORE_TYPE]), markAllNotificationsAsRead);
 
 // STORE_API routes below
 //get all notifications by store
@@ -27,7 +28,8 @@ router.get('/store/:store', checkAuthrozation([process.env.STORE_TYPE]), checkSt
 
 
 // CLIENT_API routes below
-//get all notifications by client
-router.get('/client/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, getNotificationsByClient);
-
+//get all non readed notifications by client
+router.get('/client/nonRead/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, getNonReadedNotificationsByClient);
+//get all readed notifications by client
+router.get('/client/read/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, getReadedNotificationsByClient);
 module.exports = router;
