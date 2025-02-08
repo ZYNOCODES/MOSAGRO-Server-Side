@@ -21,13 +21,16 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
     const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
 
     // Check if all fields are provided
-    if (!products || !total || !type ||
+    if (!products || !total ||
         !Array.isArray(products) || !validator.isNumeric(total.toString())
     ) {
         return next(new CustomError('All fields are required', 400));
     }
+    if (!type) {
+        return next(new CustomError('Order type is required you mast select one', 400));
+    }
     if (type === 'delivery' && !deliveredLocation) {
-        return next(new CustomError('Delivered location is required', 400));
+        return next(new CustomError('Delivered address is required', 400));
     }
     if (products.length <= 0) {
         return next(new CustomError('You have to pick at least one product', 400));
@@ -392,7 +395,7 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
     }
     const receipts = await Receipt.find({
         store: id,
-        delivered: false
+        status: { $ne: 10 }
     }).populate({
         path: 'client',
         select: 'firstName lastName phoneNumber'
@@ -453,6 +456,7 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
     }
     const receipts = await Receipt.find({
         store: id,
+        delivered: true,
         status: 10
     }).populate({
         path: 'client',
@@ -635,7 +639,6 @@ const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const receipts = await Receipt.find({
         client: id,
-        delivered: false,
         status: { $ne: 10 }
     }).populate({
         path: 'store',
@@ -1119,13 +1122,17 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
         // Check if a notification needs to be created
         const orderDelivered = status == 2 && existingReceipt.type == 'delivery';
         const orderReady = status == 2 && existingReceipt.type == 'pickup';
-
         if (orderDelivered || orderReady) {
+            // message to send 
+            const msg = orderReady == 'order_ready' ?
+                    `Your order from ${existingReceipt.store.storeName} is ready for pickup`
+                    :
+                    `Your order from ${existingReceipt.store.storeName} has been delivered and is on its way to you`
             // Create new notification
             const newNotification = await NotificationService.createNewNotificationForClient(
                 existingReceipt.client,
-                existingReceipt.store.storeName,
                 orderDelivered ? 'order_delivered' : 'order_ready',
+                msg,
                 session
             );
 

@@ -17,7 +17,7 @@ const notificationSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['subscription_expiry', 'order_ready', 'order_delivered', 'store_access_request'],
+        enum: ['subscription_expiry', 'order_ready', 'order_delivered', 'store_access_request', 'store_access_approved', 'store_access_rejected'],
         required: true
     },
     read: {

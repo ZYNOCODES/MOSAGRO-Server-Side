@@ -249,11 +249,13 @@ const AddStoreToMyList = asyncErrorHandler(async (req, res, next) => {
         if (!newMyStore || !newMyStore[0]) {
             throw new CustomError('Error while adding store', 400);
         }
-
+        //message to send
+        const msg = 'You have a new client access request check it out in your user authentication page';
         // Create new notification
         const newNotification = await NotificationService.createNewNotificationForStore(
             existingStore._id,
             'store_access_request',
+            msg,
             session
         );
 
@@ -289,6 +291,9 @@ const ApproveUserToAccessStore = asyncErrorHandler(async (req, res, next) => {
     const myStore = await MyStores.findOne({ 
         user: user,
         store: id
+    }).populate({
+        path: 'store',
+        select: 'storeName'
     });
     if(!myStore){
         const err = new CustomError('User not found in your list', 400);
@@ -299,14 +304,46 @@ const ApproveUserToAccessStore = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('User already approved', 400);
         return next(err);
     }
-    //approve user to access store
-    myStore.status = 'approved';
-    const updatedMyStore = await myStore.save();
-    if(!updatedMyStore){
-        const err = new CustomError('Error while approving user', 400);
-        return next(err);
+    // Start a session for transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        //approve user to access store
+        myStore.status = 'approved';
+        const updatedMyStore = await myStore.save({ session });
+        if(!updatedMyStore){
+            await session.abortTransaction();
+            session.endSession();
+            const err = new CustomError('Error while approving user', 400);
+            return next(err);
+        }
+        // message to send 
+        const msg = `You have been approved to access ${myStore.store.storeName} store`;
+        // Create new notification
+        const newNotification = await NotificationService.createNewNotificationForClient(
+            user,
+            'store_access_approved',
+            msg,
+            session
+        );
+        if (!newNotification || !newNotification[0]) {
+            await session.abortTransaction();
+            session.endSession();
+            const err = new CustomError('Error while creating new notification, try again', 400);
+            return next(err);
+        }
+        // Commit the transaction
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(200).json({message: 'User approved successfully'});
+    }catch (error) {
+        // Abort transaction on error
+        await session.abortTransaction();
+        session.endSession();
+        next(new CustomError('Error while approving user', 500));
+        console.log(error);
     }
-    res.status(200).json({message: 'User approved successfully'});
 });
 //reject user to access store by setting stores.status == 'rejected'
 const RejectUserToAccessStore = asyncErrorHandler(async (req, res, next) => {
