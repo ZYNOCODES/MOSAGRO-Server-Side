@@ -45,8 +45,6 @@ router.get('/delivredCredited/:id', checkAuthrozation([process.env.STORE_TYPE]),
 router.get('/returned/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllReturnedReceiptsByStore);
 //get all receipts by client for store
 router.get('/clientForStore/:client/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, GetAllReceiptsByClientForStore);
-//validate receipt
-router.patch('/validate/:id', checkAuthrozation([process.env.STORE_TYPE]), ValidateMyReceipt);
 //delete receipt
 router.delete('/:id', checkAuthrozation([process.env.STORE_TYPE]), DeleteReceipt);
 //update expected delivery date
@@ -77,5 +75,7 @@ router.get('/client/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkCli
 router.get('/client/archive/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllArchiveReceiptsByClient);
 //get specific receipt for client
 router.get('/client/:id/:receipt', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetReceiptByIDForClient);
+//validate receipt
+router.patch('/validate/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, ValidateMyReceipt);
 
 module.exports = router;

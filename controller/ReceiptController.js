@@ -7,7 +7,7 @@ const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const { findUserById } = require('../service/UserService.js');
 const { findStoreById } = require('../service/StoreService.js');
-const { findReceiptById, findNoneDeliveredReceiptByStore, findCreditedReceipt } = require('../service/ReceiptService.js');
+const { findReceiptById, findNoneDeliveredReceiptByStore, findCreditedReceipt, findReceiptByIdAndClient } = require('../service/ReceiptService.js');
 const { checkUserStore } = require('../service/MyStoreService.js');
 const ReceiptService = require('../service/ReceiptService.js');
 const NotificationService = require('../service/NotificationService.js');
@@ -804,21 +804,24 @@ const GetAllReceiptsByClientForStore = asyncErrorHandler(async (req, res, next) 
 //validate delivered
 const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { credit } = req.body;
+    const { reciept } = req.body;
     //check id 
-    if( !id || !mongoose.Types.ObjectId.isValid(id) ){
+    if( !reciept || !mongoose.Types.ObjectId.isValid(reciept) ){
         return next(new CustomError('All fields are required', 400));
     }
     //check if receipt exist
-    const existingreceipt = await findReceiptById(id);
+    const existingreceipt = await findReceiptByIdAndClient(reciept, id);
     if(!existingreceipt){
         return next(new CustomError('Receipt not found', 404));
     }
+    //check if the receipt is already delivered
+    if(existingreceipt.delivered){
+        return next(new CustomError('This receipt is already delivered', 400));
+    }
     //update 
-    const updatedreceipt = await Receipt.updateOne({ _id: id }, { 
+    const updatedreceipt = await Receipt.updateOne({ _id: reciept }, { 
         delivered: true,
         status: 3,
-        credit: credit,
         expextedDeliveryDate: moment.getCurrentDateTime() // Ensures UTC+1
     });
     // Check if receipt updated successfully
@@ -1100,6 +1103,12 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
             await session.abortTransaction();
             session.endSession();
             return next(new CustomError('This receipt is already fully paid', 400));
+        }
+        // Check if receipt is already delivered
+        if (existingReceipt.delivered) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('This receipt is already delivered', 400));
         }
         // Check if receipt is already have same status
         if (existingReceipt.status == status) {
