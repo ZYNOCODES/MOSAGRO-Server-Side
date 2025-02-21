@@ -12,14 +12,15 @@ const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const bcrypt = require('../util/bcrypt.js');
 const validator = require('validator');
-const SubscriptionStore = require('../model/SubscriptionStoreModel');
 const MyStores = require('../model/MyStoresModel');
 const EmailOTPVerification = require('../model/EmailOTPVerification.js');
 const NodeMailer = require('../util/NodeMailer.js');
+const SubscriptionStoreService = require('../service/SubscriptionStoreService.js');
 const {
     createToken
 } = require('../util/JWT.js');
-const moment = require('../util/Moment.js');
+const UtilMoment = require('../util/Moment.js');
+const moment = require('moment');
 
 
 //login Admin
@@ -96,22 +97,22 @@ const SignInStore = asyncErrorHandler(async (req, res, next) => {
             : 'Your account is suspended, probably your subscription is expired';
         return next(new CustomError(errorMessage, 400));
     } else if (user.status == 'Active') {
-        const timezone = 'Africa/Algiers';
         // Set to UTC time zone
-        const currentTime = moment.getCurrentDateTime(); // Ensures UTC+0
+        const currentTime = UtilMoment.getCurrentDateTime();
         // Get subscription details
-        const subscription = await SubscriptionStore.findById(user.subscriptions[user.subscriptions.length - 1]);
-        if (!subscription) {
-            return next(new CustomError('Subscription not found', 404));
+        const existSubscription = await SubscriptionStoreService.findLastSubscriptionStoreByStore(user._id);
+        if (!existSubscription) {
+            const err = new CustomError('You do not have an active subscription', 400);
+            return next(err);
         }
         // Check if subscription has expired
-        if (currentTime.isSameOrAfter(subscription.expiryDate)) {
+        if (currentTime.isSameOrAfter(moment(existSubscription.expiryDate))) {
             // Update Store status to suspended
             const updatedStore = await Store.updateOne({ _id: user._id }, { status: 'Suspended' });
             if (!updatedStore) {
                 return next(new CustomError('Something went wrong. Login again', 400));
             }
-            return next(new CustomError('Your subscription is expired', 400));
+            return next(new CustomError('Your subscription has expired', 400));
         }
     }
     
@@ -220,7 +221,7 @@ const SignUpStore = asyncErrorHandler(async (req, res, next) => {
         const hashOTP = await bcrypt.hashPassword(otp.toString());
 
         // Set to UTC time zone
-        const currentTime = moment.getCurrentDateTime(); // Ensures UTC+0
+        const currentTime = UtilMoment.getCurrentDateTime(); // Ensures UTC+0
 
         // Save OTP in the database with an expiry time of 1 hour
         const existingOTP = await EmailOTPVerification.findOne({ store: storeByEmail._id });
@@ -372,7 +373,7 @@ const VerifyStoreOTP = asyncErrorHandler(async (req, res, next) => {
         }
 
         // Check if OTP has expired
-        const currentTime = moment.getCurrentDateTime();
+        const currentTime = UtilMoment.getCurrentDateTime();
         if (currentTime.isAfter(otpRecord.expiresAt)) {
             return next(new CustomError('OTP has expired', 400));
         }

@@ -11,10 +11,11 @@ const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 const checkClientOwnership = require('../middleware/CheckClientOwnership');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
-
+const checkSubscription = require('../middleware/CheckSubscription');
 
 //secure routes below
 router.use(requireAuth);
+router.use(checkSubscription);
 
 // SHEARED_API routes below
 //mark notification as read

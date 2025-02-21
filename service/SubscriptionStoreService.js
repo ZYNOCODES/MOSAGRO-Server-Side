@@ -1,11 +1,9 @@
 const SubscriptionStore = require('../model/SubscriptionStoreModel.js');
 
-const findSubscriptionStoreByIDStore = async (Store) => {
+const findLastSubscriptionStoreByStore = async (Store) => {
     return await SubscriptionStore.findOne(
-        {
-            store: Store
-        }
-    )
+        { store: Store },
+    ).sort({ startDate: -1 }).limit(1);
 };
 const findSubscriptionStoreByIDSubscription = async (Subscription) => {
     return await SubscriptionStore.findOne(
@@ -16,6 +14,6 @@ const findSubscriptionStoreByIDSubscription = async (Subscription) => {
 };
 
 module.exports = {
-    findSubscriptionStoreByIDStore,
+    findLastSubscriptionStoreByStore,
     findSubscriptionStoreByIDSubscription
 }

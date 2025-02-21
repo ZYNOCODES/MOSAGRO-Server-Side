@@ -18,10 +18,11 @@ const checkAuthrozation = require('../middleware/Authorization');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
 const checkAdminOwnership = require('../middleware/CheckAdminOwnership');
 const checkClientOwnership = require('../middleware/CheckClientOwnership');
-
+const checkSubscription = require('../middleware/CheckSubscription');
 
 //secure routes below
 router.use(requireAuth);
+router.use(checkSubscription);
 
 // CLIENT_API routes below
 //get all MyStores

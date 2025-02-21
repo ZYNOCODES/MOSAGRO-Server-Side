@@ -12,12 +12,14 @@ const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
+const checkSubscription = require('../middleware/CheckSubscription');
 
 //get all Categorys
 router.get('/', GetAllCategorys);
 
 //secure routes below
 router.use(requireAuth);
+router.use(checkSubscription);
 
 // STORE_API routes below
 //get all Categorys for store

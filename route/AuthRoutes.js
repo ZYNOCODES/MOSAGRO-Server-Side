@@ -13,6 +13,7 @@ const {
 } = require('../controller/AuthController.js');
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
+const checkSubscription = require('../middleware/CheckSubscription');
 
 
 // SHARED_API routes below
@@ -35,6 +36,7 @@ router.post('/signup/client', SignUpClient);
 
 //secure routes below
 router.use(requireAuth);
+router.use(checkSubscription);
 
 //STORE_API routes below
 //create new client for a store

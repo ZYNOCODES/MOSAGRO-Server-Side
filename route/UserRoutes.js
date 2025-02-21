@@ -13,9 +13,11 @@ const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
 const checkAdminOwnership = require('../middleware/CheckAdminOwnership');
+const checkSubscription = require('../middleware/CheckSubscription');
 
 //secure routes below
 router.use(requireAuth);
+router.use(checkSubscription);
 
 // STORE_API routes below
 //fetch specific user by id for specific store

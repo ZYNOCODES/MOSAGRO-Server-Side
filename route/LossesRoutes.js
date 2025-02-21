@@ -16,9 +16,11 @@ const limiter = require('../middleware/RateLimiting.js');
 const limiterForGet = require('../middleware/RateLimiterForGet.js');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
 const checkAdminOwnership = require('../middleware/CheckAdminOwnership');
+const checkSubscription = require('../middleware/CheckSubscription');
 
 //secure routes below
 router.use(requireAuth);
+router.use(checkSubscription);
 
 // STORE_API routes below
 //get all losses

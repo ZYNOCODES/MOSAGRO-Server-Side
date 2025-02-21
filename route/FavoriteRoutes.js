@@ -9,9 +9,11 @@ const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 const checkClientOwnership = require('../middleware/CheckClientOwnership');
+const checkSubscription = require('../middleware/CheckSubscription');
 
 //secure routes below
 router.use(requireAuth);
+router.use(checkSubscription);
 
 // CLIENT_API routes below
 //get all Favorite by client

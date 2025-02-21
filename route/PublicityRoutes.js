@@ -17,9 +17,11 @@ const checkAuthrozation = require('../middleware/Authorization');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
 const { upload } = require('../util/ImageUploader');
 const checkStoreAccessibility = require('../middleware/CheckStoreAccessibility');
+const checkSubscription = require('../middleware/CheckSubscription');
 
 //secure routes below
 router.use(requireAuth);
+router.use(checkSubscription);
 
 // SHARED_API routes below
 // fetch all public publicities

@@ -28,9 +28,11 @@ const checkAuthrozation = require('../middleware/Authorization');
 const checkStoreAccessibility = require('../middleware/CheckStoreAccessibility');
 const checkClientOwnership = require('../middleware/CheckClientOwnership');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
+const checkSubscription = require('../middleware/CheckSubscription');
 
 //secure routes below
 router.use(requireAuth);
+router.use(checkSubscription);
 
 // STORE_API routes
 //get specific receipt

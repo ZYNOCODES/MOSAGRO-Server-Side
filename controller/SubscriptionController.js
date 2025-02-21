@@ -16,7 +16,7 @@ const CreateSubscription = asyncErrorHandler(async (req, res, next) => {
         name: Name
     });
     if(existSubscription){
-        const err = new CustomError('An existing Subscription use that name. try again.', 400);
+        const err = new CustomError('An existing subscription use that name. Please use another name', 400);
         return next(err);
     }
     //create a new Subscription
