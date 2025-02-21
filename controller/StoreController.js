@@ -112,14 +112,6 @@ const GetStore = asyncErrorHandler(async (req, res, next) => {
         'firstName lastName phoneNumber phoneVerification email emailVerification wilaya commune storeAddress storeName storeLocation status r_commerce subscriptions categories'
     ).populate([
         {
-            path: 'subscriptions',
-            select: 'subscription startDate expiryDate amount',
-            populate: {
-                path: 'subscription',
-                select: 'name'
-            }
-        },
-        {
             path: 'categories',
             select: 'name'
         }

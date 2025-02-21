@@ -83,35 +83,34 @@ const SignInStore = asyncErrorHandler(async (req, res, next) => {
         return next(new CustomError('Username or password incorrect', 400));
     }
     
-    // Check if password is correct
-    const match = await bcrypt.comparePassword(Password, user.password);
-    if(!match){
-        const err = new CustomError('Username or password incorrect', 400);
-        return next(err);
+    // Validate password
+    const isPasswordValid = await bcrypt.comparePassword(Password, user.password);
+    if (!isPasswordValid) {
+        return next(new CustomError('Username or password incorrect', 400));
     }
 
-    // Check if status is already active for store api
+    // Handle user status
     if (['En attente', 'Suspended'].includes(user.status)) {
-        const errorMessage = user.status == 'En attente'
+        const errorMessage = user.status === 'En attente'
             ? 'Your account is not active yet. Try again later.'
             : 'Your account is suspended, probably your subscription is expired';
         return next(new CustomError(errorMessage, 400));
-    } else if (user.status == 'Active') {
-        // Set to UTC time zone
+    }
+
+    // Check subscription for active users
+    if (user.status === 'Active') {
         const currentTime = UtilMoment.getCurrentDateTime();
-        // Get subscription details
-        const existSubscription = await SubscriptionStoreService.findLastSubscriptionStoreByStore(user._id);
-        if (!existSubscription) {
-            const err = new CustomError('You do not have an active subscription', 400);
-            return next(err);
+        const lastSubscription = await SubscriptionStoreService.findLastSubscriptionStoreByStore(user._id);
+
+        // Validate subscription existence
+        if (!lastSubscription) {
+            await Store.updateOne({ _id: user._id }, { status: 'Suspended' });
+            return next(new CustomError('You do not have an active subscription', 400));
         }
-        // Check if subscription has expired
-        if (currentTime.isSameOrAfter(moment(existSubscription.expiryDate))) {
-            // Update Store status to suspended
-            const updatedStore = await Store.updateOne({ _id: user._id }, { status: 'Suspended' });
-            if (!updatedStore) {
-                return next(new CustomError('Something went wrong. Login again', 400));
-            }
+
+        // Validate subscription expiry
+        if (currentTime.isSameOrAfter(moment(lastSubscription.expiryDate))) {
+            await Store.updateOne({ _id: user._id }, { status: 'Suspended' });
             return next(new CustomError('Your subscription has expired', 400));
         }
     }
