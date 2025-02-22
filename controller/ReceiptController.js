@@ -395,7 +395,9 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
     }
     const receipts = await Receipt.find({
         store: id,
-        status: { $ne: 10 }
+        status: { $ne: 10 },
+        credit: false,
+        deposit: false
     }).populate({
         path: 'client',
         select: 'firstName lastName phoneNumber'
