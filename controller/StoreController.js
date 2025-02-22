@@ -10,7 +10,6 @@ const MyStoreService = require('../service/MyStoreService.js')
 const GetAllActiveStores = asyncErrorHandler(async (req, res, next) => {
     const Stores = await Store.find({
         status: 'Active',
-        subscriptions: {$ne: []}
     }).select('firstName lastName phoneNumber email wilaya commune storeAddress storeName categories');
     if(!Stores || Stores.length <= 0){
         const err = new CustomError('No Stores found', 404);
@@ -31,7 +30,6 @@ const GetAllActiveStores = asyncErrorHandler(async (req, res, next) => {
 const GetAllPendingStores = asyncErrorHandler(async (req, res, next) => {
     const Stores = await Store.find({
         status: 'En attente',
-        subscriptions: []
     }).select('firstName lastName phoneNumber email wilaya commune storeAddress storeName');
     if(!Stores || Stores.length <= 0){
         const err = new CustomError('No Stores found', 404);
@@ -52,7 +50,6 @@ const GetAllPendingStores = asyncErrorHandler(async (req, res, next) => {
 const GetAllSuspendedStores = asyncErrorHandler(async (req, res, next) => {
     const Stores = await Store.find({
         status: 'Suspended',
-        subscriptions: {$ne: []}
     }).select('firstName lastName phoneNumber email wilaya commune');
     if(!Stores || Stores.length <= 0){
         const err = new CustomError('No Stores found', 404);
@@ -83,7 +80,6 @@ const GetAllActiveStoresNonLinkedToAClient = asyncErrorHandler(async (req, res, 
     const Stores = await Store.find({
         _id: {$nin: linkedStoresIDs},
         status: 'Active',
-        subscriptions: {$ne: []}
     }).select('firstName lastName phoneNumber email wilaya commune storeAddress storeName categories');
     if(!Stores || Stores.length <= 0){
         const err = new CustomError('No Stores found', 404);
@@ -109,7 +105,7 @@ const GetStore = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
     const store = await Store.findById(id).select(
-        'firstName lastName phoneNumber phoneVerification email emailVerification wilaya commune storeAddress storeName storeLocation status r_commerce subscriptions categories'
+        'firstName lastName phoneNumber phoneVerification email emailVerification wilaya commune storeAddress storeName storeLocation status r_commerce categories'
     ).populate([
         {
             path: 'categories',
@@ -156,16 +152,6 @@ const UpdateStore = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('Invalid commune', 400);
         return next(err);
     }
-    //validate email
-    // if(email && !validator.isEmail(email)){
-    //     const err = new CustomError('Invalid email', 400);
-    //     return next(err);
-    // }
-    //validate phone number must start with 06 or 07 or 05
-    // if(phone && !validator.isMobilePhone(phone, 'ar-DZ')){
-    //     const err = new CustomError('Invalid phone number', 400);
-    //     return next(err);
-    // }
 
     //check wilaya and commune
     if(wilaya && commune){

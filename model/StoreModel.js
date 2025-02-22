@@ -72,11 +72,6 @@ const storeSchema = new mongoose.Schema({
         default: 'En attente',
         required: true
     },
-    subscriptions:[{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'subscriptionStore',
-        required: true
-    }],
     categories:[{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'category',

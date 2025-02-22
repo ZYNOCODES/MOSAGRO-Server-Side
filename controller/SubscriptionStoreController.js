@@ -10,7 +10,7 @@ const UtilMoment = require('../util/Moment.js');
 
 //create a new Subscription for a specific store from store
 const CreateSubsecriptionStoreByStore = asyncErrorHandler(async (req, res, next) => {
-    const currentTime = UtilMoment.getCurrentDateTime(); // Ensures UTC+1
+    const currentTime = UtilMoment.getCurrentDateTime();
     const { Store, Subscription, expiryMonths } = req.body;
     // check if all required fields are provided
     if(!Store || !Subscription){
@@ -34,6 +34,15 @@ const CreateSubsecriptionStoreByStore = asyncErrorHandler(async (req, res, next)
         const err = new CustomError('Subscription not found', 404);
         return next(err);
     }
+    //check if store have a pending subscription
+    const pendingSubscription = await SubscriptionStore.findOne({ 
+        store: existingStore._id, 
+        validation: false 
+    });
+    if(pendingSubscription){
+        const err = new CustomError('You already have a pending subscription request need to be validated by the admin', 400);
+        return next(err);
+    }
     
     // Calculate the expiry date based on subscription duration
     const ExpiryDate = currentTime.clone().add(expiryMonths, 'months');
@@ -45,31 +54,43 @@ const CreateSubsecriptionStoreByStore = asyncErrorHandler(async (req, res, next)
     try {
         // Check if store already has an active subscription
         const lastSubscription = await SubscriptionStore.findOne(
-            { store: existingStore._id },
+            { 
+                store: existingStore._id,
+                validation: true
+            },
             null,
             { session }
         ).sort({ startDate: -1 }).limit(1);
 
         if (lastSubscription && currentTime.isBefore(moment(lastSubscription.expiryDate))) {
-            await session.abortTransaction();
-            session.endSession();
-            return next(new CustomError('You already have an active subscription', 400));
-        }
-        // Create a new subscription store
-        await SubscriptionStore.create([{
-            store: existingStore._id,
-            subscription: existingSubscription._id,
-            amount: Number(existingSubscription.amount) * expiryMonths,
-            startDate: currentTime,
-            expiryDate: ExpiryDate,
-        }], { session });
+            // Create a new subscription store
+            await SubscriptionStore.create([{
+                store: existingStore._id,
+                subscription: existingSubscription._id,
+                amount: Number(existingSubscription.amount) * expiryMonths,
+                validation: false,
+                startDate: lastSubscription.expiryDate,
+                expiryDate: moment(lastSubscription.expiryDate).clone().add(expiryMonths, 'months'),
+            }], { session });
 
-        // Add Subscription ID to Store's subscriptions list
-        await StoreModel.updateOne(
-            { _id: Store },
-            { status: 'Active' },
-            { session }
-        );
+        }else {
+            // Create a new subscription store
+            await SubscriptionStore.create([{
+                store: existingStore._id,
+                subscription: existingSubscription._id,
+                amount: Number(existingSubscription.amount) * expiryMonths,
+                validation: false,
+                startDate: currentTime,
+                expiryDate: ExpiryDate,
+            }], { session });
+
+            // Add Subscription ID to Store's subscriptions list
+            await StoreModel.updateOne(
+                { _id: Store },
+                { status: 'Active' },
+                { session }
+            );
+        }
 
         // Commit the transaction
         await session.commitTransaction();
@@ -120,19 +141,23 @@ const CreateSubsecriptionStoreByAdmin = asyncErrorHandler(async (req, res, next)
 
     try {
         // Check if store already has an active subscription
-        const lastSubscription = await SubscriptionStore.findById({
-            store: existingStore._id
-        }, { session } ).sort({ startDate: -1 }).limit(1);
+        const lastSubscription = await SubscriptionStore.findOne(
+            { store: existingStore._id },
+            null,
+            { session }
+        ).sort({ startDate: -1 }).limit(1);
+
         if (lastSubscription && currentTime.isBefore(moment(lastSubscription.expiryDate))) {
-            //close the last subscription
-            lastSubscription.expiryDate = currentTime;
-            await lastSubscription.save({ session });
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Store already have an active subscription', 400));
         }
         // Create a new subscription store
         await SubscriptionStore.create([{
             store: existingStore._id,
             subscription: existingSubscription._id,
             amount: existingSubscription.amount,
+            validation: true,
             startDate: currentTime,
             expiryDate: ExpiryDate,
         }], { session });
@@ -172,7 +197,8 @@ const GetAllSubsecriptionStoreByStore = asyncErrorHandler(async (req, res, next)
     }
     // get all subscriptions for the store
     const subscriptions = await SubscriptionStore.find({ 
-        store: existingStore._id 
+        store: existingStore._id,
+        validation: true
     }).populate({
         path: 'subscription',
         select: 'name amount'
@@ -185,9 +211,75 @@ const GetAllSubsecriptionStoreByStore = asyncErrorHandler(async (req, res, next)
 
     res.status(200).json(subscriptions);
 });
+//Get all subscription requests
+const GetAllSubsecriptionRequests = asyncErrorHandler(async (req, res, next) => {
+    // get all subscriptions for the store
+    const subscriptions = await SubscriptionStore.find({ 
+        validation: false
+    }).populate([
+        {
+            path: 'subscription',
+            select: 'name amount'
+        },
+        {
+            path: 'store',
+            select: '_id firstName lastName phoneNumber storeName email'
+        }
+    ]);
+    // check if subscriptions found
+    if(!subscriptions || subscriptions.length <= 0){
+        const err = new CustomError('No subscriptions found for this store', 404);
+        return next(err);
+    }
+
+    res.status(200).json(subscriptions);
+});
+//validate subscription request
+const ValidateSubscriptionRequest = asyncErrorHandler(async (req, res, next) => {
+    const currentTime = UtilMoment.getCurrentDateTime();
+    const { id } = req.params;
+    // check if id is valid
+    if(!id || !mongoose.Types.ObjectId.isValid(id)){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+    // check if subscription found
+    const existingSubscription = await SubscriptionStore.findById(id);
+    if(!existingSubscription){
+        const err = new CustomError('Subscription not found', 404);
+        return next(err);
+    }
+
+    const lastSubscription = await SubscriptionStore.findOne(
+        { 
+            store: existingSubscription.store,
+            validation: true
+        },
+    ).sort({ startDate: -1 }).limit(1);
+
+    if (lastSubscription && currentTime.isBefore(moment(lastSubscription.expiryDate))) {
+        return next(new CustomError('Store already have an active subscription', 400));
+    }
+
+    // validate the subscription
+    existingSubscription.validation = true;
+    const updatedSubscription = await existingSubscription.save();
+
+    // check if subscription updated
+    if(!updatedSubscription){
+        const err = new CustomError('An error occurred while validating the subscription', 500);
+        return next(err);
+    }
+
+    res.status(200).json({ message: 'Subscription validated successfully' });
+});
+
+
 
 module.exports = {
     CreateSubsecriptionStoreByStore,
     CreateSubsecriptionStoreByAdmin,
-    GetAllSubsecriptionStoreByStore
+    GetAllSubsecriptionStoreByStore,
+    GetAllSubsecriptionRequests,
+    ValidateSubscriptionRequest
 }
