@@ -7,7 +7,7 @@ const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const { findUserById } = require('../service/UserService.js');
 const { findStoreById } = require('../service/StoreService.js');
-const { findReceiptById, findNoneDeliveredReceiptByStore, findCreditedReceipt, findReceiptByIdAndClient } = require('../service/ReceiptService.js');
+const { findReceiptById, findNoneDeliveredReceiptByStore, findCreditedReceipt, findReceiptByIdAndClient , findReceiptByIdAndStore} = require('../service/ReceiptService.js');
 const { checkUserStore } = require('../service/MyStoreService.js');
 const ReceiptService = require('../service/ReceiptService.js');
 const NotificationService = require('../service/NotificationService.js');
@@ -17,147 +17,151 @@ const moment = require('../util/Moment.js');
 const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
     const { store, client } = req.params;
     const { products, total, deliveredLocation, type, deliveredAmount } = req.body;
-    //get current date with algeire timezome
     const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
 
-    // Check if all fields are provided
-    if (!products || !total ||
-        !Array.isArray(products) || !validator.isNumeric(total.toString())
-    ) {
-        return next(new CustomError('All fields are required', 400));
-    }
-    if (!type) {
-        return next(new CustomError('Order type is required you mast select one', 400));
-    }
-    if (type === 'delivery' && !deliveredLocation) {
-        return next(new CustomError('Delivered address is required', 400));
-    }
-    if (products.length <= 0) {
+    // Validate required fields
+    if (!products || !Array.isArray(products) || products.length === 0) {
         return next(new CustomError('You have to pick at least one product', 400));
     }
-    
-    // Check if all products have a quantity and price
-    if (products.some(val => {
-        return (!mongoose.Types.ObjectId.isValid(val.stock)) && 
-               (!val.quantity || val.quantity <= 0 || !validator.isNumeric(val.quantity.toString())) && 
-               (!val.price || val.price <= 0 || !validator.isNumeric(val.price.toString()));
-    })) {
+    if (!total || !validator.isNumeric(total.toString())) {
+        return next(new CustomError('Total is required and must be a valid number', 400));
+    }
+    if (!type) {
+        return next(new CustomError('Order type is required. You must select one.', 400));
+    }
+    if (type === 'delivery' && !deliveredLocation) {
+        return next(new CustomError('Delivery address is required', 400));
+    }
+
+    // Validate product fields
+    const invalidProduct = products.some(product => (
+        !mongoose.Types.ObjectId.isValid(product.stock) ||
+        !product.quantity || product.quantity <= 0 || !validator.isNumeric(product.quantity.toString()) ||
+        !product.price || product.price <= 0 || !validator.isNumeric(product.price.toString())
+    ));
+    if (invalidProduct) {
         return next(new CustomError('All products must have a valid quantity and price', 400));
     }
-    //check if total is equal to the sum of all products
+
+    // Validate total matches the sum of product prices
     const sum = products.reduce((acc, product) => acc + product.price * product.quantity, 0);
-    if (sum != total) {
-        return next(new CustomError('Total is not equal to the sum of all products price', 400));
+    if (sum !== Number(total)) {
+        return next(new CustomError('Total does not match the sum of all product prices', 400));
     }
 
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-        //calculate total profit
-        var totalProfit = 0;
-        //check if the all products exist
-        for (const item of products) {
+        let totalProfit = 0;
+
+        // Validate and update stock quantities
+        for (const product of products) {
             const existingStock = await Stock.findOne({
-                _id: item.stock,
+                _id: product.stock,
                 store: store
-            }).populate({
-                path: 'product',
-                select: 'name'
-            }).session(session);
+            }).populate('product', 'name').session(session);
+
             if (!existingStock) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError(`Product not found, clear all products and try again.`, 404));
+                return next(new CustomError(`Product not found. Clear all products and try again.`, 404));
             }
-            //check if the product quantity is enough
-            if (existingStock.quantity < item.quantity) {
+
+            // Validate stock quantity
+            if (existingStock.quantity < product.quantity) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(
-                    new CustomError(
-                    `This quantity ${item.quantity} of ${existingStock.product.name} is no availble you can buy only ${existingStock.quantity}`,
-                    400)
-                );
+                return next(new CustomError(
+                    `The quantity ${product.quantity} of ${existingStock.product.name} is not available. You can buy only ${existingStock.quantity}.`,
+                    400
+                ));
             }
-            //check if all price is equal to the selling price and threre is no manipulation
-            if (Number(existingStock.selling) != Number(item.price)) {
+
+            // Validate selling price
+            if (Number(existingStock.selling) !== Number(product.price)) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError(`This price ${item.price} of ${existingStock.product.name} is not valid`,400));
+                return next(new CustomError(
+                    `The price ${product.price} of ${existingStock.product.name} is not valid.`,
+                    400
+                ));
             }
-            //check if Quantity limitation
-            if (existingStock.quantityLimit > 0 &&
-                existingStock.quantityLimit < item.quantity) {
+
+            // Validate quantity limit
+            if (existingStock.quantityLimit > 0 && existingStock.quantityLimit < product.quantity) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(
-                    new CustomError(
-                    `This quantity ${item.quantity} of ${existingStock.product.name} is limited to ${existingStock.quantityLimit} items maximum`,
-                    400)
-                );
+                return next(new CustomError(
+                    `The quantity ${product.quantity} of ${existingStock.product.name} is limited to ${existingStock.quantityLimit} items maximum.`,
+                    400
+                ));
             }
-            //update stock quantity
-            existingStock.quantity -= item.quantity;
+
+            // Update stock quantity
+            existingStock.quantity -= product.quantity;
             await existingStock.save({ session });
-            
-            //calculate profit
-            totalProfit += (
-                item.price - existingStock.buying
-            ) * item.quantity;
-            //add product id to the product object
-            item.product = existingStock.product;
+
+            // Calculate profit
+            totalProfit += (product.price - existingStock.buying) * product.quantity;
+
+            // Add product ID to the product object
+            product.product = existingStock.product;
         }
-        // Check if the total profit is not negative
+
+        // Validate total profit
         if (totalProfit < 0) {
             await session.abortTransaction();
             session.endSession();
             return next(new CustomError('Total profit cannot be negative', 405));
         }
+
         // Create a new receipt status
-        const newReceiptStatus = await ReceiptStatus.create([
-            {
-                products: products,
-                date: currentDateTime
-            }
-        ], { session });
-        //check if new status was created
-        if (!newReceiptStatus || !newReceiptStatus[0]) {
+        const [newReceiptStatus] = await ReceiptStatus.create([{
+            products: products,
+            date: currentDateTime
+        }], { session });
+
+        if (!newReceiptStatus) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while creating new receipt status, try again.', 400));
+            return next(new CustomError('Error while creating new receipt status. Try again.', 400));
         }
+
         // Create a new receipt
-        const newReceipt = await Receipt.create([{
+        const [newReceipt] = await Receipt.create([{
             store: store,
             client: client,
-            products: [newReceiptStatus[0]._id],
+            products: [newReceiptStatus._id],
             total: total,
             profit: totalProfit,
             date: currentDateTime,
             type: type,
-            deliveredLocation: type != 'delivery' ? null : deliveredLocation,
+            deliveredLocation: type === 'delivery' ? deliveredLocation : null,
             delivered: false,
             status: 0
-        }], { session }); 
-        if(!newReceipt || !newReceipt[0]){
+        }], { session });
+
+        if (!newReceipt) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while creating new receipt, try again', 400));
-        }       
+            return next(new CustomError('Error while creating new receipt. Try again.', 400));
+        }
 
+        // Commit the transaction
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ 
+        // Return success response
+        res.status(200).json({
             message: 'The order is submitted successfully',
-            OrderID: newReceipt[0]._id
+            OrderID: newReceipt._id
         });
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
-        console.log(error);
-        return next(new CustomError('Error while creating new receipt, try again', 500));
+        console.error('Error creating receipt:', error);
+        return next(new CustomError('Error while creating new receipt. Try again.', 500));
     }
 });
 //create a receipt
@@ -324,12 +328,15 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
 });
 //get specific Receipt
 const GetReceiptByID = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
+    const { id, store } = req.params;
     //check all required fields
     if( !id || !mongoose.Types.ObjectId.isValid(id)){
         return next(new CustomError('All fields are required', 400));
     }
-    const existingreceipt = await Receipt.findById(id).populate({
+    const existingreceipt = await Receipt.findOne({
+        _id: id,
+        store
+    }).populate({
         path: 'client',
         select: 'firstName lastName phoneNumber email wilaya commune'
     });
@@ -382,22 +389,71 @@ const GetReceiptByIDForClient = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json(returnObject);
 });
 //get all none delivered receipts by store
-const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    //check id 
-    if( !id || !mongoose.Types.ObjectId.isValid(id)){
-        return next(new CustomError('All fields are required', 400));
-    }
-    //check if store exist
-    const existingStore = await findStoreById(id);
-    if(!existingStore){
-        return next(new CustomError('Store not found', 404));
-    }
+const GetAllLatestReceiptsByStore = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
     const receipts = await Receipt.find({
-        store: id,
-        status: { $ne: 10 },
+        store: store,
+        status: 0,
         credit: false,
-        deposit: false
+        deposit: false,
+        delivered: false
+    }).populate({
+        path: 'client',
+        select: 'firstName lastName phoneNumber'
+    });
+
+    if(receipts.length <= 0){
+        const err = new CustomError('No receipts found for you', 400);
+        return next(err);
+    }
+
+    // For each receipt, fetch the last receipt status
+    for (let i = 0; i < receipts.length; i++) {
+        let receipt = receipts[i];  // Access receipt using index
+
+        if (receipt.products && receipt.products.length > 0) {
+            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            
+            // Find the last product's receipt status
+            const lastReceiptStatus = await ReceiptStatus.findOne({
+                _id: lastProductId
+            }).populate({
+                path: 'products.product',
+                select: 'name size brand boxItems',
+                populate:{
+                    path: 'brand',
+                    select: 'name'
+                }
+            });
+            
+            if (!lastReceiptStatus) {
+                return next(new CustomError('Receipt status not found', 404));
+            }
+
+            // Create an updated receipt with ordersList and replace the original receipt
+            receipts[i] = {
+                ...receipt.toObject(),  // Copy the original receipt's properties
+                products: lastReceiptStatus.products  // Attach the ordersList
+            };
+        } else {
+            const err = new CustomError('No products found for this receipt', 400);
+            return next(err);
+        }
+    }
+
+    res.status(200).json(receipts);
+});
+//get all in pregress receipts by store
+const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    const receipts = await Receipt.find({
+        store: store,
+        status: { 
+            $nin: [0, 4, 10]
+        },
+        credit: false,
+        deposit: false,
+        delivered: false
     }).populate({
         path: 'client',
         select: 'firstName lastName phoneNumber'
@@ -446,18 +502,9 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
 });
 //get all delivered receipts by store
 const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    //check all required fields
-    if( !id || !mongoose.Types.ObjectId.isValid(id)){
-        return next(new CustomError('All fields are required', 400));
-    }
-    //check if store exist
-    const existingStore = await findStoreById(id);
-    if(!existingStore){
-        return next(new CustomError('Store not found', 404));
-    }
+    const { store } = req.params;
     const receipts = await Receipt.find({
-        store: id,
+        store: store,
         delivered: true,
         status: 10
     }).populate({
@@ -507,19 +554,9 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
 });
 //get all delivered receipts by store which are credited by the client
 const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    //check all required fields
-    if( !id || !mongoose.Types.ObjectId.isValid(id)){
-        return next(new CustomError('All fields are required', 400));
-    }
-    //check if store exist
-    const existingStore = await findStoreById(id);
-    if(!existingStore){
-        return next(new CustomError('Store not found', 404));
-    }
+    const { store } = req.params;
     const receipts = await Receipt.find({
-        store: id,
-        delivered: true,
+        store: store,
         $or: [
             { credit: true },
             { deposit: true }
@@ -574,20 +611,11 @@ const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res
 });
 //fetch all returned receipts by store
 const GetAllReturnedReceiptsByStore = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    //check all required fields
-    if( !id || !mongoose.Types.ObjectId.isValid(id)){
-        return next(new CustomError('All fields are required', 400));
-    }
-    //check if store exist
-    const existingStore = await findStoreById(id);
-    if(!existingStore){
-        return next(new CustomError('Store not found', 404));
-    }
+    const { store } = req.params;
     const receipts = await Receipt.find({
-        store: id,
-        products: { $exists: true },
-        $expr: { $gt: [{ $size: "$products" }, 1] }
+        store: store,
+        status: 4,
+        delivered: true
     }).populate({
         path: 'client',
         select: 'firstName lastName phoneNumber'
@@ -641,7 +669,10 @@ const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const receipts = await Receipt.find({
         client: id,
-        status: { $ne: 10 }
+        status: { 
+            $nin: [9, 10]
+        },
+        delivered: false
     }).populate({
         path: 'store',
         select: 'storeName phoneNumber storeAddress storeLocation',
@@ -693,7 +724,6 @@ const GetAllArchiveReceiptsByClient = asyncErrorHandler(async (req, res, next) =
     const receipts = await Receipt.find({
         client: id,
         delivered: true,
-        status: 10
     }).populate({
         path: 'store',
         select: 'storeName phoneNumber storeAddress storeLocation',
@@ -806,11 +836,16 @@ const GetAllReceiptsByClientForStore = asyncErrorHandler(async (req, res, next) 
 //validate delivered
 const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { reciept } = req.body;
+    const { reciept, status } = req.body;
     //check id 
-    if( !reciept || !mongoose.Types.ObjectId.isValid(reciept) ){
+    if( !reciept || !mongoose.Types.ObjectId.isValid(reciept) || !status ){
         return next(new CustomError('All fields are required', 400));
     }
+    //check if status is valid [3 or 4]
+    if([3, 4].includes(status)){
+        return next(new CustomError('Status is not valid', 400));
+    }
+    
     //check if receipt exist
     const existingreceipt = await findReceiptByIdAndClient(reciept, id);
     if(!existingreceipt){
@@ -823,8 +858,8 @@ const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
     //update 
     const updatedreceipt = await Receipt.updateOne({ _id: reciept }, { 
         delivered: true,
-        status: 3,
-        expextedDeliveryDate: moment.getCurrentDateTime() // Ensures UTC+1
+        status: status,
+        expextedDeliveryDate: moment.getCurrentDateTime()
     });
     // Check if receipt updated successfully
     if (!updatedreceipt) {
@@ -835,7 +870,7 @@ const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
 });
 //update receipt expexted delivery date
 const UpdateReceiptExpextedDeliveryDate = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
+    const { id, store } = req.params;
     const { date } = req.body;
     //check the fields
     if( !id || !date 
@@ -843,14 +878,13 @@ const UpdateReceiptExpextedDeliveryDate = asyncErrorHandler(async (req, res, nex
         return next(new CustomError('All fields are required', 400));
     }
     //check if receipt exist
-    const existingreceipt = await findReceiptById(id);
+    const existingreceipt = await findReceiptByIdAndStore(id, store);
     if(!existingreceipt){
         return next(new CustomError('Receipt not found', 404));
     }
+    existingreceipt.expextedDeliveryDate = date;
     //update 
-    const updatedreceipt = await Receipt.updateOne({ _id: id }, { 
-        expextedDeliveryDate: date
-    });
+    const updatedreceipt = await existingreceipt.save();
     // Check if receipt updated successfully
     if (!updatedreceipt) {
         const err = new CustomError('Error while updating receipt, try again.', 400);
@@ -927,13 +961,10 @@ const UpdateReceiptProductPrice = asyncErrorHandler(async (req, res, next) => {
 });
 //add payment to credit receipt
 const AddPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    const { amount, store } = req.body;
+    const { id, store } = req.params;
+    const { amount } = req.body;
     // Validate ID
-    if(!id || !store ||
-        !mongoose.Types.ObjectId.isValid(id) ||
-        !mongoose.Types.ObjectId.isValid(store)
-    ){
+    if(!id || !mongoose.Types.ObjectId.isValid(id)){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
@@ -950,6 +981,12 @@ const AddPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
     });
     if(!existingReceipt){
         return next(new CustomError('Receipt not found', 404));
+    }
+
+    //check if the receipt is status between 0, 1, 2
+    if([0, 1].includes(existingReceipt.status)){
+        const err =new CustomError(`This receipt is not ready for payment check the order status`, 400);
+        return next(err);
     }
 
     //check if already closed
@@ -974,7 +1011,7 @@ const AddPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
     }
 
     //check if this receipt is credited or not
-    if(existingReceipt.credit == false || existingReceipt.status == -1 ){
+    if(existingReceipt.credit == false){
         // Validate payment against the total
         if ((parseFloat(amount)) != parseFloat(existingReceipt.total)) {
             const err =new CustomError(`The payment must be equal to the total price. The remaining amount to pay is ${existingReceipt.total}`, 400);
@@ -982,7 +1019,6 @@ const AddPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
         }
         existingReceipt.status = 10
         existingReceipt.credit = false;
-        existingReceipt.delivered = true;
     }
 
     // Add new payment
@@ -995,7 +1031,6 @@ const AddPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
     if ((totalPaid + parseFloat(amount)) == existingReceipt.total && existingReceipt.credit == true) {
         existingReceipt.status = 10
         existingReceipt.credit = false;
-        existingReceipt.delivered = true;
     }
 
     // Save updated receipt
@@ -1009,17 +1044,13 @@ const AddPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
 });
 //add payments tp Receipt
 const AddFullPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    const { store } = req.body;
+    const { id, store } = req.params;
     
     // Get current date with Algiers timezone
     const currentDateTime = moment.getCurrentDateTime(); // Ensures UTC+1
 
     // Validate ID
-    if(!id || !store ||
-        !mongoose.Types.ObjectId.isValid(id) ||
-        !mongoose.Types.ObjectId.isValid(store)
-    ){
+    if(!id || !mongoose.Types.ObjectId.isValid(id)){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
@@ -1032,7 +1063,11 @@ const AddFullPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
     if(!existingReceipt){
         return next(new CustomError('Receipt not found', 404));
     }
-
+    //check if the receipt is status between 0, 1, 2
+    if([0, 1].includes(existingReceipt.status)){
+        const err =new CustomError(`This receipt is not ready for full payment check the order status`, 400);
+        return next(err);
+    }
     //check if already closed
     if(existingReceipt.status == 10){
         const err =new CustomError(`This receipt is already fully paid`, 400);
@@ -1052,7 +1087,6 @@ const AddFullPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
         date: currentDateTime,
         amount: Number(existingReceipt.total)
     });
-    existingReceipt.delivered = true;
     existingReceipt.status = 10;
 
     // Save the updated Receipt
@@ -1171,11 +1205,9 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
 });
 //Update Receipt credit
 const UpdateReceiptCredited = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    const { credited, store } = req.body;
-    if(!id || !store ||
-        !mongoose.Types.ObjectId.isValid(id) ||
-        !mongoose.Types.ObjectId.isValid(store)
+    const { id, store } = req.params;
+    const { credited } = req.body;
+    if(!id || !mongoose.Types.ObjectId.isValid(id)
     ){
         const err = new CustomError('All fields are required', 400);
         return next(err);
@@ -1200,6 +1232,12 @@ const UpdateReceiptCredited = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
 
+    //check if reciept is a returned receipt
+    if(existingReceipt.status == 9){
+        const err =new CustomError(`This receipt is a returned receipt, you can't make it credited`, 400);
+        return next(err);
+    }
+
     //check if already deposit
     if(existingReceipt.deposit == true){
         const err =new CustomError(`You can't make it credited because it's already a deposit receipt`, 400);
@@ -1211,10 +1249,8 @@ const UpdateReceiptCredited = asyncErrorHandler(async (req, res, next) => {
         // Clear the payment array first
         existingReceipt.payment = [];
         existingReceipt.credit = false;
-        existingReceipt.delivered = false;
     }
     existingReceipt.credit = credited;
-    existingReceipt.delivered = true;
 
     const updatedReceipt = await existingReceipt.save();
     if (!updatedReceipt) {
@@ -1226,12 +1262,9 @@ const UpdateReceiptCredited = asyncErrorHandler(async (req, res, next) => {
 });
 //Update Receipt deposit
 const UpdateReceiptDiposit = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    const { deposit, store  } = req.body;
-    if(!id || !store ||
-        !mongoose.Types.ObjectId.isValid(id) ||
-        !mongoose.Types.ObjectId.isValid(store)
-    ){
+    const { id, store } = req.params;
+    const { deposit } = req.body;
+    if(!id || !mongoose.Types.ObjectId.isValid(id)){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
@@ -1255,6 +1288,12 @@ const UpdateReceiptDiposit = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
 
+    //check if reciept is a returned receipt
+    if(existingReceipt.status == 9){
+        const err =new CustomError(`This receipt is a returned receipt, you can't make it deposit`, 400);
+        return next(err);
+    }
+
     //check if already credited
     if(existingReceipt.credit == true){
         const err =new CustomError(`You can't make it deposit because it's already a credited receipt`, 400);
@@ -1264,10 +1303,8 @@ const UpdateReceiptDiposit = asyncErrorHandler(async (req, res, next) => {
     // Save updated receipt
     if(deposit === false){
         existingReceipt.deposit = deposit;
-        existingReceipt.delivered = deposit;
     }
     existingReceipt.deposit = deposit;
-    existingReceipt.delivered = deposit;
 
     const updatedReceipt = await existingReceipt.save();
     if (!updatedReceipt) {
@@ -1276,25 +1313,6 @@ const UpdateReceiptDiposit = asyncErrorHandler(async (req, res, next) => {
     }
     // Return the response
     res.status(200).json({ message: `Receipt now is ${deposit ? "" : "not "}deposit` });
-});
-//delete receiot
-const DeleteReceipt = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    //check id 
-    if( !id || !mongoose.Types.ObjectId.isValid(id)){
-        return next(new CustomError('All fields are required', 400));
-    }
-    //check if receipt exist
-    const existingreceipt = await findReceiptById(id);
-    if(!existingreceipt){
-        return next(new CustomError('Receipt not found', 404));
-    }
-    const DeletedReceipt = await Receipt.deleteOne({_id: id});
-    if(!DeletedReceipt){
-        const err = new CustomError('Error while deleting receipt, try again', 400);
-        return next(err);
-    }
-    res.status(200).json({message: 'Receipt deleted successfully'});
 });
 //get statistics receipts for specific store and client
 const GetStatisticsForStoreClient = asyncErrorHandler(async (req, res, next) => {
@@ -1339,6 +1357,7 @@ module.exports = {
     CreateReceiptFromStore,
     GetReceiptByID,
     GetReceiptByIDForClient,
+    GetAllLatestReceiptsByStore,
     GetAllNonedeliveredReceiptsByStore,
     GetAlldeliveredReceiptsByStore,
     GetAllReturnedReceiptsByStore,
@@ -1346,7 +1365,6 @@ module.exports = {
     GetAllArchiveReceiptsByClient,
     ValidateMyReceipt,
     UpdateReceiptExpextedDeliveryDate,
-    DeleteReceipt,
     GetAllReceiptsByClientForStore,
     UpdateReceiptProductPrice,
     GetAlldeliveredReceiptsByStoreCredited,

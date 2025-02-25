@@ -66,7 +66,7 @@ const sumPaidPaymentsForAllReceipts = async (storeId, clientId) => {
     }, 0);
 };
 
-
+// Total credit and unpaid receipts between store and client
 const sumCreditsAndUnpaidReceipts = async (storeId, clientId) => {
     // Fetch all relevant receipts between store and client
     const receipts = await Receipt.find({ 
@@ -76,21 +76,18 @@ const sumCreditsAndUnpaidReceipts = async (storeId, clientId) => {
 
     // Calculate the total credit and total unpaid amounts
     const result = receipts.reduce((acc, receipt) => {
-        if (receipt.delivered === true && receipt.credit === true && receipt.deposit === false && 
-            receipt.status != 10) {
+        if (receipt.credit === true && receipt.deposit === false && receipt.status != 10) {
             const unpaidAmount = receipt.total - receipt.payment.reduce((sum, pay) => sum + pay.amount, 0);
             acc.totalCredit += unpaidAmount;
         }
 
         
-        if (receipt.delivered === true && receipt.deposit === true && receipt.credit === false && 
-            receipt.status != 10) {
+        if (receipt.deposit === true && receipt.credit === false && receipt.status != 10) {
             acc.totalUnpaid += receipt.total;
         }
 
         
-        if (receipt.delivered === false && receipt.credit === false && receipt.deposit === false && 
-            receipt.status != 10) {
+        if (receipt.delivered === false && receipt.credit === false && receipt.deposit === false && receipt.status != 10) {
             acc.totalInProgress += receipt.total;
         }
 

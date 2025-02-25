@@ -4,6 +4,7 @@ const {
     CreateReceiptFromStore,
     GetReceiptByID,
     GetReceiptByIDForClient,
+    GetAllLatestReceiptsByStore,
     GetAllNonedeliveredReceiptsByStore,
     GetAlldeliveredReceiptsByStore,
     GetAllReturnedReceiptsByStore,
@@ -11,7 +12,6 @@ const {
     GetAllArchiveReceiptsByClient,
     ValidateMyReceipt,
     UpdateReceiptExpextedDeliveryDate,
-    DeleteReceipt,
     GetAllReceiptsByClientForStore,
     UpdateReceiptProductPrice,
     GetAlldeliveredReceiptsByStoreCredited,
@@ -24,7 +24,7 @@ const {
 } = require('../controller/ReceiptController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
-const checkAuthrozation = require('../middleware/Authorization');
+const checkAuthorization = require('../middleware/Authorization');
 const checkStoreAccessibility = require('../middleware/CheckStoreAccessibility');
 const checkClientOwnership = require('../middleware/CheckClientOwnership');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
@@ -36,48 +36,48 @@ router.use(checkSubscription);
 
 // STORE_API routes
 //get specific receipt
-router.get('/:id', checkAuthrozation([process.env.STORE_TYPE]), GetReceiptByID);
+router.get('/:id/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, GetReceiptByID);
 //get all delivered receipts
-router.get('/delivred/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAlldeliveredReceiptsByStore);
+router.get('/delivred/all/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, GetAlldeliveredReceiptsByStore);
+//get all latest receipts
+router.get('/latest/all/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, GetAllLatestReceiptsByStore);
 //get all none delivered receipts
-router.get('/noneDelivred/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllNonedeliveredReceiptsByStore);
+router.get('/noneDelivred/all/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, GetAllNonedeliveredReceiptsByStore);
 //get all delivered receipts credited
-router.get('/delivredCredited/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAlldeliveredReceiptsByStoreCredited);
+router.get('/delivredCredited/all/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, GetAlldeliveredReceiptsByStoreCredited);
 //get all returned receipts
-router.get('/returned/:id', checkAuthrozation([process.env.STORE_TYPE]), GetAllReturnedReceiptsByStore);
+router.get('/returned/all/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, GetAllReturnedReceiptsByStore);
 //get all receipts by client for store
-router.get('/clientForStore/:client/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, GetAllReceiptsByClientForStore);
-//delete receipt
-router.delete('/:id', checkAuthrozation([process.env.STORE_TYPE]), DeleteReceipt);
+router.get('/clientForStore/:client/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, GetAllReceiptsByClientForStore);
 //update expected delivery date
-router.patch('/updateExpectedDeliveryDate/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateReceiptExpextedDeliveryDate);
+router.patch('/updateExpectedDeliveryDate/:id/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, UpdateReceiptExpextedDeliveryDate);
 //update product price
-router.patch('/updateProductPrice/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, UpdateReceiptProductPrice);
+router.patch('/updateProductPrice/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, UpdateReceiptProductPrice);
 //add payment to receipt credit
-router.patch('/payment/:id', checkAuthrozation([process.env.STORE_TYPE]), AddPaymentToReceipt);
+router.patch('/payment/:id/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, AddPaymentToReceipt);
 //add payment to receipt credit
-router.patch('/full/payment/:id', checkAuthrozation([process.env.STORE_TYPE]), AddFullPaymentToReceipt);
+router.patch('/full/payment/:id/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, AddFullPaymentToReceipt);
 //create new receipt from store
-router.post('/store/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, CreateReceiptFromStore);
+router.post('/store/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, CreateReceiptFromStore);
 // Getting statistics for a specific store and client
-router.get('/statistics/:store/:client', checkAuthrozation([process.env.STORE_TYPE]), GetStatisticsForStoreClient);
+router.get('/statistics/:store/:client', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, GetStatisticsForStoreClient);
 // update receipt deposit
-router.patch('/deposit/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateReceiptDiposit);
+router.patch('/deposit/:id/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, UpdateReceiptDiposit);
 // mupdate receipt credit
-router.patch('/credit/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateReceiptCredited);
+router.patch('/credit/:id/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, UpdateReceiptCredited);
 // update receipt status
-router.patch('/status/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, updateReceiptStatus);
+router.patch('/status/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, updateReceiptStatus);
 
 // Client_API routes
 //create new receipt
-router.post('/:client/:store', checkAuthrozation([process.env.CLIENT_TYPE]), checkStoreAccessibility, CreateReceipt);
+router.post('/:client/:store', checkAuthorization([process.env.CLIENT_TYPE]), checkStoreAccessibility, CreateReceipt);
 //get all receipts by client
-router.get('/client/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllReceiptsByClient);
+router.get('/client/:id', checkAuthorization([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllReceiptsByClient);
 //get all archive receipts by client
-router.get('/client/archive/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllArchiveReceiptsByClient);
+router.get('/client/archive/:id', checkAuthorization([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllArchiveReceiptsByClient);
 //get specific receipt for client
-router.get('/client/:id/:receipt', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, GetReceiptByIDForClient);
+router.get('/client/:id/:receipt', checkAuthorization([process.env.CLIENT_TYPE]), checkClientOwnership, GetReceiptByIDForClient);
 //validate receipt
-router.patch('/validate/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, ValidateMyReceipt);
+router.patch('/validate/:id', checkAuthorization([process.env.CLIENT_TYPE]), checkClientOwnership, ValidateMyReceipt);
 
 module.exports = router;
