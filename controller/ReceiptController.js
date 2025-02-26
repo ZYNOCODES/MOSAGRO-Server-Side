@@ -670,7 +670,7 @@ const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
     const receipts = await Receipt.find({
         client: id,
         status: { 
-            $nin: [9, 10]
+            $ne: 10
         },
         delivered: false
     }).populate({
