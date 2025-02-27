@@ -119,7 +119,15 @@ const SignInStore = asyncErrorHandler(async (req, res, next) => {
     const token = createToken(user._id, process.env.STORE_TYPE);
 
     // Return user
-    res.status(200).json({token});
+    res.status(200).json({
+        token,
+        infos: {
+            storeName: user.storeName,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            phoneNumber: user.phoneNumber,
+        }
+    });
 });
 
 //login Client
