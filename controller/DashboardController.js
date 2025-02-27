@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Receipt = require('../model/ReceiptModel.js');
 const Stock = require('../model/StockModel.js');
 const MyStores = require('../model/MyStoresModel.js');
@@ -165,6 +166,119 @@ const getStocksAboutToFinishByStore = asyncErrorHandler(async (req, res, next) =
     }
     res.status(200).json(stocks);
 });
+//get total profit daily
+const getTotalProfitDailyByStore = asyncErrorHandler(async (req, res) => {
+    const { store } = req.params;
+    const today = UtilMoment.getCurrentDateTime().startOf('day').toDate();
+    const tomorrow = UtilMoment.getCurrentDateTime().endOf('day').toDate();
+    const storeId = mongoose.isValidObjectId(store) ? new mongoose.Types.ObjectId(store) : store;
+
+    // Aggregate daily profits
+    const profits = await Receipt.aggregate([
+        {
+            $match: {
+                store : storeId,
+                createdAt: { $gte: today, $lt: tomorrow }
+            }
+        },
+        {
+            $group: {
+                _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+                totalProfit: { $sum: '$profit' }
+            }
+        },
+        {
+            $sort: { _id: 1 }
+        }
+    ]);
+    
+    res.status(200).json(profits);
+});
+//get total profit weekly
+const getTotalProfitWeeklyByStore = asyncErrorHandler(async (req, res) => {
+    const { store } = req.params;
+    const today = UtilMoment.getCurrentDateTime().startOf('month').toDate();
+    const tomorrow = UtilMoment.getCurrentDateTime().endOf('month').toDate();
+    const storeId = mongoose.isValidObjectId(store) ? new mongoose.Types.ObjectId(store) : store;
+
+    // Aggregate monthly profits
+    const profits = await Receipt.aggregate([
+        {
+            $match: {
+                store : storeId,
+                createdAt: { $gte: today, $lt: tomorrow }
+            }
+        },
+        {
+            $group: {
+                _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+                totalProfit: { $sum: '$profit' }
+            }
+        },
+        {
+            $sort: { _id: 1 }
+        }
+    ]);
+    
+    res.status(200).json(profits);
+});
+//get total profit monthly
+const getTotalProfitMonthlyByStore = asyncErrorHandler(async (req, res) => {
+    const { store } = req.params;
+    const today = UtilMoment.getCurrentDateTime().startOf('year').toDate();
+    const tomorrow = UtilMoment.getCurrentDateTime().endOf('year').toDate();
+    const storeId = mongoose.isValidObjectId(store) ? new mongoose.Types.ObjectId(store) : store;
+
+    // Aggregate yearly profits
+    const profits = await Receipt.aggregate([
+        {
+            $match: {
+                store : storeId,
+                createdAt: { $gte: today, $lt: tomorrow }
+            }
+        },
+        {
+            $group: {
+                _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+                totalProfit: { $sum: '$profit' }
+            }
+        },
+        {
+            $sort: { _id: 1 }
+        }
+    ]);
+    
+    res.status(200).json(profits);
+});
+//get total profit yearly
+const getTotalProfitYearlyByStore = asyncErrorHandler(async (req, res) => {
+    const { store } = req.params;
+    const today = UtilMoment.getCurrentDateTime().toDate();
+    const fiveYearsAgo  = UtilMoment.getCurrentDateTime().toDate();
+    fiveYearsAgo.setFullYear(today.getFullYear() - 5);
+    const storeId = mongoose.isValidObjectId(store) ? new mongoose.Types.ObjectId(store) : store;
+
+    // Aggregate yearly profits
+    const profits = await Receipt.aggregate([
+        {
+            $match: { 
+                store: storeId,
+                createdAt: { $gte: fiveYearsAgo }
+            }
+        },
+        {
+            $group: {
+                _id: { $dateToString: { format: '%Y', date: '$createdAt' } },
+                totalProfit: { $sum: '$profit' }
+            }
+        },
+        {
+            $sort: { _id: 1 }
+        }
+    ]);
+    
+    res.status(200).json(profits);
+});
 
 module.exports = {
     getTodayOrdersStatsByStore,
@@ -172,5 +286,9 @@ module.exports = {
     getTopSellingStocksByStore,
     getStatsByStore,
     getLastNewAccessCustomersByStore,
-    getStocksAboutToFinishByStore
+    getStocksAboutToFinishByStore,
+    getTotalProfitDailyByStore,
+    getTotalProfitWeeklyByStore,
+    getTotalProfitMonthlyByStore,
+    getTotalProfitYearlyByStore
 }

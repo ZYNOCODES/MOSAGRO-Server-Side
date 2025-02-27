@@ -5,7 +5,11 @@ const {
     getTopSellingStocksByStore,
     getStatsByStore,
     getLastNewAccessCustomersByStore,
-    getStocksAboutToFinishByStore
+    getStocksAboutToFinishByStore,
+    getTotalProfitDailyByStore,
+    getTotalProfitWeeklyByStore,
+    getTotalProfitMonthlyByStore,
+    getTotalProfitYearlyByStore
 } = require('../controller/DashboardController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
@@ -30,5 +34,13 @@ router.get('/stats/:store', checkAuthrozation([process.env.STORE_TYPE]), checkSt
 router.get('/last-new-access-customers/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, getLastNewAccessCustomersByStore);
 // get stocks about to finish by store
 router.get('/stocks-about-to-finish/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, getStocksAboutToFinishByStore);
+// get total profit daily by store
+router.get('/total-profit-daily/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, getTotalProfitDailyByStore);
+// get total profit weekly by store
+router.get('/total-profit-weekly/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, getTotalProfitWeeklyByStore);
+// get total profit monthly by store
+router.get('/total-profit-monthly/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, getTotalProfitMonthlyByStore);
+// get total profit yearly by store
+router.get('/total-profit-yearly/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, getTotalProfitYearlyByStore);
 
 module.exports = router;
