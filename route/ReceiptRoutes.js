@@ -72,7 +72,7 @@ router.patch('/status/:store', checkAuthorization([process.env.STORE_TYPE]), che
 //create new receipt
 router.post('/:client/:store', checkAuthorization([process.env.CLIENT_TYPE]), checkStoreAccessibility, CreateReceipt);
 //get all receipts by client
-router.get('/client/:id', checkAuthorization([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllReceiptsByClient);
+router.get('/client/all/:id', checkAuthorization([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllReceiptsByClient);
 //get all archive receipts by client
 router.get('/client/archive/:id', checkAuthorization([process.env.CLIENT_TYPE]), checkClientOwnership, GetAllArchiveReceiptsByClient);
 //get specific receipt for client
