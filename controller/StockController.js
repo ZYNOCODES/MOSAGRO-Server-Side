@@ -75,6 +75,12 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
             return next(new CustomError('Store not found', 404));
         }
 
+        //if product category is in store category list
+        if(!store.categories.includes(product.category.toString())){
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Product category is not in your store category accessiblity list', 400));
+        }
         // recalculate the quantity 
         const newQuantity = (Number(Quantity) * Number(product.boxItems)) + Number(QuantityUnity);
       
@@ -221,7 +227,7 @@ const FetchStockByStore = asyncErrorHandler(async (req, res, next) => {
         store: store
     }).populate({
         path:'product',
-        select: '_id code name size image brand boxItems',
+        select: '_id code name size image brand boxItems category',
         populate: {
             path: 'brand',
             select: 'name'

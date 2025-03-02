@@ -4,10 +4,14 @@ const Notification = require('../model/NotificationModel');
 const utilMoment = require('../util/Moment');
 const moment = require('moment');
 
-//get all notifications by store
-const getNotificationsByStore = asyncErrorHandler(async (req, res, next) => {
+//get all new notifications by store
+const getNewNotificationsByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    const notifications = await Notification.find({ownerModel: 'store', owner: store}).sort({createdAt: -1});
+    const notifications = await Notification.find({
+        ownerModel: 'store', 
+        owner: store,
+        read: false
+    }).sort({createdAt: -1});
     //check if there are any notifications
     if (!notifications || notifications.length <= 0) {
         return next(new CustomError('No notifications found', 404));
@@ -15,6 +19,20 @@ const getNotificationsByStore = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json(notifications);
 });
 
+//get all old notifications by store
+const getOldNotificationsByStore = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    const notifications = await Notification.find({
+        ownerModel: 'store', 
+        owner: store,
+        read: true
+    }).sort({createdAt: -1});
+    //check if there are any notifications
+    if (!notifications || notifications.length <= 0) {
+        return next(new CustomError('No notifications found', 404));
+    }
+    res.status(200).json(notifications);
+});
 //get all notifications by client
 const getNonReadedNotificationsByClient = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
@@ -74,7 +92,8 @@ const markAllNotificationsAsRead = asyncErrorHandler(async (req, res, next) => {
 });
 
 module.exports = {
-    getNotificationsByStore,
+    getNewNotificationsByStore,
+    getOldNotificationsByStore,
     getNonReadedNotificationsByClient,
     getReadedNotificationsByClient,
     markNotificationAsRead,

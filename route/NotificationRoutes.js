@@ -1,6 +1,7 @@
 const express = require('express');
 const {
-    getNotificationsByStore,
+    getNewNotificationsByStore,
+    getOldNotificationsByStore,
     getNonReadedNotificationsByClient,
     getReadedNotificationsByClient,
     markNotificationAsRead,
@@ -24,8 +25,10 @@ router.patch('/asRead/:id', checkAuthrozation([process.env.CLIENT_TYPE, process.
 router.patch('/asRead/all/:client', checkAuthrozation([process.env.CLIENT_TYPE, process.env.STORE_TYPE]), markAllNotificationsAsRead);
 
 // STORE_API routes below
-//get all notifications by store
-router.get('/store/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, getNotificationsByStore);
+//get all new notifications by store
+router.get('/store/new/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, getNewNotificationsByStore);
+//get all old notifications by store
+router.get('/store/old/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, getOldNotificationsByStore);
 
 
 // CLIENT_API routes below
