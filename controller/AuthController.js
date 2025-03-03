@@ -511,12 +511,6 @@ const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
         return next(new CustomError('All fields are required', 400));
     }
 
-    // Check if the store exists
-    const existStore = await StoreService.findStoreById(store);
-    if (!existStore) {
-        return next(new CustomError('Store not found', 404));
-    }
-
     // Check if the phone number already exists
     const existingUserByPhone = await UserService.findUserByPhone(PhoneNumber);
     if (existingUserByPhone) {
@@ -573,7 +567,7 @@ const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
         // Create the MyStore entry
         await MyStores.create([{
             user: newUser[0]._id,
-            store: existStore._id,
+            store: store._id,
             status: 'approved',
         }], { session });
 
@@ -603,12 +597,6 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
     if ([store, Password, FirstName, LastName, PhoneNumber, Address, 
         Wilaya, Commune, RC].some(field => !field || validator.isEmpty(field))) {
         return next(new CustomError('All fields are required', 400));
-    }
-
-    // Check if the store exists
-    const existStore = await StoreService.findStoreById(store);
-    if (!existStore) {
-        return next(new CustomError('Store not found', 404));
     }
 
     // Check if the phone number already exists
@@ -663,7 +651,7 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
         // Create the MyStore entry
         await MyStores.create([{
             user: newUser[0]._id,
-            store: existStore._id,
+            store: store._id,
             status: 'approved',
             isSeller: true
         }], { session });
@@ -684,9 +672,64 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
     }
 });
 
-
-
-
+// update store password
+const UpdateStorePassword = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    const { OldPassword, NewPassword } = req.body;
+    // Check if all required fields are provided
+    if ([store, OldPassword, NewPassword].some(field => !field || validator.isEmpty(field))) {
+        return next(new CustomError('All fields are required', 400));
+    }
+    // Check if the store exists
+    const existStore = await StoreService.findStoreById(store);
+    if (!existStore) {
+        return next(new CustomError('Store not found', 404));
+    }
+    // Check if the old password is correct
+    const isMatch = await bcrypt.comparePassword(OldPassword, existStore.password);
+    if (!isMatch) {
+        return next(new CustomError('Old password is incorrect', 400));
+    }
+    // Hash the new password
+    const hash = await bcrypt.hashPassword(NewPassword);
+    // Update the store password
+    existStore.password = hash;
+    // Save the updated store
+    const updatedStore = await existStore.save();
+    if (!updatedStore) {
+        return next(new CustomError('Error while updating store password', 500));
+    }
+    // Return success response
+    res.status(200).json({ message: 'Your password updated successfully' });
+});
+// update store email
+const UpdateStoreEmail = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    const { Email } = req.body;
+    // Check if all required fields are provided
+    if ([store, Email].some(field => !field || validator.isEmpty(field))) {
+        return next(new CustomError('All fields are required', 400));
+    }
+    // Check if the store exists
+    const existStore = await StoreService.findStoreById(store);
+    if (!existStore) {
+        return next(new CustomError('Store not found', 404));
+    }
+    // Check if the email already exists
+    const existingStoreByEmail = await StoreService.findStoreByEmail(Email);
+    if (existingStoreByEmail) {
+        return next(new CustomError('Email already exists', 400));
+    }
+    // Update the store email
+    existStore.email = Email;
+    // Save the updated store
+    const updatedStore = await existStore.save();
+    if (!updatedStore) {
+        return next(new CustomError('Error while updating store email', 500));
+    }
+    // Return success response
+    res.status(200).json({ message: 'Your email updated successfully' });
+});
 
 module.exports = {
     SignInAdmin,
@@ -697,5 +740,7 @@ module.exports = {
     SignUpUpdateStore,
     SignUpClient,
     CreateNewClientForAStore,
-    CreateNewSellerForAStore
+    CreateNewSellerForAStore,
+    UpdateStorePassword,
+    UpdateStoreEmail
 }

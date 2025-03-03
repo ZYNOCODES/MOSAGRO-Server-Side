@@ -9,12 +9,14 @@ const {
     SignUpClient,
     SignUpUpdateStore,
     CreateNewClientForAStore,
-    CreateNewSellerForAStore
+    CreateNewSellerForAStore,
+    UpdateStorePassword,
+    UpdateStoreEmail
 } = require('../controller/AuthController.js');
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 const checkSubscription = require('../middleware/CheckSubscription');
-
+const checkStoreOwnership = require('../middleware/CheckStoreOwnership.js');
 
 // SHARED_API routes below
 //sign in an admin
@@ -40,8 +42,12 @@ router.use(checkSubscription);
 
 //STORE_API routes below
 //create new client for a store
-router.post('/createNewClient/:store', checkAuthrozation([process.env.STORE_TYPE]), CreateNewClientForAStore);
+router.post('/createNewClient/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, CreateNewClientForAStore);
 //create new seller for a store
-router.post('/createNewSeller/:store', checkAuthrozation([process.env.STORE_TYPE]), CreateNewSellerForAStore);
+router.post('/createNewSeller/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, CreateNewSellerForAStore);
+//update store password
+router.patch('/updateStorePassword/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, UpdateStorePassword);
+//update store email
+router.patch('/updateStoreEmail/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, UpdateStoreEmail);
 
 module.exports = router;
