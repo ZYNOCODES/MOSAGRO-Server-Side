@@ -81,7 +81,7 @@ const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
                 throw new CustomError(`The selling price must be greater than the buying price for product ${product.name}`, 400);
             }
 
-            const newQuantity = Number(product.quantity) * Number(existProduct.boxItems);
+            const newQuantity = Number(product.quantity);
             return {
                 ...product,
                 newQuantity,

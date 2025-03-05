@@ -5,7 +5,7 @@ const {
     FetchStockByStore,
     FetchStockByStoreClient,
     UpdateStock,
-    UpdateStockQuantityLimitation,
+    UpdateStockBasicInformation,
     DeleteStock,
 } = require('../controller/StockController');
 const router = express.Router();
@@ -33,7 +33,7 @@ router.post('/create', checkAuthrozation([process.env.STORE_TYPE]), CreateStock)
 //update stock
 router.patch('/update/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateStock);
 //update stock quantity limitation
-router.patch('/update/quantitylimit/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateStockQuantityLimitation);
+router.patch('/update/basic/:store/:id', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, UpdateStockBasicInformation);
 //delete stock
 router.delete('/delete/:store', checkAuthrozation([process.env.STORE_TYPE]), DeleteStock);
 //fetch stock by store

@@ -23,10 +23,10 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
         !mongoose.Types.ObjectId.isValid(Product) || 
         !mongoose.Types.ObjectId.isValid(Store)
     ) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tout les champs obligatoires doivent être remplis', 400));
     }
     //check if Quantity is a positive number
-    if(!Quantity || !QuantityUnity || Number(QuantityUnity) <= 0 || Number(Quantity) <= 0 || !validator.isNumeric(Quantity.toString())){
+    if(Number(QuantityUnity) <= 0 && Number(Quantity) <= 0){
         return next(new CustomError('Quantity must be a positive number > 0', 400));
     }
 
@@ -315,32 +315,41 @@ const UpdateStock = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json({message: 'Stock updated successfully'});
 });
 //update stock quantity limitation
-const UpdateStockQuantityLimitation = asyncErrorHandler(async (req, res, next) => {
+const UpdateStockBasicInformation = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { QuantityLimit } = req.body;
+    const { QuantityLimit, Destockage, BuyingMathode, SellingPrice } = req.body;
     // check if QuantityLimit is provided
-    if(validator.isEmpty(QuantityLimit.toString()) ||
-        !mongoose.Types.ObjectId.isValid(id) || 
-        !validator.isNumeric(QuantityLimit.toString())
+    if(!mongoose.Types.ObjectId.isValid(id) || 
+        ((validator.isEmpty(QuantityLimit.toString()) || !validator.isNumeric(QuantityLimit.toString())) &&
+        (validator.isEmpty(Destockage.toString())  || !validator.isNumeric(Destockage.toString())) && 
+        (validator.isEmpty(SellingPrice.toString())  || !validator.isNumeric(SellingPrice.toString())) &&
+        validator.isEmpty(BuyingMathode.toString()))
     ){
-        const err = new CustomError('Quantity Limit is required to update', 400);
+        const err = new CustomError('Un des champs doit être rempli', 400);
         return next(err);
     }
     //check if stock already exist
     const stock = await StockService.findStockById(id);
     if(!stock){
-        const err = new CustomError('Stock not found', 404);
+        const err = new CustomError('Stock non trouvé', 404);
         return next(err);
     }
     //update stock
-    stock.quantityLimit = QuantityLimit;
+    if(QuantityLimit) stock.quantityLimit = QuantityLimit;
+    if(Destockage) stock.destocking = Destockage;
+    if(SellingPrice) stock.selling = SellingPrice;
+    const buyingMathode = BuyingMathode.toLowerCase() == 'both' ? 'both' : (BuyingMathode.toLowerCase() == 'unity'
+        ? 'unity'
+        : (BuyingMathode.toLowerCase() == 'box' ? 'box' : null)
+    );
+    if(BuyingMathode) stock.buyingMathode = buyingMathode;
     //save updated stock
     const updatedStock = await stock.save();
     if(!updatedStock){
-        const err = new CustomError('Error while updating stock try again.', 400);
+        const err = new CustomError('Erreur lors de la mise à jour du stock, réessayez.', 400);
         return next(err);
     }
-    res.status(200).json({message: 'Stock updated successfully'});
+    res.status(200).json({message: 'Stock mis à jour avec succès'});
 });
 //delete stock
 const DeleteStock = asyncErrorHandler(async (req, res, next) => {
@@ -366,6 +375,6 @@ module.exports = {
     FetchStockByStore,
     FetchStockByStoreClient,
     UpdateStock,
-    UpdateStockQuantityLimitation,
+    UpdateStockBasicInformation,
     DeleteStock,
 }

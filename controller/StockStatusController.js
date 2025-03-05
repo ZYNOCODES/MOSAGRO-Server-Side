@@ -66,7 +66,7 @@ const CreateNewStockStatusForStock = asyncErrorHandler(async (req, res, next) =>
         }
 
         // recalculate the quantity 
-        const newQuantity = Number(Quantity) * Number(product.boxItems);
+        const newQuantity = Number(Quantity);
 
         // Add new stock status
         const stockStatus = await await StockStatus.create([{
@@ -175,7 +175,6 @@ const UpdateStockStatus = asyncErrorHandler(async (req, res, next) => {
 //delete status information of stock
 const DeleteStockStatus = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-
     // Validate required fields
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
         return next(new CustomError('Status ID is required to delete', 400));
@@ -191,25 +190,35 @@ const DeleteStockStatus = asyncErrorHandler(async (req, res, next) => {
             session.endSession();
             return next(new CustomError('Stock status not found', 404));
         }
+        // get stock
+        const existingStock = await StockService.findStockById(stockStatus.stock);
+        if (!existingStock) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Stock not found', 404));
+        }
+        //check if the quantity is greater than the stock quantity
+        if(Number(stockStatus.quantity) > Number(existingStock.quantity)){
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Current stock quantity is less than the deleted stock quantity', 400));
+        }
+        //Update stock quantity
+        existingStock.quantity -= Number(stockStatus.quantity);
+        const updatedStock = await existingStock.save({ session });
+        if (!updatedStock) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Error while updating stock quantity, try again.', 400));
+        }
 
         // Delete stock status
-        const deletedStatus = await stockStatus.remove({ session });
+        const deletedStatus = await stockStatus.deleteOne({ session });
         if (!deletedStatus) {
             await session.abortTransaction();
             session.endSession();
             return next(new CustomError('Error while deleting stock status, try again.', 400));
         }
-
-        // get stock
-        const stock = await StockService.findStockById(stockStatus.stock);
-        if (!stock) {
-            await session.abortTransaction();
-            session.endSession();
-            return next(new CustomError('Stock not found', 404));
-        }
-        //Update stock quantity
-        
-
 
         // Commit the transaction
         await session.commitTransaction();
@@ -217,6 +226,8 @@ const DeleteStockStatus = asyncErrorHandler(async (req, res, next) => {
 
         res.status(200).json({ message: 'Stock status deleted successfully' });
     } catch (error) {
+        console.log(error);
+        
         // Rollback the transaction on error
         await session.abortTransaction();
         session.endSession();
