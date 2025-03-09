@@ -4,7 +4,6 @@ const Purchase = require('../model/PurchaseModel.js');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const FournisseurService = require('../service/FournisseurService.js')
-const StoreService = require('../service/StoreService.js');
 const ProductService = require('../service/ProductService.js');
 const PurchaseService = require('../service/PurchaseService.js');
 const StockService = require('../service/StockService.js');
@@ -19,9 +18,7 @@ const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const { fournisseur, amount, products, Discount } = req.body;
     // check if all required fields are provided
-    if(!store || !mongoose.Types.ObjectId.isValid(store) || 
-        !fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur) || !products
-    ){
+    if(!fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur) || !products){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
@@ -47,14 +44,9 @@ const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
 
     try {
         // Parallel execution to speed up store and fournisseur validation
-        const [existStore, existFournisseur] = await Promise.all([
-            StoreService.findStoreById(store),
+        const [existFournisseur] = await Promise.all([
             FournisseurService.findFournisseurByIdANDStore(fournisseur, store)
         ]);
-
-        if (!existStore) {
-            throw new CustomError('Store not found', 404);
-        }
 
         if (!existFournisseur) {
             throw new CustomError('Fournisseur not found', 404);
@@ -208,10 +200,7 @@ const CreatePurchase = asyncErrorHandler(async (req, res, next) => {
 //fetch all Purchases
 const GetPurchaseByID = asyncErrorHandler(async (req, res, next) => {
     const { id, store } = req.params;
-    if(!id || !store ||
-        !mongoose.Types.ObjectId.isValid(id) ||
-        !mongoose.Types.ObjectId.isValid(store)
-    ){
+    if(!id || !mongoose.Types.ObjectId.isValid(id)){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
@@ -270,17 +259,6 @@ const GetPurchaseByID = asyncErrorHandler(async (req, res, next) => {
 //fetch all Purchases
 const GetAllClosedPurchases = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    if(!store || !mongoose.Types.ObjectId.isValid(store)){
-        const err = new CustomError('All fields are requiredddd', 400);
-        return next(err);
-    }
-    
-    //check if the store exist
-    const existStore = await StoreService.findStoreById(store);
-    if(!existStore){
-        const err = new CustomError('Store not found', 404);
-        return next(err);
-    }
 
     //get all purchases by store
     const purchases = await Purchase.find({
@@ -327,18 +305,6 @@ const GetAllClosedPurchases = asyncErrorHandler(async (req, res, next) => {
 //fetch all credited Purchases
 const GetAllCreditedPurchases = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    if(!store || !mongoose.Types.ObjectId.isValid(store)){
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
-    }
-    
-    //check if the store exist
-    const existStore = await StoreService.findStoreById(store);
-    if(!existStore){
-        const err = new CustomError('Store not found', 404);
-        return next(err);
-    }
-
     //get all purchases by store
     const purchases = await Purchase.find({
         store: store,
@@ -388,18 +354,6 @@ const GetAllCreditedPurchases = asyncErrorHandler(async (req, res, next) => {
 //fetch all returned Purchases
 const GetAllReturnedPurchases = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    if(!store || !mongoose.Types.ObjectId.isValid(store)){
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
-    }
-    
-    //check if the store exist
-    const existStore = await StoreService.findStoreById(store);
-    if(!existStore){
-        const err = new CustomError('Store not found', 404);
-        return next(err);
-    }
-
     //get all purchases by store
     const purchases = await Purchase.find({
         store: store,
@@ -446,18 +400,6 @@ const GetAllReturnedPurchases = asyncErrorHandler(async (req, res, next) => {
 //fetch all new Purchases
 const GetAllNewPurchases = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    if(!store || !mongoose.Types.ObjectId.isValid(store)){
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
-    }
-    
-    //check if the store exist
-    const existStore = await StoreService.findStoreById(store);
-    if(!existStore){
-        const err = new CustomError('Store not found', 404);
-        return next(err);
-    }
-
     //get all purchases by store
     const purchases = await Purchase.find({
         store: store,
@@ -506,8 +448,7 @@ const GetAllNewPurchases = asyncErrorHandler(async (req, res, next) => {
 //fetch all purchases by fournisseur
 const GetAllPurchasesByFournisseurForSpecificStore = asyncErrorHandler(async (req, res, next) => {
     const { store, fournisseur } = req.params;
-    if(!store || !mongoose.Types.ObjectId.isValid(store) || 
-        !fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur)){
+    if(!fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur)){
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
@@ -638,7 +579,7 @@ const UpdatePurchaseDeposit = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json({ message: `Purchase now is ${deposit ? "" : "not "}deposit` });
 });
 
-//add payments tp purchase
+//add payment to purchase
 const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const { amount, store } = req.body;
@@ -711,7 +652,62 @@ const AddPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json({ message: 'Payment added successfully' });
 });
 
-//add payments tp purchase
+//delete payment from purchase
+const DeletePaymentFromPurchase = asyncErrorHandler(async (req, res, next) => {
+    const { id, paymentId, store } = req.params;
+    if(!id || !paymentId ||
+        !mongoose.Types.ObjectId.isValid(id) ||
+        !mongoose.Types.ObjectId.isValid(paymentId)
+    ){
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+
+    // Find the existing purchase
+    const existPurchase = await Purchase.findOne({
+        _id: id,
+        store: store,
+    });
+    if (!existPurchase) {
+        const err = new CustomError('Purchase not found', 404);
+        return next(err);
+    }
+
+    //check if the purchase is closed
+    if (existPurchase.closed) {
+        const err = new CustomError('Your purchase is already closed', 400);
+        return next(err);
+    }
+
+    //check if the purchase is credited
+    if (existPurchase.credit == false) {
+        const err = new CustomError('You can\'t delete payment because this purchase is not credited', 400);
+        return next(err);
+    }
+
+    // Check if the payment exists
+    const paymentIndex = existPurchase.payment.findIndex(p => p._id.toString() == paymentId);
+    if (paymentIndex === -1) {
+        const err = new CustomError('Payment not found', 404);
+        return next(err);
+    }
+
+    // Remove the payment from the purchase
+    existPurchase.payment.splice(paymentIndex, 1);
+
+    // Save the updated purchase
+    const updatedPurchase = await existPurchase.save();
+
+    // Check if the purchase was updated successfully
+    if (!updatedPurchase) {
+        const err = new CustomError('Error while deleting payment, try again.', 400);
+        return next(err);
+    }
+
+    res.status(200).json({ message: 'Payment deleted successfully' });
+});
+
+//add payments to purchase
 const AddFullPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const { store } = req.body;
@@ -774,49 +770,73 @@ const AddFullPaymentToPurchase = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json({ message: 'Full payment added successfully' });
 });
 
-//delete Purchase
-const DeletePurchase = asyncErrorHandler(async (req, res, next) => {
-    const { id, store } = req.params;
-
-    // Validate ID
-    if(!id || !store ||
-        !mongoose.Types.ObjectId.isValid(id) ||
-        !mongoose.Types.ObjectId.isValid(store)
-    ){
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
+//add payments to purchases starting from the oldest
+const ProcessPaymentsStartingWithOldest = asyncErrorHandler(async (req, res, next) => {
+    const { store } = req.params;
+    const { fournisseurId, amount } = req.body;
+    // Validate fournisseur ID
+    if (!fournisseurId || !mongoose.Types.ObjectId.isValid(fournisseurId)) {
+        return next(new CustomError('Invalid fournisseur ID provided.', 400));
+    }
+    // Validate amount
+    if (isNaN(Number(amount)) || Number(amount) <= 0) {
+        return next(new CustomError('Enter a valid positive amount', 400));
     }
 
-    // Check if Purchase exists
-    const existPurchase = await PurchaseService.findPurchaseByIdAndStore(id, store);
-    if (!existPurchase) {
-        return next(new CustomError('Purchase not found', 404));
+    const existingPurchases = await Purchase.find({
+        store,
+        fournisseur: fournisseurId,
+        closed: false
+    }).sort({ createdAt: 1 });
+
+    if (existingPurchases.length <= 0) {
+        return next(new CustomError('No purchases found', 400));
     }
 
-    // Check if the purchase is closed
-    if (existPurchase.closed) {
-        return next(new CustomError('You can\'t delete a closed purchase', 400));
+    const currentDateTime = moment.getCurrentDateTime();
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        let remainingAmount = Number(amount);
+        const purchasesToUpdate = [];
+
+        for (const purchase of existingPurchases) {
+            if (remainingAmount <= 0) break;
+
+            const totalPayments = purchase.payment.reduce((sum, p) => sum + p.amount, 0);
+            const dueAmount = purchase.totalAmount - totalPayments;
+            
+            if (dueAmount > 0) {
+                const paymentAmount = Math.min(dueAmount, remainingAmount);
+                remainingAmount -= paymentAmount;
+                
+                //check if paymentAmount is equal to the purchase total amount if purchase is not credited
+                if (purchase.credit == false && paymentAmount != dueAmount) {
+                    //skip this purchase
+                    continue;
+                }
+
+                purchase.payment.push({ date: currentDateTime, amount: paymentAmount });
+                if (totalPayments + paymentAmount === purchase.totalAmount) {
+                    purchase.closed = true;
+                }
+                purchasesToUpdate.push(purchase);
+            }
+        }
+
+        if (purchasesToUpdate.length <= 0) {
+            return next(new CustomError('No purchases is available for payments or they are only uncredited purchases and you need to put the full amount', 400));
+        }
+        await Purchase.bulkSave(purchasesToUpdate, { session });
+
+        await session.commitTransaction();
+        res.status(200).json({ message: 'Payments added successfully' });
+    }catch(err){
+        await session.abortTransaction();
+        session.endSession();
+        return next(new CustomError('Error while adding payments, try again.', 400));
     }
-
-    // Check if there is any stock related to this purchase
-    const stockStatuses = await Promise.all(
-        existPurchase.stock.map(stockStatusID => StockStatusService.findStockStatusById(stockStatusID))
-    );
-
-    // If any stock status exists, handle accordingly
-    if (stockStatuses.some(stockStatus => stockStatus !== null)) {
-        return next(new CustomError('Cannot delete purchase with associated stock. Please remove the stock first.', 400));
-    }
-
-    // Delete Purchase
-    const deletedPurchase = await Purchase.deleteOne({ _id: existPurchase._id });
-
-    // Check if Purchase was deleted successfully
-    if (deletedPurchase.deletedCount === 0) {
-        return next(new CustomError('Error while deleting purchase, please try again.', 400));
-    }
-
-    res.status(200).json({ message: 'Purchase deleted successfully' });
 });
 
 //get statistics purchase for specific store and fournisseur
@@ -824,15 +844,8 @@ const GetStatisticsForStoreFournisseur = asyncErrorHandler(async (req, res, next
     const { store, fournisseur } = req.params;
 
     // Validate store and fournisseur IDs
-    if (!store || !mongoose.Types.ObjectId.isValid(store) || 
-        !fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur)) {
-        return next(new CustomError('Invalid store or fournisseur ID provided.', 400));
-    }
-
-    // Check if the store exists
-    const existStore = await StoreService.findStoreById(store);
-    if (!existStore) {
-        return next(new CustomError('Store not found', 404));
+    if (!fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur)) {
+        return next(new CustomError('Invalid fournisseur ID provided.', 400));
     }
 
     // Check if the fournisseur exists for the given store
@@ -868,6 +881,7 @@ module.exports = {
     UpdatePurchaseDeposit,
     AddPaymentToPurchase,
     AddFullPaymentToPurchase,
-    DeletePurchase,
+    ProcessPaymentsStartingWithOldest,
+    DeletePaymentFromPurchase,
     GetStatisticsForStoreFournisseur
 }

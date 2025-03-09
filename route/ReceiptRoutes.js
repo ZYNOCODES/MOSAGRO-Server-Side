@@ -20,7 +20,9 @@ const {
     GetStatisticsForStoreClient,
     UpdateReceiptCredited,
     UpdateReceiptDiposit,
-    updateReceiptStatus
+    updateReceiptStatus,
+    CancelReceiptByClient,
+    CancelReceiptByStore,
 } = require('../controller/ReceiptController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
@@ -67,6 +69,8 @@ router.patch('/deposit/:id/:store', checkAuthorization([process.env.STORE_TYPE])
 router.patch('/credit/:id/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, UpdateReceiptCredited);
 // update receipt status
 router.patch('/status/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, updateReceiptStatus);
+// cancel receipt by store
+router.patch('/cancel/:store/:id', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, CancelReceiptByStore);
 
 // Client_API routes
 //create new receipt
@@ -79,5 +83,7 @@ router.get('/client/archive/:id', checkAuthorization([process.env.CLIENT_TYPE]),
 router.get('/client/:id/:receipt', checkAuthorization([process.env.CLIENT_TYPE]), checkClientOwnership, GetReceiptByIDForClient);
 //validate receipt
 router.patch('/validate/:id', checkAuthorization([process.env.CLIENT_TYPE]), checkClientOwnership, ValidateMyReceipt);
+// cancel receipt by client
+router.patch('/cancel/:id/:receipt', checkAuthorization([process.env.CLIENT_TYPE]), checkClientOwnership, CancelReceiptByClient);
 
 module.exports = router;

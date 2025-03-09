@@ -449,7 +449,7 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
     const receipts = await Receipt.find({
         store: store,
         status: { 
-            $nin: [0, 4, 10]
+            $nin: [-2, -1, 0, 4, 10]
         },
         credit: false,
         deposit: false,
@@ -506,7 +506,9 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
     const receipts = await Receipt.find({
         store: store,
         delivered: true,
-        status: 10
+        status: {
+            $in: [-2, -1, 10]
+        }
     }).populate({
         path: 'client',
         select: 'firstName lastName phoneNumber'
@@ -670,7 +672,7 @@ const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
     const receipts = await Receipt.find({
         client: id,
         status: { 
-            $ne: 10
+            $nin: [-2, -1, 10]
         },
         delivered: false
     }).populate({
@@ -1073,6 +1075,11 @@ const AddFullPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
         const err =new CustomError(`This receipt is already fully paid`, 400);
         return next(err);
     }
+    //check if already cancelled
+    if(existingReceipt.status == -2 || existingReceipt.status == -1){
+        const err =new CustomError(`This receipt is already cancelled`, 400);
+        return next(err);
+    }
 
     //check if the receipt is credited
     if (existingReceipt.credit == true) {
@@ -1139,6 +1146,12 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
             await session.abortTransaction();
             session.endSession();
             return next(new CustomError('This receipt is already fully paid', 400));
+        }
+        // Check if receipt is already canceled
+        if (existingReceipt.status == -2 || existingReceipt.status == -1) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('This receipt is already canceled', 400));
         }
         // Check if receipt is already delivered
         if (existingReceipt.delivered) {
@@ -1238,6 +1251,12 @@ const UpdateReceiptCredited = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
 
+    //check if already cancelled
+    if(existingReceipt.status == -2 || existingReceipt.status == -1){
+        const err =new CustomError(`This receipt is already cancelled`, 400);
+        return next(err);
+    }
+    
     //check if already deposit
     if(existingReceipt.deposit == true){
         const err =new CustomError(`You can't make it credited because it's already a deposit receipt`, 400);
@@ -1294,6 +1313,12 @@ const UpdateReceiptDiposit = asyncErrorHandler(async (req, res, next) => {
         return next(err);
     }
 
+    //check if already cancelled
+    if(existingReceipt.status == -2 || existingReceipt.status == -1){
+        const err =new CustomError(`This receipt is already cancelled`, 400);
+        return next(err);
+    }
+
     //check if already credited
     if(existingReceipt.credit == true){
         const err =new CustomError(`You can't make it deposit because it's already a credited receipt`, 400);
@@ -1313,6 +1338,68 @@ const UpdateReceiptDiposit = asyncErrorHandler(async (req, res, next) => {
     }
     // Return the response
     res.status(200).json({ message: `Receipt now is ${deposit ? "" : "not "}deposit` });
+});
+//cancel receipt by store
+const CancelReceiptByStore = asyncErrorHandler(async (req, res, next) => {
+    const { store, id } = req.params;
+    // Validate ID
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+
+    // Check if the receipt exists
+    const existingReceipt = await findReceiptByIdAndStore(id, store);
+    if (!existingReceipt) {
+        return next(new CustomError('Receipt not found', 404));
+    }
+
+    // Check if the receipt is already closed
+    if (existingReceipt.status != 0 || existingReceipt.credit || existingReceipt.deposit || existingReceipt.delivered) {
+        return next(new CustomError('You can only cancel new placed orders', 400));
+    }
+
+    // Update the receipt status
+    existingReceipt.status = -2;
+    existingReceipt.delivered = true;
+    const updatedReceipt = await existingReceipt.save();
+    if (!updatedReceipt) {
+        return next(new CustomError('Error while cancelling receipt, try again', 400));
+    }
+
+    // Return the response
+    res.status(200).json({ message: 'The receipt was cancelled successfully' });
+});
+//cancel receipt by client
+const CancelReceiptByClient = asyncErrorHandler(async (req, res, next) => {
+    const { receipt, id } = req.params;
+    // Validate ID
+    if (!receipt || !mongoose.Types.ObjectId.isValid(receipt)) {
+        const err = new CustomError('All fields are required', 400);
+        return next(err);
+    }
+
+    // Check if the receipt exists
+    const existingReceipt = await findReceiptByIdAndClient(receipt, id);
+    if (!existingReceipt) {
+        return next(new CustomError('Receipt not found', 404));
+    }
+
+    // Check if the receipt is already closed
+    if (existingReceipt.status != 0 || existingReceipt.credit || existingReceipt.deposit || existingReceipt.delivered) {
+        return next(new CustomError('You can only cancel new placed orders because maybe it\'s already in preparation', 400));
+    }
+
+    // Update the receipt status
+    existingReceipt.status = -1;
+    existingReceipt.delivered = true;
+    const updatedReceipt = await existingReceipt.save();
+    if (!updatedReceipt) {
+        return next(new CustomError('Error while cancelling receipt, try again', 400));
+    }
+
+    // Return the response
+    res.status(200).json({ message: 'The receipt was cancelled successfully' });
 });
 //get statistics receipts for specific store and client
 const GetStatisticsForStoreClient = asyncErrorHandler(async (req, res, next) => {
@@ -1373,5 +1460,7 @@ module.exports = {
     GetStatisticsForStoreClient,
     updateReceiptStatus,
     UpdateReceiptCredited,
+    CancelReceiptByClient,
+    CancelReceiptByStore,
     UpdateReceiptDiposit
 }

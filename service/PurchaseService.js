@@ -46,23 +46,21 @@ const sumPaymentsForCreditedUnpaidPurchases = async (storeId, fournisseurId) => 
 
     // Calculate the total credit and total unpaid amounts
     const result = purchases.reduce((acc, purchase) => {
-        if (purchase.credit === true && (purchase.deposit === false || purchase.deposit === true)) {
+        if (purchase.credit == true) {
             const unpaidAmount = purchase.totalAmount - purchase.payment.reduce((sum, pay) => sum + pay.amount, 0);
             acc.totalCredit += unpaidAmount;
         }
 
-        
         if (purchase.deposit === true && purchase.credit === false) {
             acc.totalDepositUncredited += purchase.totalAmount;
         }
-
         
         if (purchase.credit === false && purchase.deposit === false) {
             acc.totalInProgress += purchase.totalAmount;
         }
 
         return acc;
-    }, { totalCredit: 0, totalDepositUncredited : 0, totalInProgress: 0 });
+    }, { totalCredit: 0, totalDepositUncredited: 0, totalInProgress: 0 });
 
     // Return the sum of totalCredit and totalUnpaid
     return result.totalCredit + result.totalDepositUncredited  + result.totalInProgress;

@@ -25,6 +25,12 @@ const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next
         return next(new CustomError('Receipt not found', 404));
     }
 
+    //check if already cancelled
+    if(existingReceipt.status == -2 || existingReceipt.status == -1){
+        const err =new CustomError(`This receipt is already cancelled`, 400);
+        return next(err);
+    }
+
     // Get the last receipt status
     const lastReceiptStatus = await ReceiptStatus.findById(existingReceipt.products[existingReceipt.products.length - 1]);
     if (!lastReceiptStatus) {

@@ -39,7 +39,7 @@ const findCreditedReceipt = async (id) => {
 const countReceiptsByStoreAndClient = async (storeId, clientId) => {
     return await Receipt.countDocuments({
         store: storeId,
-        client: clientId
+        client: clientId,
     });
 };
 
@@ -47,7 +47,8 @@ const countReceiptsByStoreAndClient = async (storeId, clientId) => {
 const sumPaymentsForAllReceipts = async (storeId, clientId) => {
     const receipts = await Receipt.find({ 
         store: storeId, 
-        client: clientId, 
+        client: clientId,
+        status: { $nin: [-2, -1] }
     });
     return {
         total: receipts.reduce((total, receipt) => total + receipt.total, 0),
@@ -60,6 +61,7 @@ const sumPaidPaymentsForAllReceipts = async (storeId, clientId) => {
     const receipts = await Receipt.find({ 
         store: storeId, 
         client: clientId,
+        status: { $nin: [-2, -1] }
     });
     return receipts.reduce((total, receipt) => {
         return total + (receipt.payment.reduce((sum, pay) => sum + pay.amount, 0));
@@ -71,7 +73,8 @@ const sumCreditsAndUnpaidReceipts = async (storeId, clientId) => {
     // Fetch all relevant receipts between store and client
     const receipts = await Receipt.find({ 
         store: storeId, 
-        client: clientId, 
+        client: clientId,
+        status: { $nin: [-2, -1] }
     });
 
     // Calculate the total credit and total unpaid amounts

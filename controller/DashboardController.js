@@ -15,6 +15,7 @@ const getTodayOrdersStatsByStore = asyncErrorHandler(async (req, res) => {
     // get all receipts for today select only the total amount and profit
     const existingReceipts = await Receipt.find({
         store,
+        status: { $nin: [-2, -1] },
         createdAt: { $gte: today, $lt: tomorrow }
     }).select('total profit');
     
@@ -43,6 +44,7 @@ const getOrdersStatsByStore = asyncErrorHandler(async (req, res) => {
     // get all receipts for today select only the total amount and profit
     const existingReceipts = await Receipt.find({
         store,
+        status: { $nin: [-2, -1] },
         createdAt: { $gte: start, $lt: end }
     }).select('total profit');
     
@@ -56,7 +58,10 @@ const getOrdersStatsByStore = asyncErrorHandler(async (req, res) => {
 const getTopSellingStocksByStore = asyncErrorHandler(async (req, res) => {
     const { store } = req.params;
     // Retrieve all receipts for the specific store
-    const receipts = await Receipt.find({ store }).populate({
+    const receipts = await Receipt.find({ 
+        store,
+        status: { $nin: [-2, -1] }, 
+    }).populate({
         path: 'products',
         select: 'stock product',
         populate: {
@@ -112,7 +117,7 @@ const getStatsByStore = asyncErrorHandler(async (req, res) => {
     // count total stocks in the store
     const totalStocks = await Stock.countDocuments({ store });
     // count total receipts in the store
-    const totalReceipts = await Receipt.countDocuments({ store });
+    const totalReceipts = await Receipt.countDocuments({ store, status: { $nin: [-2, -1] }, });
     // count customers in the store
     const totalCustomers = await MyStores.countDocuments({ store, isSeller: false, status: 'approved' });
     // count sellers in the store
@@ -178,13 +183,14 @@ const getTotalProfitDailyByStore = asyncErrorHandler(async (req, res) => {
         {
             $match: {
                 store : storeId,
+                status: { $nin: [-2, -1] },
                 createdAt: { $gte: today, $lt: tomorrow }
             }
         },
         {
             $group: {
                 _id: { $dateToString: { format: '%H', date: '$createdAt' } },
-                totalProfit: { $sum: '$profit' }
+                totalProfit: { $sum: '$total' }
             }
         },
         {
@@ -206,13 +212,14 @@ const getTotalProfitWeeklyByStore = asyncErrorHandler(async (req, res) => {
         {
             $match: {
                 store : storeId,
+                status: { $nin: [-2, -1] },
                 createdAt: { $gte: today, $lt: tomorrow }
             }
         },
         {
             $group: {
                 _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-                totalProfit: { $sum: '$profit' }
+                totalProfit: { $sum: '$total' }
             }
         },
         {
@@ -234,13 +241,14 @@ const getTotalProfitMonthlyByStore = asyncErrorHandler(async (req, res) => {
         {
             $match: {
                 store : storeId,
+                status: { $nin: [-2, -1] },
                 createdAt: { $gte: today, $lt: tomorrow }
             }
         },
         {
             $group: {
                 _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
-                totalProfit: { $sum: '$profit' }
+                totalProfit: { $sum: '$total' }
             }
         },
         {
@@ -263,13 +271,14 @@ const getTotalProfitYearlyByStore = asyncErrorHandler(async (req, res) => {
         {
             $match: { 
                 store: storeId,
+                status: { $nin: [-2, -1] },
                 createdAt: { $gte: fiveYearsAgo }
             }
         },
         {
             $group: {
                 _id: { $dateToString: { format: '%Y', date: '$createdAt' } },
-                totalProfit: { $sum: '$profit' }
+                totalProfit: { $sum: '$total' }
             }
         },
         {
