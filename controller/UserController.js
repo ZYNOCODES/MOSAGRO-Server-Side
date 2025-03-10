@@ -115,13 +115,17 @@ const VerifyClient = asyncErrorHandler(async (req, res, next) => {
         const err = new CustomError('All fields are required', 400);
         return next(err);
     }
+    if(!RC || validator.isEmpty(RC)){
+        const err = new CustomError('Commercial register number is required', 400);
+        return next(err);
+    }
     const existingClient = await User.findById(client);
     if(!existingClient){
         const err = new CustomError('Client not found', 404);
         return next(err);
     }
 
-    if(RC && !validator.isEmpty(RC)) existingClient.r_commerce = RC;
+    existingClient.r_commerce = RC;
     existingClient.isRCVerified = true;
     existingClient.isBlocked = false;
 

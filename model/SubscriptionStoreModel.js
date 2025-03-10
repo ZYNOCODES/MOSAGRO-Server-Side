@@ -29,7 +29,7 @@ const subscriptionStoreSchema = new mongoose.Schema({
         required: true
     },
 },{
-    timestamps: false,
+    timestamps: true,
     collection: 'subscriptionStore'
 });
 

@@ -57,7 +57,14 @@ const SignInAdmin = asyncErrorHandler(async (req, res, next) => {
     const token = createToken(user._id, process.env.ADMIN_TYPE);
 
     // Return user
-    res.status(200).json({token});
+    res.status(200).json({
+        token,
+        infos: {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            phoneNumber: user.phoneNumber,
+        }
+    });
 });
 
 //login Store

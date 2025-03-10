@@ -4,6 +4,8 @@ const {
     getOldNotificationsByStore,
     getNonReadedNotificationsByClient,
     getReadedNotificationsByClient,
+    getNonReadedNotificationsByAdmin,
+    getReadedNotificationsByAdmin,
     markNotificationAsRead,
     markAllNotificationsAsRead,
 } = require('../controller/NotificationController');
@@ -12,6 +14,7 @@ const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 const checkClientOwnership = require('../middleware/CheckClientOwnership');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
+const checkAdminOwnership = require('../middleware/CheckAdminOwnership');
 const checkSubscription = require('../middleware/CheckSubscription');
 
 //secure routes below
@@ -36,4 +39,11 @@ router.get('/store/old/:store', checkAuthrozation([process.env.STORE_TYPE]), che
 router.get('/client/nonRead/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, getNonReadedNotificationsByClient);
 //get all readed notifications by client
 router.get('/client/read/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, getReadedNotificationsByClient);
+
+// ADMIN_API routes below
+//get all non readed notifications by admin
+router.get('/admin/nonRead/:admin', checkAuthrozation([process.env.ADMIN_TYPE]), checkAdminOwnership, getNonReadedNotificationsByAdmin);
+//get all readed notifications by admin
+router.get('/admin/read/:admin', checkAuthrozation([process.env.ADMIN_TYPE]), checkAdminOwnership, getReadedNotificationsByAdmin);
+
 module.exports = router;

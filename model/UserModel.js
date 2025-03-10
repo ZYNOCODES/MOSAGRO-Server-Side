@@ -56,7 +56,7 @@ const UserSchema = new mongoose.Schema({
     },
     r_commerce:{
         type: String,
-        required: true
+        required: false
     },
     isRCVerified:{
         type: Boolean,

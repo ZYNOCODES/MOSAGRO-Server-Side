@@ -2,13 +2,20 @@ const mongoose = require('mongoose');
 const Receipt = require('../model/ReceiptModel.js');
 const Stock = require('../model/StockModel.js');
 const MyStores = require('../model/MyStoresModel.js');
+const Store = require('../model/StoreModel.js');
+const Client = require('../model/UserModel.js');
+const Product = require('../model/ProductModel.js');
+const Brand = require('../model/BrandModel.js');
+const Category = require('../model/CategoryModel.js');
+const SubscriptionStore = require('../model/SubscriptionStoreModel.js');
+const Losses = require('../model/LossesModel.js');
 const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const moment = require('moment');
 const UtilMoment = require('../util/Moment.js');
 
 // get today orders stats by store
-const getTodayOrdersStatsByStore = asyncErrorHandler(async (req, res) => {
+const getTodayOrdersStatsByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const today = UtilMoment.getCurrentDateTime().startOf('day');
     const tomorrow = UtilMoment.getCurrentDateTime().endOf('day');
@@ -26,7 +33,7 @@ const getTodayOrdersStatsByStore = asyncErrorHandler(async (req, res) => {
     });
 });
 // get orders stats between two dates
-const getOrdersStatsByStore = asyncErrorHandler(async (req, res) => {
+const getOrdersStatsByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const { startDate, endDate } = req.query;
     // check if the dates are valid
@@ -55,7 +62,7 @@ const getOrdersStatsByStore = asyncErrorHandler(async (req, res) => {
     });
 });
 // get top Selling stocks by store
-const getTopSellingStocksByStore = asyncErrorHandler(async (req, res) => {
+const getTopSellingStocksByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     // Retrieve all receipts for the specific store
     const receipts = await Receipt.find({ 
@@ -112,7 +119,7 @@ const getTopSellingStocksByStore = asyncErrorHandler(async (req, res) => {
     res.status(200).json(top10Stocks);
 });
 // get stats by store  
-const getStatsByStore = asyncErrorHandler(async (req, res) => {
+const getStatsByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     // count total stocks in the store
     const totalStocks = await Stock.countDocuments({ store });
@@ -171,8 +178,8 @@ const getStocksAboutToFinishByStore = asyncErrorHandler(async (req, res, next) =
     }
     res.status(200).json(stocks);
 });
-//get total profit daily
-const getTotalProfitDailyByStore = asyncErrorHandler(async (req, res) => {
+//get total total daily
+const getTotalDailyByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const today = UtilMoment.getCurrentDateTime().startOf('day').toDate();
     const tomorrow = UtilMoment.getCurrentDateTime().endOf('day').toDate();
@@ -200,8 +207,8 @@ const getTotalProfitDailyByStore = asyncErrorHandler(async (req, res) => {
     
     res.status(200).json(profits);
 });
-//get total profit weekly
-const getTotalProfitWeeklyByStore = asyncErrorHandler(async (req, res) => {
+//get total total weekly
+const getTotalWeeklyByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const today = UtilMoment.getCurrentDateTime().startOf('month').toDate();
     const tomorrow = UtilMoment.getCurrentDateTime().endOf('month').toDate();
@@ -229,8 +236,8 @@ const getTotalProfitWeeklyByStore = asyncErrorHandler(async (req, res) => {
     
     res.status(200).json(profits);
 });
-//get total profit monthly
-const getTotalProfitMonthlyByStore = asyncErrorHandler(async (req, res) => {
+//get total total monthly
+const getTotalMonthlyByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const today = UtilMoment.getCurrentDateTime().startOf('year').toDate();
     const tomorrow = UtilMoment.getCurrentDateTime().endOf('year').toDate();
@@ -258,8 +265,8 @@ const getTotalProfitMonthlyByStore = asyncErrorHandler(async (req, res) => {
     
     res.status(200).json(profits);
 });
-//get total profit yearly
-const getTotalProfitYearlyByStore = asyncErrorHandler(async (req, res) => {
+//get total total yearly
+const getTotalYearlyByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const today = UtilMoment.getCurrentDateTime().toDate();
     const fiveYearsAgo  = UtilMoment.getCurrentDateTime().toDate();
@@ -289,6 +296,234 @@ const getTotalProfitYearlyByStore = asyncErrorHandler(async (req, res) => {
     res.status(200).json(profits);
 });
 
+// get all subscriptions stats
+const getAllSubscriptionsStats = asyncErrorHandler(async (req, res, next) => {
+    const { admin } = req.params;
+    // get all receipts for today select only the total amount and profit
+    const existingReceipts = await SubscriptionStore.find({
+        validation: true,
+    }).select('amount');
+
+    // get lossess
+    const losses = await Losses.find({
+        owner: admin,
+        ownerModel: 'admin'
+    }).select('price');
+
+    res.status(200).json({
+        totalSubscriptions: existingReceipts.length,
+        totalAmount: existingReceipts.reduce((acc, subscription) => acc + subscription.amount, 0),
+        totalLosses: losses.reduce((acc, loss) => acc + loss.price, 0)
+    });
+});
+// get all subscriptions stats between two dates
+const getSubscriptionsStats = asyncErrorHandler(async (req, res, next) => {
+    const { admin } = req.params;
+    const { startDate, endDate } = req.query;
+    // check if the dates are valid
+    if (!startDate || !endDate) {
+        return { 
+            totalSubscriptions: 0,
+            totalAmount: 0
+        }
+    }
+    
+    const start = moment(new Date(startDate).toISOString()).startOf('day');
+    const end = moment(new Date(endDate).toISOString()).endOf('day');
+
+    // get all receipts for today select only the total amount and profit
+    const existingReceipts = await SubscriptionStore.find({
+        validation: true,
+        createdAt: { $gte: start, $lt: end }
+    }).select('amount');
+
+    // get lossess
+    const losses = await Losses.find({
+        owner: admin,
+        ownerModel: 'admin',
+        createdAt: { $gte: start, $lt: end }
+    }).select('price');
+    
+    res.status(200).json({
+        totalSubscriptions: existingReceipts.length,
+        totalAmount: existingReceipts.reduce((acc, subscription) => acc + subscription.amount, 0),
+        totalLosses: losses.reduce((acc, loss) => acc + loss.price, 0)
+    });
+});
+//get total subscriptions daily
+const getTotalDailySubscriptions = asyncErrorHandler(async (req, res, next) => {
+    const today = UtilMoment.getCurrentDateTime().startOf('day').toDate();
+    const tomorrow = UtilMoment.getCurrentDateTime().endOf('day').toDate();
+
+    // Aggregate daily profits
+    const profits = await SubscriptionStore.aggregate([
+        {
+            $match: {
+                validation: true,
+                createdAt: { $gte: today, $lt: tomorrow }
+            }
+        },
+        {
+            $group: {
+                _id: { $dateToString: { format: '%H', date: '$createdAt' } },
+                totalProfit: { $sum: '$amount' }
+            }
+        },
+        {
+            $sort: { _id: 1 }
+        }
+    ]);
+    
+    res.status(200).json(profits);
+});
+//get total subscriptions weekly
+const getTotalWeeklySubscriptions = asyncErrorHandler(async (req, res, next) => {
+    const today = UtilMoment.getCurrentDateTime().startOf('month').toDate();
+    const tomorrow = UtilMoment.getCurrentDateTime().endOf('month').toDate();
+
+    // Aggregate monthly profits
+    const profits = await SubscriptionStore.aggregate([
+        {
+            $match: {
+                validation: true,
+                createdAt: { $gte: today, $lt: tomorrow }
+            }
+        },
+        {
+            $group: {
+                _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+                totalProfit: { $sum: '$amount' }
+            }
+        },
+        {
+            $sort: { _id: 1 }
+        }
+    ]);
+    
+    res.status(200).json(profits);
+});
+//get total subscriptions monthly
+const getTotalMonthlySubscriptions = asyncErrorHandler(async (req, res, next) => {
+    const today = UtilMoment.getCurrentDateTime().startOf('year').toDate();
+    const tomorrow = UtilMoment.getCurrentDateTime().endOf('year').toDate();
+
+    // Aggregate yearly profits
+    const profits = await SubscriptionStore.aggregate([
+        {
+            $match: {
+                validation: true,
+                createdAt: { $gte: today, $lt: tomorrow }
+            }
+        },
+        {
+            $group: {
+                _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+                totalProfit: { $sum: '$amount' }
+            }
+        },
+        {
+            $sort: { _id: 1 }
+        }
+    ]);
+    
+    res.status(200).json(profits);
+});
+//get total subscriptions yearly
+const getTotalYearlySubscriptions = asyncErrorHandler(async (req, res, next) => {
+    const today = UtilMoment.getCurrentDateTime().toDate();
+    const fiveYearsAgo  = UtilMoment.getCurrentDateTime().toDate();
+    fiveYearsAgo.setFullYear(today.getFullYear() - 5);
+
+    // Aggregate yearly profits
+    const profits = await SubscriptionStore.aggregate([
+        {
+            $match: { 
+                validation: true,
+                createdAt: { $gte: fiveYearsAgo }
+            }
+        },
+        {
+            $group: {
+                _id: { $dateToString: { format: '%Y', date: '$createdAt' } },
+                totalProfit: { $sum: '$amount' }
+            }
+        },
+        {
+            $sort: { _id: 1 }
+        }
+    ]);
+    
+    res.status(200).json(profits);
+});
+//get new store access
+const getStoreAccessRequests = asyncErrorHandler(async (req, res, next) => {
+    const subscriptions = await SubscriptionStore.find({ 
+        validation: false
+    }).populate([
+        {
+            path: 'subscription',
+            select: 'name amount'
+        },
+        {
+            path: 'store',
+            select: '_id firstName lastName phoneNumber storeName email'
+        }
+    ]);
+    // check if subscriptions found
+    if(!subscriptions || subscriptions.length <= 0){
+        const err = new CustomError('No access requests found', 404);
+        return next(err);
+    }
+
+    res.status(200).json(subscriptions);
+});
+//get subscription soon to expire
+const getSubscriptionSoonToExpire = asyncErrorHandler(async (req, res, next) => {
+    const subscriptions = await SubscriptionStore.find({ 
+        validation: true,
+        expiryDate: { 
+            $lte: UtilMoment.getCurrentDateTime().add(30, 'days').toDate() 
+        }
+    }).populate([
+        {
+            path: 'subscription',
+            select: 'name amount'
+        },
+        {
+            path: 'store',
+            select: '_id firstName lastName phoneNumber storeName email'
+        }
+    ]);
+    // check if subscriptions found
+    if(!subscriptions || subscriptions.length <= 0){
+        const err = new CustomError('No close to expire subscriptions found', 404);
+        return next(err);
+    }
+
+    res.status(200).json(subscriptions);
+});
+//get stats for admin
+const getStatsForAdmin = asyncErrorHandler(async (req, res, next) => {
+    // count total stores
+    const totalStores = await Store.countDocuments();
+    // count total clients
+    const totalClients = await Client.countDocuments();
+    // count total products
+    const totalProducts = await Product.countDocuments();
+    // count total brands
+    const totalBrands = await Brand.countDocuments();
+    // count total categories
+    const totalCategories = await Category.countDocuments();
+    
+    res.status(200).json({
+        totalStores,
+        totalClients,
+        totalProducts,
+        totalBrands,
+        totalCategories
+    });
+});
+
 module.exports = {
     getTodayOrdersStatsByStore,
     getOrdersStatsByStore,
@@ -296,8 +531,17 @@ module.exports = {
     getStatsByStore,
     getLastNewAccessCustomersByStore,
     getStocksAboutToFinishByStore,
-    getTotalProfitDailyByStore,
-    getTotalProfitWeeklyByStore,
-    getTotalProfitMonthlyByStore,
-    getTotalProfitYearlyByStore
+    getTotalDailyByStore,
+    getTotalWeeklyByStore,
+    getTotalMonthlyByStore,
+    getTotalYearlyByStore,
+    getAllSubscriptionsStats,
+    getSubscriptionsStats,
+    getTotalDailySubscriptions,
+    getTotalWeeklySubscriptions,
+    getTotalMonthlySubscriptions,
+    getTotalYearlySubscriptions,
+    getStoreAccessRequests,
+    getSubscriptionSoonToExpire,
+    getStatsForAdmin
 }

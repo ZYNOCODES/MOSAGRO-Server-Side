@@ -213,7 +213,6 @@ const GetAllSubsecriptionStoreByStore = asyncErrorHandler(async (req, res, next)
 });
 //Get all subscription requests
 const GetAllSubsecriptionRequests = asyncErrorHandler(async (req, res, next) => {
-    // get all subscriptions for the store
     const subscriptions = await SubscriptionStore.find({ 
         validation: false
     }).populate([
