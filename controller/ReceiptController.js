@@ -453,7 +453,6 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
         },
         credit: false,
         deposit: false,
-        delivered: false
     }).populate({
         path: 'client',
         select: 'firstName lastName phoneNumber'
@@ -838,14 +837,18 @@ const GetAllReceiptsByClientForStore = asyncErrorHandler(async (req, res, next) 
 //validate delivered
 const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { reciept, status } = req.body;
+    const { reciept, status, raison } = req.body;
     //check id 
     if( !reciept || !mongoose.Types.ObjectId.isValid(reciept) || !status ){
         return next(new CustomError('All fields are required', 400));
     }
     //check if status is valid [3 or 4]
-    if([3, 4].includes(status)){
+    if(![3, 4].includes(status)){
         return next(new CustomError('Status is not valid', 400));
+    }
+    //check if the status is 4 and the raison is empty
+    if(status === 4 && !raison){
+        return next(new CustomError('You need to provide a reason', 400));
     }
     
     //check if receipt exist
@@ -861,6 +864,7 @@ const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
     const updatedreceipt = await Receipt.updateOne({ _id: reciept }, { 
         delivered: true,
         status: status,
+        returnedRaison: raison,
         expextedDeliveryDate: moment.getCurrentDateTime()
     });
     // Check if receipt updated successfully

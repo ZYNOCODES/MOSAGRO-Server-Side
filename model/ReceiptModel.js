@@ -85,6 +85,11 @@ const receiptSchema = new mongoose.Schema({
         require: true,
         default: false
     },
+    returnedRaison:{
+        type: String,
+        required: false,
+        default: null
+    },
     payment:[
         {
             date:{
