@@ -435,15 +435,15 @@ const VerifyStoreOTP = asyncErrorHandler(async (req, res, next) => {
 
 //singup store
 const SignUpClient = asyncErrorHandler(async (req, res, next) => {
-    const {Email, Password, FirstName, LastName, PhoneNumber, Category,
-        Wilaya, Commune, R_Commerce, Address} = req.body;
+    const {Email, Password, FirstName, LastName, PhoneNumber,
+        Wilaya, Commune, R_Commerce} = req.body;
     //check if all required fields are provide
-    if([Password, FirstName, LastName, PhoneNumber, Address, Wilaya, Commune, R_Commerce].some(field => !field)) {
-        const err = new CustomError('All fields are required', 400);
+    if([Password, FirstName, LastName, PhoneNumber, Wilaya, Commune, R_Commerce].some(field => !field)) {
+        const err = new CustomError('Vous devez fournir tous les champs obligatoires', 400);
         return next(err);
     }
     
-    const UserByPhone = UserService.findUserByPhone(PhoneNumber);
+    const UserByPhone = await UserService.findUserByPhone(PhoneNumber);
     if(UserByPhone){
         const err = new CustomError('Phone number already exist', 400);
         return next(err);
@@ -464,13 +464,6 @@ const SignUpClient = asyncErrorHandler(async (req, res, next) => {
         }
     }
 
-    //check if Category exist
-    const existCategory = await CategoryService.findCategoryById(Category);
-    if(!existCategory){
-        const err = new CustomError('Category not found', 404);
-        return next(err);
-    }
-
     //check if the wilaya and commun exist
     const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
     if(!existWilaya){
@@ -487,11 +480,6 @@ const SignUpClient = asyncErrorHandler(async (req, res, next) => {
         email: Email, emailVerification: false,
         firstName: FirstName, 
         lastName: LastName, 
-        storeAddresses: [{
-            name: 'default address',
-            address: Address,
-            location: null
-        }], 
         wilaya: Wilaya, commune: Commune, 
         r_commerce: R_Commerce
     });
@@ -502,7 +490,7 @@ const SignUpClient = asyncErrorHandler(async (req, res, next) => {
     //send phone otp
 
     //return store
-    // res.status(200).json({message: 'Store created successfully'});
+    res.status(200).json({message: 'Your account created successfully try to login'});
 });
 
 //create new client from a store
