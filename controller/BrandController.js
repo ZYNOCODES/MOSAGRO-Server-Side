@@ -5,9 +5,9 @@ const BrandService = require('../service/BrandService.js');
 
 //create a new brand
 const CreateBrand = asyncErrorHandler(async (req, res, next) => {
-    const { Name, Image, Code } = req.body;
+    const { Name, Image } = req.body;
     // check if all required fields are provided
-    if(!Name || !Image || !Code){
+    if(!Name || !Image){
         const err = new CustomError('Tous les champs sont requis', 400);
         return next(err);
     }
@@ -21,7 +21,6 @@ const CreateBrand = asyncErrorHandler(async (req, res, next) => {
     }
     //create a new brand
     const newBrand = await Brand.create({
-        code : Code,
         name : Name,
         image : Image
     });
