@@ -8,7 +8,7 @@ const CreateBrand = asyncErrorHandler(async (req, res, next) => {
     const { Name, Image, Code } = req.body;
     // check if all required fields are provided
     if(!Name || !Image || !Code){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont requis', 400);
         return next(err);
     }
     //check if the Name is valid
@@ -16,7 +16,7 @@ const CreateBrand = asyncErrorHandler(async (req, res, next) => {
         name: { $regex: new RegExp(`^${Name}$`, 'i') }
     });
     if(existNameBrand){
-        const err = new CustomError('An existing brand use that name. try again.', 400);
+        const err = new CustomError('Le nom de la marque existe déjà', 400);
         return next(err);
     }
     //create a new brand
@@ -27,17 +27,17 @@ const CreateBrand = asyncErrorHandler(async (req, res, next) => {
     });
     //check if brand created successfully
     if(!newBrand){
-        const err = new CustomError('Error while creating brand try again.', 400);
+        const err = new CustomError('Erreur lors de la création de la marque, veuillez réessayer.', 400);
         return next(err);
     }
-    res.status(200).json({message: 'Brand created successfully'});
+    res.status(200).json({message: 'Marque créée avec succès'});
 });
 
 //fetch all brands
 const GetAllBrands = asyncErrorHandler(async (req, res, next) => {
     const brands = await Brand.find({});
     if(!brands || brands.length < 1){
-        const err = new CustomError('No brand found', 400);
+        const err = new CustomError('Aucune marque trouvée', 404);
         return next(err);
     }
     res.status(200).json(brands);
@@ -50,14 +50,14 @@ const UpdateBrandName = asyncErrorHandler(async (req, res, next) => {
 
     // Check if at least one field is provided
     if (!Name && !Code) {
-        const err = new CustomError('One of the fields is required at least', 400);
+        const err = new CustomError('Un des champs doit être fourni', 400);
         return next(err);
     }
 
     // Check if brand exists
     const brand = await BrandService.findBrandById(id);
     if (!brand) {
-        const err = new CustomError('Brand not found', 400);
+        const err = new CustomError('Marque non trouvée', 404);
         return next(err);
     }
 
@@ -71,11 +71,11 @@ const UpdateBrandName = asyncErrorHandler(async (req, res, next) => {
 
     // Check if brand updated successfully
     if (!updatedBrand) {
-        const err = new CustomError('Error while updating brand, try again.', 400);
+        const err = new CustomError('Erreur lors de la mise à jour de la marque, veuillez réessayer.', 400);
         return next(err);
     }
 
-    res.status(200).json({ message: 'Brand updated successfully' });
+    res.status(200).json({ message: 'Marque mise à jour avec succès' });
 });
 
 //delete brand
@@ -84,17 +84,17 @@ const DeleteBrand = asyncErrorHandler(async (req, res, next) => {
     //check if brand exist
     const brand = await BrandService.findBrandById(id);
     if(!brand){
-        const err = new CustomError('Brand not found', 400);
+        const err = new CustomError('Marque non trouvée', 404);
         return next(err);
     }
     //delete brand
     const deletedBrand = await Brand.deleteOne({_id: id});
     //check if brand deleted successfully
     if(!deletedBrand){
-        const err = new CustomError('Error while deleting brand try again.', 400);
+        const err = new CustomError('Erreur lors de la suppression de la marque, veuillez réessayer.', 400);
         return next(err);
     }
-    res.status(200).json({message: 'Brand deleted successfully'});
+    res.status(200).json({message: 'Marque supprimée avec succès'});
 });
 
 module.exports = {

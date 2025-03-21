@@ -15,33 +15,33 @@ const CreateFournisseur = asyncErrorHandler(async (req, res, next) => {
     if(!store || !mongoose.Types.ObjectId.isValid(store) || !firstname || !lastname || !phone
         || !wilaya || !commune
     ){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     // check phone number
     if(phone && !validator.isMobilePhone(phone)){
-        const err = new CustomError('Enter a valid phone number', 400);
+        const err = new CustomError('Entrez un numéro de téléphone valide', 400);
         return next(err);
     }
 
     //check if the store exist
     const existStore = await StoreService.findStoreById(store);
     if(!existStore){
-        const err = new CustomError('Store non trouvé', 404);
+        const err = new CustomError('Magasin non trouvé', 404);
         return next(err);
     }
 
     //check if the phone number already used
     const existPhone = await FournisseurService.findFournisseurByPhone(phone, existStore._id);
     if(existPhone){
-        const err = new CustomError('An existing fournisseur is using this phone number. Try again with another one.', 400);
+        const err = new CustomError('Un fournisseur existant utilise ce numéro de téléphone. réessayez avec un autre.', 400);
         return next(err);
     }
 
     //check if the wilaya and commun exist
     const existWilaya = await CitiesService.findCitiesFRByCodeC(wilaya, commune);
     if(!existWilaya){
-        const err = new CustomError('the wilaya and its commune is incorrect', 404);
+        const err = new CustomError('La wilaya et sa commune est incorrecte', 404);
         return next(err);
     }
 
@@ -58,17 +58,17 @@ const CreateFournisseur = asyncErrorHandler(async (req, res, next) => {
 
     //check if Fournisseur created successfully
     if(!newFournisseur){
-        const err = new CustomError('Error while creating fournisseur try again.', 400);
+        const err = new CustomError('Erreur lors de la création du fournisseur, veuillez réessayer.', 400);
         return next(err);
     }
-    res.status(200).json({message: 'Fournisseur created successfully'});
+    res.status(200).json({message: 'Fournisseur créé avec succès'});
 });
 
 //fetch a specific Fournisseur
 const GetFournisseurByID = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     if(!id || !mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
 
@@ -77,7 +77,7 @@ const GetFournisseurByID = asyncErrorHandler(async (req, res, next) => {
 
     //check if Fournisseurs found
     if(!fournisseur){
-        const err = new CustomError('Fournisseur not found', 404);
+        const err = new CustomError('Fournisseur non trouvé', 400);
         return next(err);
     }
 
@@ -97,14 +97,14 @@ const GetAllFournisseurs = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     // check if all required fields are provided
     if(!store || !mongoose.Types.ObjectId.isValid(store)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
 
     //check if the store exist
     const existStore = await StoreService.findStoreById(store);
     if(!existStore){
-        const err = new CustomError('Store not found', 404);
+        const err = new CustomError('Magasin non trouvé', 404);
         return next(err);
     }
 
@@ -114,7 +114,7 @@ const GetAllFournisseurs = asyncErrorHandler(async (req, res, next) => {
     });
     //check if fournisseurs found
     if(!fournisseurs || fournisseurs.length < 1){
-        const err = new CustomError('No fournisseur found', 400);
+        const err = new CustomError('Aucun fournisseur trouvé', 404);
         return next(err);
     }
     
@@ -140,12 +140,12 @@ const UpdateFournisseur = asyncErrorHandler(async (req, res, next) => {
     // Check if at least one field is provided
     if ((!id || !mongoose.Types.ObjectId.isValid(id) || !store || !mongoose.Types.ObjectId.isValid(store)) ||
         (!firstname && !lastname && !phone && !address && !wilaya && !commune)) {
-        const err = new CustomError('One of the fields is required at least', 400);
+        const err = new CustomError('Un des champs doit être fourni', 400);
         return next(err);
     }
     // check phone number
     if(phone && !validator.isMobilePhone(phone)){
-        const err = new CustomError('Enter a valid phone number', 400);
+        const err = new CustomError('Entrez un numéro de téléphone valide', 400);
         return next(err);
     }
 
@@ -159,7 +159,7 @@ const UpdateFournisseur = asyncErrorHandler(async (req, res, next) => {
     // Check if Fournisseur exists
     const existFournisseur = await FournisseurService.findFournisseurByIdANDStore(id, existStore._id);
     if(!existFournisseur){
-        const err = new CustomError('Fournisseur not found', 404);
+        const err = new CustomError('Fournisseur non trouvé', 404);
         return next(err);
     }
 
@@ -167,7 +167,7 @@ const UpdateFournisseur = asyncErrorHandler(async (req, res, next) => {
     if(phone){
         const existPhone = await FournisseurService.findFournisseurByPhone(phone, existStore._id);
         if(existPhone){
-            const err = new CustomError('An existing fournisseur use that phone number. try again with another.', 400);
+            const err = new CustomError('Un fournisseur existant utilise ce numéro de téléphone. réessayez avec un autre.', 400);
             return next(err);
         }
     }
@@ -194,11 +194,11 @@ const UpdateFournisseur = asyncErrorHandler(async (req, res, next) => {
 
     // Check if Fournisseur updated successfully
     if (!updatedFournisseur) {
-        const err = new CustomError('Error while updating Fournisseur, try again.', 400);
+        const err = new CustomError('Erreur lors de la mise à jour du fournisseur, veuillez réessayer.', 400);
         return next(err);
     }
 
-    res.status(200).json({ message: 'Fournisseur updated successfully' });
+    res.status(200).json({ message: 'Fourisseur mis à jour avec succès' });
 });
 
 //delete Fournisseur
@@ -206,14 +206,14 @@ const DeleteFournisseur = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     // check if all required fields are provided
     if(!id || !mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
 
     // Check if Fournisseur exists
     const existFournisseur = await FournisseurService.findFournisseurById(id);
     if(!existFournisseur){
-        const err = new CustomError('Fournisseur not found', 404);
+        const err = new CustomError('Fournisseur non trouvé', 404);
         return next(err);
     }
 
@@ -221,10 +221,10 @@ const DeleteFournisseur = asyncErrorHandler(async (req, res, next) => {
     const deletedFournisseur = await Fournisseur.deleteOne({_id: existFournisseur._id});
     //check if Fournisseur deleted successfully
     if(!deletedFournisseur){
-        const err = new CustomError('Error while deleting fournisseur try again.', 400);
+        const err = new CustomError('Erreur lors de la suppression du fournisseur, veuillez réessayer.', 400);
         return next(err);
     }
-    res.status(200).json({message: 'Fournisseur deleted successfully'});
+    res.status(200).json({message: 'Fournisseur supprimé avec succès'});
 });
 
 module.exports = {

@@ -29,7 +29,7 @@ const SignInAdmin = asyncErrorHandler(async (req, res, next) => {
     
     // Check if UserName or Password is empty
     if (!UserName || !Password) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     
     let user;
@@ -39,17 +39,17 @@ const SignInAdmin = asyncErrorHandler(async (req, res, next) => {
     } else if (validator.isEmail(UserName)) {
         user = await AdminService.findAdminByEmail(UserName);
     } else {
-        return next(new CustomError('Username or password incorrect', 400));
+        return next(new CustomError('Nom d\'utilisateur ou mot de passe incorrect', 400));
     }
 
     if (!user) {
-        return next(new CustomError('Username or password incorrect', 400));
+        return next(new CustomError('Nom d\'utilisateur ou mot de passe incorrect', 400));
     }
     
     // Check if password is correct
     const match = await bcrypt.comparePassword(Password, user.password);
     if(!match){
-        const err = new CustomError('Username or password incorrect', 400);
+        const err = new CustomError('Nom d\'utilisateur ou mot de passe incorrect', 400);
         return next(err);
     }
     
@@ -73,7 +73,7 @@ const SignInStore = asyncErrorHandler(async (req, res, next) => {
     
     // Check if UserName or Password is empty
     if (!UserName || !Password) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
 
     let user;
@@ -83,24 +83,24 @@ const SignInStore = asyncErrorHandler(async (req, res, next) => {
     } else if (validator.isEmail(UserName)) {
         user = await StoreService.findStoreByEmail(UserName);
     } else {
-        return next(new CustomError('Username or password incorrect', 400));
+        return next(new CustomError('Nom d\'utilisateur ou mot de passe incorrect', 400));
     }
 
     if (!user) {
-        return next(new CustomError('Username or password incorrect', 400));
+        return next(new CustomError('Nom d\'utilisateur ou mot de passe incorrect', 400));
     }
     
     // Validate password
     const isPasswordValid = await bcrypt.comparePassword(Password, user.password);
     if (!isPasswordValid) {
-        return next(new CustomError('Username or password incorrect', 400));
+        return next(new CustomError('Nom d\'utilisateur ou mot de passe incorrect', 400));
     }
 
     // Handle user status
     if (['En attente', 'Suspended'].includes(user.status)) {
         const errorMessage = user.status === 'En attente'
-            ? 'Your account is not active yet. Try again later.'
-            : 'Your account is suspended, probably your subscription is expired';
+            ? 'Votre compte n\'est pas encore actif. Réessayez plus tard.'
+            : 'Votre compte est suspendu, votre abonnement est probablement expiré';
         return next(new CustomError(errorMessage, 400));
     }
 
@@ -112,13 +112,13 @@ const SignInStore = asyncErrorHandler(async (req, res, next) => {
         // Validate subscription existence
         if (!lastSubscription) {
             await Store.updateOne({ _id: user._id }, { status: 'Suspended' });
-            return next(new CustomError('You do not have an active subscription', 400));
+            return next(new CustomError('Vous n\'avez pas un abonnement actif', 400));
         }
 
         // Validate subscription expiry
         if (currentTime.isSameOrAfter(moment(lastSubscription.expiryDate))) {
             await Store.updateOne({ _id: user._id }, { status: 'Suspended' });
-            return next(new CustomError('Your subscription has expired', 400));
+            return next(new CustomError('Votre abonnement a expiré', 400));
         }
     }
     
@@ -143,7 +143,7 @@ const SignInClient = asyncErrorHandler(async (req, res, next) => {
     
     // Check if UserName or Password is empty
     if (!UserName || !Password) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
 
     let user;
@@ -153,17 +153,17 @@ const SignInClient = asyncErrorHandler(async (req, res, next) => {
     } else if (validator.isEmail(UserName)) {
         user = await UserService.findUserByEmail(UserName);
     } else {
-        return next(new CustomError('Username or password incorrect', 400));
+        return next(new CustomError('Nom d\'utilisateur ou mot de passe incorrect', 400));
     }
 
     if (!user) {
-        return next(new CustomError('Username or password incorrect', 400));
+        return next(new CustomError('Nom d\'utilisateur ou mot de passe incorrect', 400));
     }
     
     // Check if password is correct
     const match = await bcrypt.comparePassword(Password, user.password);
     if(!match){
-        const err = new CustomError('Username or password incorrect', 400);
+        const err = new CustomError('Nom d\'utilisateur ou mot de passe incorrect', 400);
         return next(err);
     }
     
@@ -190,14 +190,15 @@ const SignInClient = asyncErrorHandler(async (req, res, next) => {
 
 //singup store by sending email otp verification
 const SignUpStore = asyncErrorHandler(async (req, res, next) => {
-    const { Email } = req.body;
+    const { phone } = req.body;
 
     // Validation
-    if (!Email || validator.isEmpty(Email)) {
-        return next(new CustomError('All fields are required', 400));
+    if (!phone || validator.isEmpty(phone)) {
+        return next(new CustomError('Vous devez fournir votre numéro de téléphone', 400));
     }
-    if (!validator.isEmail(Email)) {
-        return next(new CustomError('Email is not valid', 400));
+    //check if phone number is valid algerian phone number
+    if (!validator.isMobilePhone(phone, 'ar-DZ')) {
+        return next(new CustomError('Numéro de téléphone non valide', 400));
     }
 
     // Start transaction
@@ -206,26 +207,26 @@ const SignUpStore = asyncErrorHandler(async (req, res, next) => {
 
     try {
         // Check if the email already exists
-        let storeByEmail = await StoreService.findStoreByEmail(Email);
+        let storeByPhone = await StoreService.findStoreByPhone(phone);
 
         // If store doesn't exist, create it
-        if (!storeByEmail) {
+        if (!storeByPhone) {
             const status = "En attente"; // Initialize status before using
             const newStore = await Store.create([{
-                email: Email,
+                phoneNumber: phone,
                 status,
             }], { session });
 
             if (!newStore[0]) {
-                throw new CustomError('Error while creating new store. Try again', 400);
+                throw new CustomError('Erreur lors de la création du magasin. Veuillez réessayer', 500);
             }
 
-            storeByEmail = newStore[0]; // Assign newly created store to `storeByEmail`
+            storeByPhone = newStore[0]; // Assign newly created store to `storeByPhone`
         }
 
         //check if email is alredy verified
-        if (storeByEmail.emailVerification === true) {
-            return next(new CustomError('Email is already verified. Please log in.', 400));
+        if (storeByPhone.phoneVerification === true) {
+            return next(new CustomError('Numéro de téléphone déjà vérifié, essayez de vous connecter', 400));
         }
 
         // Generate OTP (4-digit random number)
@@ -238,24 +239,24 @@ const SignUpStore = asyncErrorHandler(async (req, res, next) => {
         const currentTime = UtilMoment.getCurrentDateTime(); // Ensures UTC+0
 
         // Save OTP in the database with an expiry time of 1 hour
-        const existingOTP = await EmailOTPVerification.findOne({ store: storeByEmail._id });
+        const existingOTP = await EmailOTPVerification.findOne({ store: storeByPhone._id });
         
         if (!existingOTP) {
             // Create a new OTP entry if it doesn't exist
             const newOTP = await EmailOTPVerification.create([{
-                store: storeByEmail._id, // Link OTP with the store ID
+                store: storeByPhone._id, // Link OTP with the store ID
                 otp: hashOTP,
                 createdAt: currentTime.toDate(),
                 expiresAt: currentTime.add(1, 'hour').toDate(),
             }], { session });
 
             if (!newOTP[0]) {
-                throw new CustomError('Error while saving OTP in the database', 500);
+                throw new CustomError('Erreur lors de la création d\'un OPT. Veuillez réessayer.', 500);
             }
         } else {
             // Update existing OTP if found
             await EmailOTPVerification.updateOne(
-                { store: storeByEmail._id },
+                { store: storeByPhone._id },
                 {
                     otp: hashOTP,
                     createdAt: currentTime.toDate(),
@@ -268,12 +269,12 @@ const SignUpStore = asyncErrorHandler(async (req, res, next) => {
         // Email options for sending OTP
         const mailOptions = {
             from: process.env.AUTH_EMAIL,
-            to: storeByEmail.email,
+            to: storeByPhone.email,
             subject: 'Email Verification',
             html: `
                 <h2>Please verify your email</h2>
                 <p>Your OTP is <strong>${otp}</strong></p>
-                <a href="http://localhost:5173/VerifyCode/${storeByEmail._id}">Verify your email</a>
+                <a href="http://localhost:5173/VerifyCode/${storeByPhone._id}">Verify your email</a>
             `,
         };
 
@@ -284,7 +285,7 @@ const SignUpStore = asyncErrorHandler(async (req, res, next) => {
         NodeMailer.transporter.verify((error) => {
             if (error) {
                 console.log(error);
-                throw new CustomError('Error while sending OTP', 500);
+                throw new CustomError('Erreur lors de l\'envoi de l\'OTP. Veuillez réessayer.', 500);
             }
         });
 
@@ -294,16 +295,46 @@ const SignUpStore = asyncErrorHandler(async (req, res, next) => {
         // Return success message
         res.status(200).json({
             message: 'OTP sent successfully. Please check your email for verification.',
-            store: storeByEmail._id,
+            store: storeByPhone._id,
         });
     } catch (err) {
-        // Abort the transaction in case of an error
         await session.abortTransaction();
         console.log(err);
-        return next(new CustomError('Error while processing the request. Try again', 500));
+        return next(new CustomError('Erreur lors du traitement de la demande. Veuillez réessayer.', 400));
     } finally {
-        session.endSession(); // End session whether success or failure
+        session.endSession();
     }
+});
+const SignUpStoreV2 = asyncErrorHandler(async (req, res, next) => {
+    const { phone } = req.body;
+
+    // Validation
+    if (!phone || validator.isEmpty(phone)) {
+        return next(new CustomError('Vous devez fournir votre numéro de téléphone', 400));
+    }
+    //check if phone number is valid algerian phone number
+    if (!validator.isMobilePhone(phone, 'ar-DZ')) {
+        return next(new CustomError('Numéro de téléphone non valide', 400));
+    }
+
+    // Check if the phone number already exists
+    const storeByPhone = await StoreService.findStoreByPhone(phone);
+    if (storeByPhone) {
+        return next(new CustomError('Numéro de téléphone déjà existant', 400));
+    }
+
+    // Create a new store
+    const newStore = await Store.create({
+        phoneNumber: phone,
+        status: "En attente",
+    });
+
+    if (!newStore) {
+        return next(new CustomError('Erreur lors de la création du magasin. Veuillez réessayer', 500));
+    }
+
+    // Return success message
+    res.status(200).json({ message: 'Votre magasin a été créé avec succès.', store: newStore._id });
 });
 //update singup store
 const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
@@ -312,33 +343,38 @@ const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
 
     // Validate required fields
     if ([id, Password, FirstName, LastName, Address, Category, storeName, Wilaya, Commune, R_Commerce].some(field => !field || validator.isEmpty(field.toString()))) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
+    }
+
+    //check if password is strong
+    if (!validator.isStrongPassword(Password)) {
+        return next(new CustomError('Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial', 400));
     }
 
     // Check if the store is already verified and has a password (indicating a signed-up account)
     const existingStore = await Store.findOne({ 
         _id: id, 
-        emailVerification: true 
+        // emailVerification: true 
     });
     
     if (!existingStore) {
-        return next(new CustomError('Store not found. Please check your details or sign up.', 404));
+        return next(new CustomError('Magasin introuvable. Veuillez vérifier vos informations ou vous réinscrire.', 404));
     }
     
     if (existingStore.password) {
-        return next(new CustomError('Account already verified. Please log in.', 400));
+        return next(new CustomError('Votre compte est déjà créé. Veuillez vous connecter.', 400));
     }
 
     // Check if the category exists
     const existCategory = await CategoryService.findCategoryById(Category);
     if (!existCategory) {
-        return next(new CustomError('Category not found', 404));
+        return next(new CustomError('Catégorie introuvable', 404));
     }
 
     // Check if the wilaya and commune exist
     const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
     if (!existWilaya) {
-        return next(new CustomError('The wilaya and its commune are incorrect', 404));
+        return next(new CustomError('Wilaya ou commune introuvable', 404));
     }
 
     // Hash the password
@@ -350,7 +386,7 @@ const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
     existingStore.lastName = LastName;
     existingStore.storeAddress = Address;
     existingStore.storeName = storeName;
-    existingStore.storeLocation = null; // Reset location as null (if needed)
+    existingStore.storeLocation = null;
     existingStore.wilaya = Wilaya;
     existingStore.commune = Commune;
     existingStore.r_commerce = R_Commerce;
@@ -359,18 +395,18 @@ const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
     // Save the updated store
     const updatedStore = await existingStore.save();
     if (!updatedStore) {
-        return next(new CustomError('Error while updating store. Please try again', 500));
+        return next(new CustomError('Erreur lors de la mise à jour du magasin. Veuillez réessayer', 500));
     }
 
     // Return success response
-    res.status(200).json({ message: 'Store updated successfully' });
+    res.status(200).json({ message: 'Votre compte a été créé avec succès. Veuillez vous connecter.' });
 });
 //verifie email otp for store
 const VerifyStoreOTP = asyncErrorHandler(async (req, res, next) => {
     const { store, otp } = req.body;
     // Validation
     if (!otp || !store || !mongoose.Types.ObjectId.isValid(store)) {
-        return next(new CustomError('Store ID and OTP are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
 
     // Start a session for transaction
@@ -383,19 +419,19 @@ const VerifyStoreOTP = asyncErrorHandler(async (req, res, next) => {
 
         // Check if OTP record exists
         if (!otpRecord) {
-            return next(new CustomError('OTP not found', 400));
+            return next(new CustomError('OTP introuvable', 400));
         }
 
         // Check if OTP has expired
         const currentTime = UtilMoment.getCurrentDateTime();
         if (currentTime.isAfter(otpRecord.expiresAt)) {
-            return next(new CustomError('OTP has expired', 400));
+            return next(new CustomError('OTP a expiré. Veuillez en générer un nouveau', 400));
         }
 
         // Compare provided OTP with stored OTP (hashed)
         const isMatch = await bcrypt.comparePassword(otp.toString(), otpRecord.otp);
         if (!isMatch) {
-            return next(new CustomError('Invalid OTP', 400));
+            return next(new CustomError('OTP incorrect', 400));
         }
 
         // OTP is valid - Update the store status and delete the OTP in a transaction
@@ -406,14 +442,14 @@ const VerifyStoreOTP = asyncErrorHandler(async (req, res, next) => {
         );
 
         if (!storeUpdate) {
-            throw new CustomError('Error while updating store email verification', 500);
+            throw new CustomError('Erreur lors de la vérification de l\'OTP', 500);
         }
 
         // Delete the OTP record
         const otpDeletion = await EmailOTPVerification.deleteOne({ store: store }).session(session);
         
         if (!otpDeletion.deletedCount) {
-            throw new CustomError('Error while deleting OTP record', 500);
+            throw new CustomError('Erreur lors de la suppression de l\'OTP', 500);
         }
 
         // Commit the transaction if both operations succeed
@@ -422,14 +458,14 @@ const VerifyStoreOTP = asyncErrorHandler(async (req, res, next) => {
 
         // Return success message
         res.status(200).json({
-            message: 'OTP verified successfully. Store email is now verified.',
+            message: 'OTP vérifié avec succès. Veuillez vous connecter.',
         });
     } catch (err) {
         // Abort the transaction in case of any error
         await session.abortTransaction();
         session.endSession();
         console.log(err);
-        return next(new CustomError('Error during OTP verification. Try again', 500));
+        return next(new CustomError('Erreur lors de la vérification de l\'OTP', 500));
     }
 });
 
@@ -445,21 +481,21 @@ const SignUpClient = asyncErrorHandler(async (req, res, next) => {
     
     const UserByPhone = await UserService.findUserByPhone(PhoneNumber);
     if(UserByPhone){
-        const err = new CustomError('Phone number already exist', 400);
+        const err = new CustomError('Numéro de téléphone déjà existant', 400);
         return next(err);
     }
 
     //check if email already exist
     if (Email) {
         if (!validator.isEmail(Email)) {
-            const err = new CustomError('Email is not valid', 400);
+            const err = new CustomError('Email non valide', 400);
             return next(err);
         }
 
         const UserByEmail = await UserService.findUserByEmail(Email);
 
         if (UserByEmail) {
-            const err = new CustomError('Email already exist', 400);
+            const err = new CustomError('Email déjà existant', 400);
             return next(err);
         }
     }
@@ -467,7 +503,7 @@ const SignUpClient = asyncErrorHandler(async (req, res, next) => {
     //check if the wilaya and commun exist
     const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
     if(!existWilaya){
-        const err = new CustomError('the wilaya and its commune is incorrect', 404);
+        const err = new CustomError('Wilaya ou commune introuvable', 404);
         return next(err);
     }
     
@@ -484,13 +520,13 @@ const SignUpClient = asyncErrorHandler(async (req, res, next) => {
         r_commerce: R_Commerce
     });
     if(!newUser){
-        const err = new CustomError('Error while creating new user. try again', 400);
+        const err = new CustomError('Erreur lors de la création du compte, veuillez réessayer', 500);
         return next(err);
     }
     //send phone otp
 
     //return store
-    res.status(200).json({message: 'Your account created successfully try to login'});
+    res.status(200).json({message: 'Votre compte a été créé avec succès. Veuillez vous connecter'});
 });
 
 //create new client from a store
@@ -503,31 +539,31 @@ const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
     // Check if all required fields are provided
     if ([store, Password, FirstName, LastName, PhoneNumber, Address, 
         Wilaya, Commune, RC].some(field => !field || validator.isEmpty(field))) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
 
     // Check if the phone number already exists
     const existingUserByPhone = await UserService.findUserByPhone(PhoneNumber);
     if (existingUserByPhone) {
-        return next(new CustomError('Phone number already exists', 400));
+        return next(new CustomError('Numéro de téléphone déjà existant', 400));
     }
 
     // Validate and check if the email already exists
     if (Email) {
         if (!validator.isEmail(Email)) {
-            return next(new CustomError('Invalid email address', 400));
+            return next(new CustomError('Email non valide', 400));
         }
 
         const existingUserByEmail = await UserService.findUserByEmail(Email);
         if (existingUserByEmail) {
-            return next(new CustomError('Email already exists', 400));
+            return next(new CustomError('Email déjà existant', 400));
         }
     }
 
     // Check if the Wilaya and Commune exist
     const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
     if (!existWilaya) {
-        return next(new CustomError('Invalid Wilaya or Commune', 404));
+        return next(new CustomError('Wilaya ou commune introuvable', 404));
     }
 
     // Hash the password
@@ -557,7 +593,7 @@ const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
         }], { session });
         //check if the user created successfully
         if (!newUser) {
-            return next(new CustomError('Error while creating the user', 500));
+            return next(new CustomError('Erreur lors de la création du client, veuillez réessayer.', 400));
         }
         // Create the MyStore entry
         await MyStores.create([{
@@ -570,12 +606,12 @@ const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
         await session.commitTransaction();
 
         // Return a detailed success message
-        res.status(200).json({ message: `Client profile created successfully.`,});
+        res.status(200).json({ message: `Profil client créé avec succès.`,});
 
     } catch (error) {
         // Abort the transaction in case of any errors
         await session.abortTransaction();
-        next(new CustomError('An error occurred while creating the client profile', 500));
+        next(new CustomError('Une erreur s\'est produite lors de la création du profil client, veuillez réessayer.', 500));
     } finally {
         // End the session
         session.endSession();
@@ -591,31 +627,31 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
     // Check if all required fields are provided
     if ([store, Password, FirstName, LastName, PhoneNumber, Address, 
         Wilaya, Commune, RC].some(field => !field || validator.isEmpty(field))) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
 
     // Check if the phone number already exists
     const existingUserByPhone = await UserService.findUserByPhone(PhoneNumber);
     if (existingUserByPhone) {
-        return next(new CustomError('Phone number already exists', 400));
+        return next(new CustomError('Numéro de téléphone déjà existant', 400));
     }
 
     // Validate and check if the email already exists
     if (Email) {
         if (!validator.isEmail(Email)) {
-            return next(new CustomError('Invalid email address', 400));
+            return next(new CustomError('Email non valide', 400));
         }
 
         const existingUserByEmail = await UserService.findUserByEmail(Email);
         if (existingUserByEmail) {
-            return next(new CustomError('Email already exists', 400));
+            return next(new CustomError('Email déjà existant', 400));
         }
     }
 
     // Check if the Wilaya and Commune exist
     const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
     if (!existWilaya) {
-        return next(new CustomError('Invalid Wilaya or Commune', 404));
+        return next(new CustomError('Wilaya ou commune introuvable', 404));
     }
 
     // Hash the password
@@ -641,7 +677,7 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
         }], { session });
         //check if the user created successfully
         if (!newUser) {
-            return next(new CustomError('Error while creating the seller, try again', 400));
+            return next(new CustomError('Erreur lors de la création du vendeur, veuillez réessayer.', 400));
         }
         // Create the MyStore entry
         await MyStores.create([{
@@ -655,12 +691,12 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
         await session.commitTransaction();
 
         // Return a detailed success message
-        res.status(200).json({ message: `Seller profile created successfully.`,});
+        res.status(200).json({ message: `Profil vendeur créé avec succès.`,});
 
     } catch (error) {
         // Abort the transaction in case of any errors
         await session.abortTransaction();
-        next(new CustomError('An error occurred while creating the seller profile, try again', 500));
+        next(new CustomError('Une erreur s\'est produite lors de la création du profil vendeur, veuillez réessayer.', 500));
     } finally {
         // End the session
         session.endSession();
@@ -673,17 +709,17 @@ const UpdateStorePassword = asyncErrorHandler(async (req, res, next) => {
     const { OldPassword, NewPassword } = req.body;
     // Check if all required fields are provided
     if ([store, OldPassword, NewPassword].some(field => !field || validator.isEmpty(field))) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     // Check if the store exists
     const existStore = await StoreService.findStoreById(store);
     if (!existStore) {
-        return next(new CustomError('Store not found', 404));
+        return next(new CustomError('Magasin introuvable', 404));
     }
     // Check if the old password is correct
     const isMatch = await bcrypt.comparePassword(OldPassword, existStore.password);
     if (!isMatch) {
-        return next(new CustomError('Old password is incorrect', 400));
+        return next(new CustomError('Ancien mot de passe incorrect', 400));
     }
     // Hash the new password
     const hash = await bcrypt.hashPassword(NewPassword);
@@ -692,10 +728,10 @@ const UpdateStorePassword = asyncErrorHandler(async (req, res, next) => {
     // Save the updated store
     const updatedStore = await existStore.save();
     if (!updatedStore) {
-        return next(new CustomError('Error while updating store password', 500));
+        return next(new CustomError('Erreur lors de la mise à jour du mot de passe', 500));
     }
     // Return success response
-    res.status(200).json({ message: 'Your password updated successfully' });
+    res.status(200).json({ message: 'Votre mot de passe a été mis à jour avec succès' });
 });
 // update store email
 const UpdateStoreEmail = asyncErrorHandler(async (req, res, next) => {
@@ -703,27 +739,27 @@ const UpdateStoreEmail = asyncErrorHandler(async (req, res, next) => {
     const { Email } = req.body;
     // Check if all required fields are provided
     if ([store, Email].some(field => !field || validator.isEmpty(field))) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     // Check if the store exists
     const existStore = await StoreService.findStoreById(store);
     if (!existStore) {
-        return next(new CustomError('Store not found', 404));
+        return next(new CustomError('Magasin introuvable', 404));
     }
     // Check if the email already exists
     const existingStoreByEmail = await StoreService.findStoreByEmail(Email);
     if (existingStoreByEmail) {
-        return next(new CustomError('Email already exists', 400));
+        return next(new CustomError('Email déjà existant', 400));
     }
     // Update the store email
     existStore.email = Email;
     // Save the updated store
     const updatedStore = await existStore.save();
     if (!updatedStore) {
-        return next(new CustomError('Error while updating store email', 500));
+        return next(new CustomError('Erreur lors de la mise à jour de l\'email', 500));
     }
     // Return success response
-    res.status(200).json({ message: 'Your email updated successfully' });
+    res.status(200).json({ message: 'Votre email a été mis à jour avec succès' });
 });
 
 module.exports = {
@@ -731,6 +767,7 @@ module.exports = {
     SignInStore,
     SignInClient,
     SignUpStore,
+    SignUpStoreV2,
     VerifyStoreOTP,
     SignUpUpdateStore,
     SignUpClient,

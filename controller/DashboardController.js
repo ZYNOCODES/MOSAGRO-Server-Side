@@ -150,7 +150,7 @@ const getLastNewAccessCustomersByStore = asyncErrorHandler(async (req, res, next
         });
     //check if there are new customers
     if (newCustomers.length <= 0) {
-        return next(new CustomError('No new customers found', 404));
+        return next(new CustomError('Aucun nouveau client trouvé', 404));
     }
     res.status(200).json(newCustomers);
 });
@@ -174,7 +174,7 @@ const getStocksAboutToFinishByStore = asyncErrorHandler(async (req, res, next) =
     });
     //check if there are stocks about to finish
     if (stocks.length <= 0) {
-        return next(new CustomError('No stocks about to finish found', 404));
+        return next(new CustomError('Aucun stock sur le point de se terminer', 404));
     }
     res.status(200).json(stocks);
 });
@@ -471,7 +471,7 @@ const getStoreAccessRequests = asyncErrorHandler(async (req, res, next) => {
     ]);
     // check if subscriptions found
     if(!subscriptions || subscriptions.length <= 0){
-        const err = new CustomError('No access requests found', 404);
+        const err = new CustomError('Aucune demande d\'accès trouvée', 404);
         return next(err);
     }
 
@@ -496,7 +496,7 @@ const getSubscriptionSoonToExpire = asyncErrorHandler(async (req, res, next) => 
     ]);
     // check if subscriptions found
     if(!subscriptions || subscriptions.length <= 0){
-        const err = new CustomError('No close to expire subscriptions found', 404);
+        const err = new CustomError('Aucune abonnement sur le point d\'expirer', 404);
         return next(err);
     }
 

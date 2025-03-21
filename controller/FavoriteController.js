@@ -8,13 +8,8 @@ const StockService = require('../service/StockService.js')
 //fetch all Favorite stores by client
 const GetAllFavoriteStoresbyClient = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    if (!id) {
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
-    }
-    //check if ids is type of mongoose id
-    if(!mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('Invalid id', 404);
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //get all Favorite by id user
@@ -26,7 +21,7 @@ const GetAllFavoriteStoresbyClient = asyncErrorHandler(async (req, res, next) =>
     });
     //get stocks for
     if(favorite.length <= 0){
-        const err = new CustomError('No favorite store found for you', 404);
+        const err = new CustomError('Aucun magasin favori trouvé pour vous', 404);
         return next(err);
     }
 
@@ -35,13 +30,8 @@ const GetAllFavoriteStoresbyClient = asyncErrorHandler(async (req, res, next) =>
 //fetch all products by favorite
 const GetFavoriteProductsById = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    if (!id) {
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
-    }
-    //check if ids is type of mongoose id
-    if(!mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('Invalid id', 404);
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //get all Favorite by id user
@@ -63,7 +53,7 @@ const GetFavoriteProductsById = asyncErrorHandler(async (req, res, next) => {
     });
     //get stocks for
     if(!favorite || favorite.products.length <= 0){
-        const err = new CustomError('No favorite store found for you', 404);
+        const err = new CustomError('Aucun produit favori trouvé pour vous', 404);
         return next(err);
     }
 
@@ -78,18 +68,18 @@ const AddFavorite = asyncErrorHandler(async (req, res, next) => {
         !mongoose.Types.ObjectId.isValid(store) || 
         !mongoose.Types.ObjectId.isValid(product)
     ) {
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //check if product exist
     const existingStock = await StockService.findStockById(product);
     if(!existingStock){
-        const err = new CustomError('Product not found', 404);
+        const err = new CustomError('Prduit non trouvé', 404);
         return next(err);
     }
     //check if product is in store
     if(existingStock.store.toString() !== store.toString()){
-        const err = new CustomError('Product not found in store', 404);
+        const err = new CustomError('Produit non trouvé dans ce magasin', 404);
         return next(err);
     }
     //get all Favorite by id user
@@ -100,17 +90,17 @@ const AddFavorite = asyncErrorHandler(async (req, res, next) => {
     if(favorite){
         //check if product is already in favorite
         if(favorite.products.includes(existingStock._id)){
-            const err = new CustomError('Product already in favorite', 400);
+            const err = new CustomError('Produit déjà ajouté à vos favoris', 400);
             return next(err);
         }
         //add product to favorite
         favorite.products.push(existingStock._id);
         const updatedFavorite = await favorite.save();
         if(!updatedFavorite){
-            const err = new CustomError('Error while adding product to favorite', 500);
+            const err = new CustomError('Erreur lors de l\'ajout du produit à vos favoris', 500);
             return next(err);
         }
-        return res.status(200).json({ message: 'Product added to favorite'});
+        return res.status(200).json({ message: 'Produit ajouté à vos favoris avec succès'});
     }
     //create new favorite
     const newFavorite = await Favorite.create({
@@ -119,10 +109,10 @@ const AddFavorite = asyncErrorHandler(async (req, res, next) => {
         products: [existingStock._id]
     });
     if(!newFavorite){
-        const err = new CustomError('Error while creating favorite', 500);
+        const err = new CustomError('Erreur lors de l\'ajout du produit à vos favoris', 500);
         return next(err);
     }
-    res.status(200).json({ message: 'Product added to favorite'});
+    res.status(200).json({ message: 'Produit ajouté à vos favoris avec succès'});
 });
 //remove favorite
 const RemoveFavorite = asyncErrorHandler(async (req, res, next) => {
@@ -135,30 +125,30 @@ const RemoveFavorite = asyncErrorHandler(async (req, res, next) => {
         !mongoose.Types.ObjectId.isValid(store) || 
         !mongoose.Types.ObjectId.isValid(product)
     ) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
 
     // Check if the product exists
     const existingStock = await StockService.findStockById(product);
     if (!existingStock) {
-        return next(new CustomError('Product not found', 404));
+        return next(new CustomError('Produit non trouvé', 404));
     }
 
     // Check if the product belongs to the specified store
     if (existingStock.store.toString() !== store.toString()) {
-        return next(new CustomError('Product not found in this store', 404));
+        return next(new CustomError('Produit non trouvé dans ce magasin', 404));
     }
 
     // Retrieve the user's favorite list for the store
     const favorite = await Favorite.findOne({ user: id, store });
     if (!favorite) {
-        return next(new CustomError('Favorite list not found', 404));
+        return next(new CustomError('Liste de favoris non trouvée', 404));
     }
 
     // Check if the product is in the favorite list
     const productIndex = favorite.products.indexOf(existingStock._id.toString());
     if (productIndex === -1) {
-        return next(new CustomError('Product not in your favorite list', 400));
+        return next(new CustomError('Produit non trouvé dans votre liste de favoris', 404));
     }
 
     // Remove the product from the favorite list
@@ -167,11 +157,11 @@ const RemoveFavorite = asyncErrorHandler(async (req, res, next) => {
     // Save the updated favorite list
     const updatedFavorite = await favorite.save();
     if(!updatedFavorite){
-        const err = new CustomError('Error while removing product from your favorite list', 500);
+        const err = new CustomError('Erreur lors de la suppression du produit de votre liste de favoris', 500);
         return next(err);
     }
     console.log(oldLength, updatedFavorite.products.length, favorite.products.length);
-    res.status(200).json({ message: 'Product removed from your favorite list'});
+    res.status(200).json({ message: 'Produit supprimé de votre liste de favoris avec succès'});
 });
 
 module.exports = {

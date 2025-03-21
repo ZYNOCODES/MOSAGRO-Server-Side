@@ -5,6 +5,7 @@ const {
     SignInStore,
     SignInClient,
     SignUpStore,
+    SignUpStoreV2,
     VerifyStoreOTP,
     SignUpClient,
     SignUpUpdateStore,
@@ -26,6 +27,8 @@ router.post('/signin/admin', SignInAdmin);
 router.post('/signin/store', SignInStore);
 //sign up a store
 router.post('/signup/store', SignUpStore);
+//sign up a store v2
+router.post('/signup/store/v2', SignUpStoreV2);
 //sign up a store
 router.patch('/signup/store/:id', SignUpUpdateStore);
 //Verify Store OTP

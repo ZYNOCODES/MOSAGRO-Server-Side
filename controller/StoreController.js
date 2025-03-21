@@ -30,6 +30,7 @@ const GetAllActiveStores = asyncErrorHandler(async (req, res, next) => {
 const GetAllPendingStores = asyncErrorHandler(async (req, res, next) => {
     const Stores = await Store.find({
         status: 'En attente',
+        password: {$ne: null}
     }).select('firstName lastName phoneNumber email wilaya commune storeAddress storeName');
     if(!Stores || Stores.length <= 0){
         const err = new CustomError('No Stores found', 404);
@@ -43,7 +44,7 @@ const GetAllPendingStores = asyncErrorHandler(async (req, res, next) => {
         storeObj.commune = wilaya.baladiya;
         return storeObj;
     }));
-
+    
     res.status(200).json(updatedStores);
 });
 //fetch all suspended Stores

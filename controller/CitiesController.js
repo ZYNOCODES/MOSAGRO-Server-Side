@@ -7,7 +7,7 @@ const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const GetAllCitiesAR = asyncErrorHandler(async (req, res, next) => {
     const cities = await citiesAR.find({});
     if(cities.length < 1){
-        const err = new CustomError('Error while fetching arabic cities', 400);
+        const err = new CustomError('Erreur lors de la récupération des wilayas arabes', 400);
         return next(err);
     }
     res.status(200).json(cities);
@@ -17,7 +17,7 @@ const GetAllCitiesAR = asyncErrorHandler(async (req, res, next) => {
 const GetAllCitiesFR = asyncErrorHandler(async (req, res, next) => {
     const cities = await citiesFR.find({});
     if(cities.length < 1){
-        const err = new CustomError('Error while fetching french cities', 400);
+        const err = new CustomError('Erreur lors de la récupération des wilayas françaises', 400);
         return next(err);
     }
     res.status(200).json(cities);
