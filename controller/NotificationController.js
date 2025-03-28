@@ -62,10 +62,9 @@ const getReadedNotificationsByClient = asyncErrorHandler(async (req, res, next) 
 });
 //get all notifications by admin
 const getNonReadedNotificationsByAdmin = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
     const notifications = await Notification.find({
         ownerModel: 'admin', 
-        owner: id,
+        owner: null,
         read: false
     }).sort({createdAt: -1});
     //check if there are any notifications
@@ -76,10 +75,9 @@ const getNonReadedNotificationsByAdmin = asyncErrorHandler(async (req, res, next
 });
 //get all readed notifications by admin
 const getReadedNotificationsByAdmin = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
     const notifications = await Notification.find({
         ownerModel: 'admin', 
-        owner: id,
+        owner: null,
         read: true
     }).sort({createdAt: -1});
     //check if there are any notifications

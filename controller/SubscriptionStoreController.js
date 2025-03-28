@@ -4,6 +4,7 @@ const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const SubscriptionService = require('../service/SubscriptionService.js');
 const StoreService = require('../service/StoreService.js');
+const NotificationService = require('../service/NotificationService.js');
 const StoreModel = require('../model/StoreModel');
 const moment = require('moment');
 const UtilMoment = require('../util/Moment.js');
@@ -14,24 +15,24 @@ const CreateSubsecriptionStoreByStore = asyncErrorHandler(async (req, res, next)
     const { Store, Subscription, expiryMonths } = req.body;
     // check if all required fields are provided
     if(!Store || !Subscription){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //check if expiryMonths is a number
     if(isNaN(expiryMonths) || expiryMonths < 1){
-        const err = new CustomError('You must select a subscription duration', 400);
+        const err = new CustomError('Vous devez choisir une durée d\'abonnement valide', 400);
         return next(err);
     }
     //check if store found
     const existingStore = await StoreService.findStoreById(Store);
     if(!existingStore){
-        const err = new CustomError('Store not found', 404);
+        const err = new CustomError('Magasin non trouvé', 404);
         return next(err);
     }
     //check if subscription found
     const existingSubscription = await SubscriptionService.findSubscriptionById(Subscription);
     if(!existingSubscription){
-        const err = new CustomError('Subscription not found', 404);
+        const err = new CustomError('Abonnement non trouvé', 404);
         return next(err);
     }
     //check if store have a pending subscription
@@ -40,7 +41,7 @@ const CreateSubsecriptionStoreByStore = asyncErrorHandler(async (req, res, next)
         validation: false 
     });
     if(pendingSubscription){
-        const err = new CustomError('You already have a pending subscription request need to be validated by the admin', 400);
+        const err = new CustomError('Vous avez déjà une demande d\'abonnement en attente qui doit être validée par l\'administrateur', 400);
         return next(err);
     }
     
@@ -83,26 +84,30 @@ const CreateSubsecriptionStoreByStore = asyncErrorHandler(async (req, res, next)
                 startDate: currentTime,
                 expiryDate: ExpiryDate,
             }], { session });
+        }
+        // Send notification to admin
+        const msg = "Une nouvelle demande d'abonnement a été effectué par le magasin: " + existingStore.storeName + " d'une durée de " + expiryMonths + " mois.";
+        const newNotification = await NotificationService.createNewNotificationForAdmin(
+            null,
+            'subscription_request',
+            msg,
+            session
+        );
 
-            // Add Subscription ID to Store's subscriptions list
-            await StoreModel.updateOne(
-                { _id: Store },
-                { status: 'Active' },
-                { session }
-            );
+        if (!newNotification || !newNotification[0]) {
+            throw new CustomError('Erreur lors de la création de la notification', 500);
         }
 
         // Commit the transaction
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ message: 'Subscription created and added to store successfully' });
+        res.status(200).json({ message: 'Le magasin a été abonné avec succès. Une notification a été envoyée à l\'administrateur pour validation votre demande.' });
     } catch (error) {
-        console.log(error);
         // Abort the transaction and end the session
         await session.abortTransaction();
         session.endSession();
-        return next(new CustomError('An error occurred while creating the subscription', 500));
+        return next(new CustomError('Une erreur est survenue lors de la création de l\'abonnement', 500));
     }
 });
 //create a new Subscription for a specific store from admin
@@ -111,24 +116,24 @@ const CreateSubsecriptionStoreByAdmin = asyncErrorHandler(async (req, res, next)
     const { Store, Subscription, expiryMonths } = req.body;
     // check if all required fields are provided
     if(!Store || !Subscription){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //check if expiryMonths is a number
     if(isNaN(expiryMonths) || expiryMonths < 1){
-        const err = new CustomError('Expiry months must be a number greater than 0', 400);
+        const err = new CustomError('Vous devez choisir une durée d\'abonnement valide', 400);
         return next(err);
     }
     //check if store found
     const existingStore = await StoreService.findStoreById(Store);
     if(!existingStore){
-        const err = new CustomError('Store not found', 404);
+        const err = new CustomError('Magasin non trouvé', 404);
         return next(err);
     }
     //check if subscription found
     const existingSubscription = await SubscriptionService.findSubscriptionById(Subscription);
     if(!existingSubscription){
-        const err = new CustomError('Subscription not found', 404);
+        const err = new CustomError('Abonnement non trouvé', 404);
         return next(err);
     }
 
@@ -150,7 +155,7 @@ const CreateSubsecriptionStoreByAdmin = asyncErrorHandler(async (req, res, next)
         if (lastSubscription && currentTime.isBefore(moment(lastSubscription.expiryDate))) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Store already have an active subscription', 400));
+            return next(new CustomError('Le magasin a déjà un abonnement actif', 400));
         }
         // Create a new subscription store
         await SubscriptionStore.create([{
@@ -173,12 +178,12 @@ const CreateSubsecriptionStoreByAdmin = asyncErrorHandler(async (req, res, next)
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ message: 'Subscription created and added to store successfully' });
+        res.status(200).json({ message: 'Le magasin a été abonné avec succès.' });
     } catch (error) {
         // Abort the transaction and end the session
         await session.abortTransaction();
         session.endSession();
-        return next(error);
+        return next(new CustomError('Une erreur est survenue lors de la création de l\'abonnement', 500));
     }
 });
 //Get all subscriptions for a specific store
@@ -239,13 +244,13 @@ const ValidateSubscriptionRequest = asyncErrorHandler(async (req, res, next) => 
     const { id } = req.params;
     // check if id is valid
     if(!id || !mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     // check if subscription found
     const existingSubscription = await SubscriptionStore.findById(id);
     if(!existingSubscription){
-        const err = new CustomError('Subscription not found', 404);
+        const err = new CustomError('Magasin non trouvé', 404);
         return next(err);
     }
 
@@ -257,20 +262,24 @@ const ValidateSubscriptionRequest = asyncErrorHandler(async (req, res, next) => 
     ).sort({ startDate: -1 }).limit(1);
 
     if (lastSubscription && currentTime.isBefore(moment(lastSubscription.expiryDate))) {
-        return next(new CustomError('Store already have an active subscription', 400));
+        return next(new CustomError('Le magasin a déjà un abonnement actif', 400));
     }
 
     // validate the subscription
+    const subscription_duration = moment(existingSubscription.expiryDate).diff(moment(existingSubscription.startDate), 'months');
     existingSubscription.validation = true;
+    existingSubscription.startDate = currentTime;
+    existingSubscription.expiryDate = currentTime.clone().add(subscription_duration, 'months');
+    
     const updatedSubscription = await existingSubscription.save();
 
     // check if subscription updated
     if(!updatedSubscription){
-        const err = new CustomError('An error occurred while validating the subscription', 500);
+        const err = new CustomError('Une erreur est survenue lors de la validation de l\'abonnement', 500);
         return next(err);
     }
 
-    res.status(200).json({ message: 'Subscription validated successfully' });
+    res.status(200).json({ message: 'L\'abonnement a été validé avec succès.' });
 });
 
 

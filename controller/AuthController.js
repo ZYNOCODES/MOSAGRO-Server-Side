@@ -16,6 +16,7 @@ const MyStores = require('../model/MyStoresModel');
 const EmailOTPVerification = require('../model/EmailOTPVerification.js');
 const NodeMailer = require('../util/NodeMailer.js');
 const SubscriptionStoreService = require('../service/SubscriptionStoreService.js');
+const NotificationService = require('../service/NotificationService.js');
 const {
     createToken
 } = require('../util/JWT.js');
@@ -338,68 +339,117 @@ const SignUpStoreV2 = asyncErrorHandler(async (req, res, next) => {
 });
 //update singup store
 const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
-    const { id } = req.params;
-    const { Password, FirstName, LastName, Category, Wilaya, Commune, R_Commerce, Address, storeName } = req.body;
-
-    // Validate required fields
-    if ([id, Password, FirstName, LastName, Address, Category, storeName, Wilaya, Commune, R_Commerce].some(field => !field || validator.isEmpty(field.toString()))) {
-        return next(new CustomError('Tous les champs sont obligatoires', 400));
-    }
-
-    //check if password is strong
-    if (!validator.isStrongPassword(Password)) {
-        return next(new CustomError('Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial', 400));
-    }
-
-    // Check if the store is already verified and has a password (indicating a signed-up account)
-    const existingStore = await Store.findOne({ 
-        _id: id, 
-        // emailVerification: true 
-    });
+    const session = await mongoose.startSession();
+    session.startTransaction();
     
-    if (!existingStore) {
-        return next(new CustomError('Magasin introuvable. Veuillez vérifier vos informations ou vous réinscrire.', 404));
+    try {
+        const { id } = req.params;
+        const { Password, FirstName, LastName, Category, Wilaya, Commune, R_Commerce, Address, storeName } = req.body;
+
+        // Validate required fields
+        if ([id, Password, FirstName, LastName, Address, storeName, Wilaya, Commune, R_Commerce].some(field => !field || validator.isEmpty(field.toString()))) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Tous les champs sont obligatoires', 400));
+        }
+
+        // Check if Categories is an array and not empty
+        if (!Array.isArray(Category) || Category.length === 0) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Au moins une catégorie doit être sélectionnée', 400));
+        }
+
+        // Check if password is strong
+        if (!validator.isStrongPassword(Password)) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial', 400));
+        }
+
+        // Check if the store exists
+        const existingStore = await Store.findOne({ 
+            _id: id
+        });
+        
+        if (!existingStore) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Magasin introuvable. Veuillez vérifier vos informations ou vous réinscrire.', 404));
+        }
+        
+        if (existingStore.password) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Votre compte est déjà créé. Veuillez vous connecter.', 400));
+        }
+
+        // Check if all categories exist
+        const categoriesExist = await Promise.all(
+            Category.map(category => CategoryService.findCategoryById(category))
+        );
+        
+        if (categoriesExist.some(cat => !cat)) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Une ou plusieurs catégories sont introuvables vérifiez la liste des catégories', 404));
+        }
+
+        // Check if the wilaya and commune exist
+        const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune, session);
+        if (!existWilaya) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Wilaya ou commune introuvable', 404));
+        }
+
+        // Hash the password
+        const hash = await bcrypt.hashPassword(Password);
+
+        // Update the store data
+        existingStore.password = hash;
+        existingStore.firstName = FirstName;
+        existingStore.lastName = LastName;
+        existingStore.storeAddress = Address;
+        existingStore.storeName = storeName;
+        existingStore.storeLocation = null;
+        existingStore.wilaya = Wilaya;
+        existingStore.commune = Commune;
+        existingStore.r_commerce = R_Commerce;
+        existingStore.categories = Category;
+
+        // Save the updated store
+        const updatedStore = await existingStore.save({ session });
+        if (!updatedStore) {
+            throw new CustomError('Erreur lors de la mise à jour du magasin', 500);
+        }
+
+        // Send notification to admin
+        const msg = "Un nouveau magasin a été créé. Veuillez vérifier les détails et approuver ou rejeter la demande d'accès.";
+        const newNotification = await NotificationService.createNewNotificationForAdmin(
+            null,
+            'new_store_creation',
+            msg,
+            session
+        );
+
+        if (!newNotification || !newNotification[0]) {
+            throw new CustomError('Erreur lors de la création de la notification', 500);
+        }
+
+        // Commit the transaction
+        await session.commitTransaction();
+        session.endSession();
+
+        // Return success response
+        res.status(200).json({ message: 'Votre compte a été créé avec succès. Veuillez vous connecter.' });
+
+    } catch (error) {
+        // If any error occurs, abort the transaction
+        await session.abortTransaction();
+        session.endSession();
+        return next(new CustomError('Une erreur est survenue lors de la création de votre compte. Veuillez réessayer.', 500));
     }
-    
-    if (existingStore.password) {
-        return next(new CustomError('Votre compte est déjà créé. Veuillez vous connecter.', 400));
-    }
-
-    // Check if the category exists
-    const existCategory = await CategoryService.findCategoryById(Category);
-    if (!existCategory) {
-        return next(new CustomError('Catégorie introuvable', 404));
-    }
-
-    // Check if the wilaya and commune exist
-    const existWilaya = await CitiesService.findCitiesFRByCodeC(Wilaya, Commune);
-    if (!existWilaya) {
-        return next(new CustomError('Wilaya ou commune introuvable', 404));
-    }
-
-    // Hash the password
-    const hash = await bcrypt.hashPassword(Password);
-
-    // Update the store data
-    existingStore.password = hash;
-    existingStore.firstName = FirstName;
-    existingStore.lastName = LastName;
-    existingStore.storeAddress = Address;
-    existingStore.storeName = storeName;
-    existingStore.storeLocation = null;
-    existingStore.wilaya = Wilaya;
-    existingStore.commune = Commune;
-    existingStore.r_commerce = R_Commerce;
-    existingStore.categories = [existCategory._id];
-
-    // Save the updated store
-    const updatedStore = await existingStore.save();
-    if (!updatedStore) {
-        return next(new CustomError('Erreur lors de la mise à jour du magasin. Veuillez réessayer', 500));
-    }
-
-    // Return success response
-    res.status(200).json({ message: 'Votre compte a été créé avec succès. Veuillez vous connecter.' });
 });
 //verifie email otp for store
 const VerifyStoreOTP = asyncErrorHandler(async (req, res, next) => {

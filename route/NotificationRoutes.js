@@ -23,9 +23,9 @@ router.use(checkSubscription);
 
 // SHEARED_API routes below
 //mark notification as read
-router.patch('/asRead/:id', checkAuthrozation([process.env.CLIENT_TYPE, process.env.STORE_TYPE]), markNotificationAsRead);
+router.patch('/asRead/:id', checkAuthrozation([process.env.CLIENT_TYPE, process.env.STORE_TYPE, process.env.ADMIN_TYPE]), markNotificationAsRead);
 //mark all notifications as read
-router.patch('/asRead/all/:client', checkAuthrozation([process.env.CLIENT_TYPE, process.env.STORE_TYPE]), markAllNotificationsAsRead);
+router.patch('/asRead/all/:client', checkAuthrozation([process.env.CLIENT_TYPE, process.env.STORE_TYPE, process.env.ADMIN_TYPE]), markAllNotificationsAsRead);
 
 // STORE_API routes below
 //get all new notifications by store

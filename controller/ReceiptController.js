@@ -1186,7 +1186,7 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
         const orderReady = status == 2 && existingReceipt.type == 'pickup';
         if (orderDelivered || orderReady) {
             // message to send 
-            const msg = orderReady == 'order_ready' ?
+            const msg = orderReady ?
                     `Your order from ${existingReceipt.store.storeName} is ready for pickup`
                     :
                     `Your order from ${existingReceipt.store.storeName} has been delivered and is on its way to you`
