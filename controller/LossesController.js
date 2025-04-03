@@ -18,7 +18,7 @@ const GetAllLossesForStore = asyncErrorHandler(async (req, res, next) => {
     });
     //check if there are no losses
     if(!losses || losses.length < 1){
-        const err = new CustomError('No losses found', 404);
+        const err = new CustomError('Aucune perte trouvé', 404);
         return next(err);
     }
     res.status(200).json(losses);
@@ -31,11 +31,11 @@ const CreateLossForStore = asyncErrorHandler(async (req, res, next) => {
     const currentDateTime = moment.getCurrentDateTime();
     // Validate required fields
     if (!price || !reason) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     //check if price is a number
     if(!validator.isNumeric(price.toString()) || Number(price) < 0){
-        return next(new CustomError('Price must be a positive number', 400));
+        return next(new CustomError('Le prix doit être un nombre positif', 400));
     }
 
     //create a new loss
@@ -48,25 +48,25 @@ const CreateLossForStore = asyncErrorHandler(async (req, res, next) => {
     });
     //check if loss was created
     if(!newLoss){
-        const err = new CustomError('Error while creating loss, try again.', 400);
+        const err = new CustomError('Erreur lors de la création de la perte, réessayez.', 400);
         return next(err);
     }
 
-    res.status(200).json({message: 'Loss created successfully'});
+    res.status(200).json({message: 'Perte créée avec succès'});
 });
 //delete a loss
 const DeleteLossForStore = asyncErrorHandler(async (req, res, next) => {
     const { id, store } = req.params;
     //check if all required fields are provided
     if(!id || !mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
 
     //check if loss exists
     const existingLoss = await LossesService.findLossesByIdAndStore(id, store);
     if(!existingLoss){
-        const err = new CustomError('Loss not found', 404);
+        const err = new CustomError('Perte non trouvée', 404);
         return next(err);
     }
 
@@ -75,11 +75,11 @@ const DeleteLossForStore = asyncErrorHandler(async (req, res, next) => {
 
     //check if loss was deleted
     if(!deletedLoss){
-        const err = new CustomError('Error while deleting loss, try again.', 400);
+        const err = new CustomError('Erreur lors de la suppression de la perte, réessayez.', 400);
         return next(err);
     }
 
-    res.status(200).json({message: 'Loss deleted successfully'});
+    res.status(200).json({message: 'Perte supprimée avec succès'});
 });
 //get statistics losses for specific store
 const GetStatisticsForStore = asyncErrorHandler(async (req, res, next) => {
@@ -91,7 +91,7 @@ const GetStatisticsForStore = asyncErrorHandler(async (req, res, next) => {
     }).select('price');
     //check if there are no losses
     if(existingLosses.length < 1){
-        return next(new CustomError('No losses found', 404));
+        return next(new CustomError('Aucune perte trouvé', 404));
     }
 
     // Calculate the total losses
@@ -123,7 +123,7 @@ const GetAllLossesForAdmin = asyncErrorHandler(async (req, res, next) => {
     });
     //check if there are no losses
     if(!losses || losses.length < 1){
-        const err = new CustomError('No losses found', 404);
+        const err = new CustomError('Aucune perte trouvé', 404);
         return next(err);
     }
     res.status(200).json(losses);
@@ -136,11 +136,11 @@ const CreateLossForAdmin = asyncErrorHandler(async (req, res, next) => {
     const currentDateTime = moment.getCurrentDateTime();
     // Validate required fields
     if (!price || !reason) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     //check if price is a number
     if(!validator.isNumeric(price.toString()) || Number(price) < 0){
-        return next(new CustomError('Price must be a positive number', 400));
+        return next(new CustomError('Le prix doit être un nombre positif', 400));
     }
 
     //create a new loss
@@ -153,25 +153,25 @@ const CreateLossForAdmin = asyncErrorHandler(async (req, res, next) => {
     });
     //check if loss was created
     if(!newLoss){
-        const err = new CustomError('Error while creating loss, try again.', 400);
+        const err = new CustomError('Erreur lors de la création de la perte, réessayez.', 400);
         return next(err);
     }
 
-    res.status(200).json({message: 'Loss created successfully'});
+    res.status(200).json({message: 'Perte créée avec succès'});
 });
 //delete a loss
 const DeleteLossForAdmin = asyncErrorHandler(async (req, res, next) => {
     const { id, admin } = req.params;
     //check if all required fields are provided
     if(!id || !mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
 
     //check if loss exists
     const existingLoss = await LossesService.findLossesByIdAndAdmin(id, admin);
     if(!existingLoss){
-        const err = new CustomError('Loss not found', 404);
+        const err = new CustomError('Perte non trouvée', 404);
         return next(err);
     }
 
@@ -180,11 +180,11 @@ const DeleteLossForAdmin = asyncErrorHandler(async (req, res, next) => {
 
     //check if loss was deleted
     if(!deletedLoss){
-        const err = new CustomError('Error while deleting loss, try again.', 400);
+        const err = new CustomError('Erreur lors de la suppression de la perte, réessayez.', 400);
         return next(err);
     }
 
-    res.status(200).json({message: 'Loss deleted successfully'});
+    res.status(200).json({message: 'Perte supprimée avec succès'});
 });
 //get statistics losses for specific store
 const GetStatisticsForAdmin = asyncErrorHandler(async (req, res, next) => {
@@ -196,7 +196,7 @@ const GetStatisticsForAdmin = asyncErrorHandler(async (req, res, next) => {
     }).select('price');
     //check if there are no losses
     if(existingLosses.length < 1){
-        return next(new CustomError('No losses found', 404));
+        return next(new CustomError('Aucune perte trouvé', 404));
     }
 
     // Calculate the total losses

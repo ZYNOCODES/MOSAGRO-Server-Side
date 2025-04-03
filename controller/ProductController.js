@@ -18,12 +18,12 @@ const CreateProduct = asyncErrorHandler(async (req, res, next) => {
         !mongoose.Types.ObjectId.isValid(Brand) ||
         !mongoose.Types.ObjectId.isValid(Category)
     ){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //check if image is provided
     if(!req.file || req.file == undefined){
-        const err = new CustomError('Image is required', 400);
+        const err = new CustomError('L\'image est requise', 400);
         return next(err);
     }
     const filename = req.file.filename;
@@ -31,19 +31,19 @@ const CreateProduct = asyncErrorHandler(async (req, res, next) => {
     //check if brand already exists
     const brand = await BrandService.findBrandById(Brand);
     if(!brand){
-        const err = new CustomError('Brand not found', 400);
+        const err = new CustomError('Marque non trouvée', 400);
         return next(err);
     }
     //check if brand already exists
     const category = await CategoryService.findCategoryById(Category);
     if(!category){
-        const err = new CustomError('Category not found', 400);
+        const err = new CustomError('Catégorie non trouvée', 400);
         return next(err);
     }
     //check if product already exists
     const existingProduct = await ProductService.findProfuctByNameSizeBrand(Name, Size,Brand);
     if(existingProduct){
-        const err = new CustomError('Product already exists', 400);
+        const err = new CustomError('Le produit existe déjà', 400);
         return next(err);
     }
 
@@ -59,10 +59,10 @@ const CreateProduct = asyncErrorHandler(async (req, res, next) => {
     
     //check if product created successfully
     if(!newProduct){
-        const err = new CustomError('Error while creating product try again.', 400);
+        const err = new CustomError('Erreur lors de la création du produit, réessayez.', 400);
         return next(err);
     }
-    res.status(200).json({message: 'Product created successfully'});
+    res.status(200).json({message: 'Produit créé avec succès'});
 });
 //fetch all products
 const GetAllProducts = asyncErrorHandler(async (req, res, next) => {
@@ -77,7 +77,7 @@ const GetAllProducts = asyncErrorHandler(async (req, res, next) => {
         }
     ]);
     if(!products || products.length < 1){
-        const err = new CustomError('No products found', 400);
+        const err = new CustomError('Aucun produit trouvé', 400);
         return next(err);
     }
     res.status(200).json(products);
@@ -87,14 +87,14 @@ const GetAllProductsByCategoryStore = asyncErrorHandler(async (req, res, next) =
     const { id } = req.params;
     // check if all required fields are provided
     if(!id || !mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
 
     //check if the store exist
     const existStore = await StoreService.findStoreById(id);
     if(!existStore){
-        const err = new CustomError('Store not found', 400);
+        const err = new CustomError('Magasin non trouvé', 400);
         return next(err);
     }
     //fetch all products by store.categories
@@ -112,7 +112,7 @@ const GetAllProductsByCategoryStore = asyncErrorHandler(async (req, res, next) =
     ]);
 
     if(!products || products.length < 1){
-        const err = new CustomError('Error while fetching products', 400);
+        const err = new CustomError('Erreur lors de la récupération des produits', 400);
         return next(err);
     }
     res.status(200).json(products);
@@ -122,7 +122,7 @@ const GetProduct = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const product = await Product.findById(id).populate('brand');
     if(!product){
-        const err = new CustomError('Product not found', 400);
+        const err = new CustomError('Produit non trouvé', 400);
         return next(err);
     }
     res.status(200).json(product);
@@ -133,19 +133,19 @@ const UpdateProduct = asyncErrorHandler(async (req, res, next) => {
     const { Name, Size, Brand, BoxItems, Category } = req.body;
     // Check if id is provided
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        const err = new CustomError('Product ID is required', 400);
+        const err = new CustomError('L\'ID du produit est requis', 400);
         return next(err);
     }
     // Check if at least one field is provided
     if (!Name && !Size && !Brand && !BoxItems && !Category && (!req.file || req.file == undefined)) {
-        const err = new CustomError('One of the fields is required at least', 400);
+        const err = new CustomError('Au moins un des champs est obligatoire', 400);
         return next(err);
     }
 
     // Check if Product exists
     const product = await ProductService.findProductById(id);
     if (!product) {
-        const err = new CustomError('Product not found', 400);
+        const err = new CustomError('Produit non trouvé', 400);
         return next(err);
     }
 
@@ -158,7 +158,7 @@ const UpdateProduct = asyncErrorHandler(async (req, res, next) => {
         // Check if Brand exists
         const brand = await BrandService.findBrandById(Brand);
         if (!brand) {
-            const err = new CustomError('Brand not found', 400);
+            const err = new CustomError('Marque non trouvée', 400);
             return next(err);
         }
         updateFields.brand = Brand;
@@ -167,7 +167,7 @@ const UpdateProduct = asyncErrorHandler(async (req, res, next) => {
         // Check if Category exists
         const category = await CategoryService.findCategoryById(Category);
         if (!category) {
-            const err = new CustomError('Category not found', 400);
+            const err = new CustomError('Catégorie non trouvée', 400);
             return next(err);
         }
         updateFields.category = Category;
@@ -181,7 +181,7 @@ const UpdateProduct = asyncErrorHandler(async (req, res, next) => {
 
     // Check if Product updated successfully
     if (!updatedProduct) {
-        const err = new CustomError('Error while updating Product, try again.', 400);
+        const err = new CustomError('Erreur lors de la mise à jour du produit, réessayez.', 400);
         return next(err);
     }
     
@@ -201,30 +201,30 @@ const UpdateProduct = asyncErrorHandler(async (req, res, next) => {
         });
     }
 
-    res.status(200).json({ message: 'Product updated successfully' });
+    res.status(200).json({ message: 'Produit mis à jour avec succès' });
 });
 //delete a product
 const DeleteProduct = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     // Check if id is provided
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        const err = new CustomError('Product ID is required', 400);
+        const err = new CustomError('L\'ID du produit est requis', 400);
         return next(err);
     }
     const product = await Product.findOne({_id: id});
     if(!product){
-        const err = new CustomError('Product not found', 404);
+        const err = new CustomError('Produit non trouvé', 404);
         return next(err);
     }
     //check if product is used in any stock
     const existStock = await StockService.findStockByProduct(id);
     if(existStock){
-        const err = new CustomError('Product is used in some stores', 400);
+        const err = new CustomError('Le produit est utilisé dans certains magasins', 400);
         return next(err);
     }
     const deletedProduct = await Product.deleteOne({_id: product._id});
     if(!deletedProduct){
-        const err = new CustomError('Error while deleting product', 400);
+        const err = new CustomError('Erreur lors de la suppression du produit', 400);
         return next(err);
     }
 
@@ -244,7 +244,7 @@ const DeleteProduct = asyncErrorHandler(async (req, res, next) => {
         });
     }
 
-    res.status(200).json({message: 'Product deleted successfully'});
+    res.status(200).json({message: 'Produit supprimé avec succès'});
 });
 
 module.exports = {

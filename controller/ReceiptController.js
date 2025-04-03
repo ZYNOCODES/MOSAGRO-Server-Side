@@ -21,16 +21,16 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
 
     // Validate required fields
     if (!products || !Array.isArray(products) || products.length === 0) {
-        return next(new CustomError('You have to pick at least one product', 400));
+        return next(new CustomError('Vous devez choisir au moins un produit', 400));
     }
     if (!total || !validator.isNumeric(total.toString())) {
-        return next(new CustomError('Total is required and must be a valid number', 400));
+        return next(new CustomError('Le montant total est requis et doit être un nombre valide', 400));
     }
     if (!type) {
-        return next(new CustomError('Order type is required. You must select one.', 400));
+        return next(new CustomError('Le type de commande est obligatoire. Vous devez en sélectionner un.', 400));
     }
     if (type === 'delivery' && !deliveredLocation) {
-        return next(new CustomError('Delivery address is required', 400));
+        return next(new CustomError('L\'adresse de livraison est requise', 400));
     }
 
     // Validate product fields
@@ -40,13 +40,13 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
         !product.price || product.price <= 0 || !validator.isNumeric(product.price.toString())
     ));
     if (invalidProduct) {
-        return next(new CustomError('All products must have a valid quantity and price', 400));
+        return next(new CustomError('Tous les produits doivent avoir une quantité et un prix valides', 400));
     }
 
     // Validate total matches the sum of product prices
     const sum = products.reduce((acc, product) => acc + product.price * product.quantity, 0);
     if (sum !== Number(total)) {
-        return next(new CustomError('Total does not match the sum of all product prices', 400));
+        return next(new CustomError('Le montant total ne correspond pas à la somme de tous les prix des produits', 400));
     }
 
     const session = await mongoose.startSession();
@@ -65,7 +65,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
             if (!existingStock) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError(`Product not found. Clear all products and try again.`, 404));
+                return next(new CustomError(`Produit introuvable. Supprimez tous les produits et réessayez.`, 404));
             }
 
             // Validate stock quantity
@@ -73,7 +73,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
                 await session.abortTransaction();
                 session.endSession();
                 return next(new CustomError(
-                    `The quantity ${product.quantity} of ${existingStock.product.name} is not available. You can buy only ${existingStock.quantity}.`,
+                    `La quantité de ${product.quantity} ${existingStock.product.name} n'est pas disponible. Vous ne pouvez en acheter que ${existingStock.quantity}.`,
                     400
                 ));
             }
@@ -83,7 +83,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
                 await session.abortTransaction();
                 session.endSession();
                 return next(new CustomError(
-                    `The price ${product.price} of ${existingStock.product.name} is not valid.`,
+                    `Le prix ${product.price} de ${existingStock.product.name} n'est pas valide.`,
                     400
                 ));
             }
@@ -93,7 +93,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
                 await session.abortTransaction();
                 session.endSession();
                 return next(new CustomError(
-                    `The quantity ${product.quantity} of ${existingStock.product.name} is limited to ${existingStock.quantityLimit} items maximum.`,
+                    `La quantité ${product.quantity} de ${existingStock.product.name} est limitée à ${existingStock.quantityLimit} articles maximum.`,
                     400
                 ));
             }
@@ -113,7 +113,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
         if (totalProfit < 0) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Total profit cannot be negative', 405));
+            return next(new CustomError('Le bénéfice total ne peut pas être négatif', 405));
         }
 
         // Create a new receipt status
@@ -125,7 +125,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
         if (!newReceiptStatus) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while creating new receipt status. Try again.', 400));
+            return next(new CustomError('Erreur lors de la création du nouveau statut de commande. Réessayez.', 400));
         }
 
         // Create a new receipt
@@ -145,7 +145,7 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
         if (!newReceipt) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while creating new receipt. Try again.', 400));
+            return next(new CustomError('Erreur lors de la création de la nouvelle commande. Réessayez.', 400));
         }
 
         // Commit the transaction
@@ -154,14 +154,14 @@ const CreateReceipt = asyncErrorHandler(async (req, res, next) => {
 
         // Return success response
         res.status(200).json({
-            message: 'The order is submitted successfully',
+            message: 'La commande a été soumise avec succès',
             OrderID: newReceipt._id
         });
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
         console.error('Error creating receipt:', error);
-        return next(new CustomError('Error while creating new receipt. Try again.', 500));
+        return next(new CustomError('Erreur lors de la création de la nouvelle commande. Réessayez.', 500));
     }
 });
 //create a receipt
@@ -176,16 +176,16 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
         !mongoose.Types.ObjectId.isValid(client) ||
         !Array.isArray(products) || !validator.isNumeric(total.toString())
     ) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     if (type === 'delivery' && (
         !deliveredLocation || !deliveredAmount || !deliveredExpectedDate
     )
     ) {
-        return next(new CustomError('Delivered location, amount and expected date are required', 400));
+        return next(new CustomError('Le lieu de livraison, le montant et la date prévue sont requis', 400));
     }
     if (products.length <= 0) {
-        return next(new CustomError('You have to pick at least one product', 400));
+        return next(new CustomError('Vous devez choisir au moins un produit', 400));
     }
 
     // Check if all products have a quantity and price
@@ -194,12 +194,12 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
                (!val.quantity || val.quantity <= 0 || !validator.isNumeric(val.quantity.toString())) && 
                (!val.price || val.price <= 0 || !validator.isNumeric(val.price.toString()));
     })) {
-        return next(new CustomError('All products must have a valid quantity and price', 400));
+        return next(new CustomError('Tous les produits doivent avoir une quantité et un prix valides', 400));
     }
     //check if total is equal to the sum of all products
     const sum = products.reduce((acc, product) => acc + product.price * product.quantity, 0);
     if (sum != total) {
-        return next(new CustomError('Total is not equal to the sum of all products price', 400));
+        return next(new CustomError('Le montant total n\'est pas égal à la somme des prix de tous les produits', 400));
     }
 
     const session = await mongoose.startSession();
@@ -211,7 +211,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
         if (!existingClient) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Client not found', 404));
+            return next(new CustomError('Client non trouvé', 404));
         }
 
         //check if client is a client for the store
@@ -219,7 +219,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
         if (!isClient) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('You are not a client for this store', 405));
+            return next(new CustomError('Vous n\'êtes pas client de ce magasin', 405));
         }
         //calculate total profit
         var totalProfit = 0;
@@ -235,7 +235,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
             if (!existingStock) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError(`Product not found, clear all products and try again.`, 404));
+                return next(new CustomError(`Produit non trouvé, effacez tous les produits et réessayez.`, 404));
             }
             //check if the product quantity is enough
             if (existingStock.quantity < item.quantity) {
@@ -243,7 +243,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
                 session.endSession();
                 return next(
                     new CustomError(
-                    `This quantity ${item.quantity} of ${existingStock.product.name} is no availble`,
+                    `Cette quantité ${item.quantity} de ${existingStock.product.name} n'est pas disponible`,
                     400)
                 );
             }
@@ -251,7 +251,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
             if (Number(existingStock.selling) != Number(item.price)) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError(`This price ${item.price} of ${existingStock.product.name} is not valid`,400));
+                return next(new CustomError(`Ce prix ${item.price} de ${existingStock.product.name} n'est pas valide`,400));
             }
             //check if Quantity limitation
             if (existingStock.quantityLimit > 0 &&
@@ -260,7 +260,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
                 session.endSession();
                 return next(
                     new CustomError(
-                    `This quantity ${item.quantity} of ${existingStock.product.name} is limited to ${existingStock.quantityLimit} items maximum`,
+                    `Cette quantité ${item.quantity} de ${existingStock.product.name} est limitée à ${existingStock.quantityLimit} articles maximum`,
                     400)
                 );
             }
@@ -279,7 +279,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
         if (totalProfit < 0) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Total profit cannot be negative', 405));
+            return next(new CustomError('Le bénéfice total ne peut pas être négatif', 405));
         }
 
         // Create a new receipt status
@@ -293,7 +293,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
         if (!newReceiptStatus || !newReceiptStatus[0]) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while creating new receipt status, try again.', 400));
+            return next(new CustomError('Erreur lors de la création d\'un nouveau statut de commande, réessayez.', 400));
         }
         // Create a new receipt
         const newReceipt = await Receipt.create([{
@@ -312,18 +312,18 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
         if(!newReceipt || !newReceipt[0]){
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while creating new receipt, try again', 400));
+            return next(new CustomError('Erreur lors de la création d\'une nouvelle commande, réessayez', 400));
         }
 
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ message: 'The order is submitted successfully', id: newReceipt[0]._id});
+        res.status(200).json({ message: 'La commande a été soumise avec succès', id: newReceipt[0]._id});
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
         console.log(error)
-        return next(new CustomError('Error while creating new receipt, try again', 500));
+        return next(new CustomError('Erreur lors de la création d\'une nouvelle commande, réessayez', 500));
     }
 });
 //get specific Receipt
@@ -331,7 +331,7 @@ const GetReceiptByID = asyncErrorHandler(async (req, res, next) => {
     const { id, store } = req.params;
     //check all required fields
     if( !id || !mongoose.Types.ObjectId.isValid(id)){
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     const existingreceipt = await Receipt.findOne({
         _id: id,
@@ -341,7 +341,7 @@ const GetReceiptByID = asyncErrorHandler(async (req, res, next) => {
         select: 'firstName lastName phoneNumber email wilaya commune'
     });
     if(!existingreceipt){
-        return next(new CustomError('Receipt not found', 404));
+        return next(new CustomError('Commande non trouvée', 404));
     }
     res.status(200).json(existingreceipt);
 });
@@ -350,7 +350,7 @@ const GetReceiptByIDForClient = asyncErrorHandler(async (req, res, next) => {
     const { receipt } = req.params;
     //check all required fields
     if( !receipt || !mongoose.Types.ObjectId.isValid(receipt)){
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     const existingreceipt = await Receipt.findById({
         _id: receipt
@@ -360,7 +360,7 @@ const GetReceiptByIDForClient = asyncErrorHandler(async (req, res, next) => {
     });
     //check existingreceipt
     if(!existingreceipt){
-        return next(new CustomError('Receipt not found', 404));
+        return next(new CustomError('Commande non trouvée', 404));
     }
     //fetch last receipt status
     const lastReceiptStatus = existingreceipt.products[existingreceipt.products.length - 1];
@@ -378,7 +378,7 @@ const GetReceiptByIDForClient = asyncErrorHandler(async (req, res, next) => {
     });
 
     if (!lastReceiptStatusData) {
-        return next(new CustomError('Receipt status not found', 404));
+        return next(new CustomError('Statut de la commande non trouvé', 404));
     }
 
     //the return object combinision
@@ -403,7 +403,7 @@ const GetAllLatestReceiptsByStore = asyncErrorHandler(async (req, res, next) => 
     });
 
     if(receipts.length <= 0){
-        const err = new CustomError('No receipts found for you', 400);
+        const err = new CustomError('Aucune commande trouvée pour vous', 400);
         return next(err);
     }
 
@@ -427,7 +427,7 @@ const GetAllLatestReceiptsByStore = asyncErrorHandler(async (req, res, next) => 
             });
             
             if (!lastReceiptStatus) {
-                return next(new CustomError('Receipt status not found', 404));
+                return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
             // Create an updated receipt with ordersList and replace the original receipt
@@ -436,7 +436,7 @@ const GetAllLatestReceiptsByStore = asyncErrorHandler(async (req, res, next) => 
                 products: lastReceiptStatus.products  // Attach the ordersList
             };
         } else {
-            const err = new CustomError('No products found for this receipt', 400);
+            const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
             return next(err);
         }
     }
@@ -459,7 +459,7 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
     });
 
     if(receipts.length <= 0){
-        const err = new CustomError('No receipts found for you', 400);
+        const err = new CustomError('Aucune commande trouvée pour vous', 400);
         return next(err);
     }
 
@@ -483,7 +483,7 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
             });
             
             if (!lastReceiptStatus) {
-                return next(new CustomError('Receipt status not found', 404));
+                return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
             // Create an updated receipt with ordersList and replace the original receipt
@@ -492,7 +492,7 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
                 products: lastReceiptStatus.products  // Attach the ordersList
             };
         } else {
-            const err = new CustomError('No products found for this receipt', 400);
+            const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
             return next(err);
         }
     }
@@ -513,7 +513,7 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
         select: 'firstName lastName phoneNumber'
     });
     if(receipts.length <= 0){
-        const err = new CustomError('No delivered receipts found for you', 400);
+        const err = new CustomError('Aucune commande livrée trouvée pour vous', 400);
         return next(err);
     }
 
@@ -537,7 +537,7 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
             });
             
             if (!lastReceiptStatus) {
-                return next(new CustomError('Receipt status not found', 404));
+                return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
             // Create an updated receipt with ordersList and replace the original receipt
@@ -546,7 +546,7 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
                 products: lastReceiptStatus.products  // Attach the ordersList
             };
         } else {
-            const err = new CustomError('No products found for this receipt', 400);
+            const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
             return next(err);
         }
     }
@@ -570,7 +570,7 @@ const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res
         select: 'name size'
     });
     if(receipts.length <= 0){
-        const err = new CustomError('No credited delivered receipts found for you', 400);
+        const err = new CustomError('Aucune commande livrée créditée trouvée pour vous', 400);
         return next(err);
     }
 
@@ -594,7 +594,7 @@ const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res
             });
             
             if (!lastReceiptStatus) {
-                return next(new CustomError('Receipt status not found', 404));
+                return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
             // Create an updated receipt with ordersList and replace the original receipt
@@ -603,7 +603,7 @@ const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res
                 products: lastReceiptStatus.products  // Attach the ordersList
             };
         } else {
-            const err = new CustomError('No products found for this receipt', 400);
+            const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
             return next(err);
         }
     }
@@ -625,7 +625,7 @@ const GetAllReturnedReceiptsByStore = asyncErrorHandler(async (req, res, next) =
         select: 'name size'
     });
     if(receipts.length <= 0){
-        const err = new CustomError('No returned receipts found for you', 400);
+        const err = new CustomError('Aucune commande retournée trouvée pour vous', 400);
         return next(err);
     }
 
@@ -649,7 +649,7 @@ const GetAllReturnedReceiptsByStore = asyncErrorHandler(async (req, res, next) =
             });
             
             if (!lastReceiptStatus) {
-                return next(new CustomError('Receipt status not found', 404));
+                return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
             // Create an updated receipt with ordersList and replace the original receipt
@@ -658,7 +658,7 @@ const GetAllReturnedReceiptsByStore = asyncErrorHandler(async (req, res, next) =
                 products: lastReceiptStatus.products  // Attach the ordersList
             };
         } else {
-            const err = new CustomError('No products found for this receipt', 400);
+            const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
             return next(err);
         }
     }
@@ -679,7 +679,7 @@ const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
         select: 'storeName phoneNumber storeAddress storeLocation',
     });
     if(receipts.length <= 0){
-        const err = new CustomError('No receipts found for you', 400);
+        const err = new CustomError('Aucune commande trouvée pour vous', 400);
         return next(err);
     }
 
@@ -703,7 +703,7 @@ const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
             });
             
             if (!lastReceiptStatus) {
-                return next(new CustomError('Receipt status not found', 404));
+                return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
             // Create an updated receipt with ordersList and replace the original receipt
@@ -712,7 +712,7 @@ const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
                 products: lastReceiptStatus.products  // Attach the ordersList
             };
         } else {
-            const err = new CustomError('No products found for this receipt', 400);
+            const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
             return next(err);
         }
     }
@@ -730,7 +730,7 @@ const GetAllArchiveReceiptsByClient = asyncErrorHandler(async (req, res, next) =
         select: 'storeName phoneNumber storeAddress storeLocation',
     });
     if(receipts.length <= 0){
-        const err = new CustomError('No receipts found for you', 400);
+        const err = new CustomError('Aucune commande trouvée pour vous', 400);
         return next(err);
     }
 
@@ -754,7 +754,7 @@ const GetAllArchiveReceiptsByClient = asyncErrorHandler(async (req, res, next) =
             });
             
             if (!lastReceiptStatus) {
-                return next(new CustomError('Receipt status not found', 404));
+                return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
             // Create an updated receipt with ordersList and replace the original receipt
@@ -763,7 +763,7 @@ const GetAllArchiveReceiptsByClient = asyncErrorHandler(async (req, res, next) =
                 products: lastReceiptStatus.products  // Attach the ordersList
             };
         } else {
-            const err = new CustomError('No products found for this receipt', 400);
+            const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
             return next(err);
         }
     }
@@ -776,13 +776,13 @@ const GetAllReceiptsByClientForStore = asyncErrorHandler(async (req, res, next) 
     // Validate the required fields
     if (!client || 
         !mongoose.Types.ObjectId.isValid(client)) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
 
     // Check if the client exists
     const existingClient = await findUserById(client);
     if (!existingClient) {
-        return next(new CustomError('Client not found', 404));
+        return next(new CustomError('Client non trouvé', 404));
     }
 
     // Fetch all receipts for the client in the specified store
@@ -793,7 +793,7 @@ const GetAllReceiptsByClientForStore = asyncErrorHandler(async (req, res, next) 
 
     // Check if any receipts were found
     if (receipts.length <= 0) {
-        const err = new CustomError('No receipts found for this client', 400);
+        const err = new CustomError('Aucune commande trouvée pour ce client', 400);
         return next(err);
     }
 
@@ -817,7 +817,7 @@ const GetAllReceiptsByClientForStore = asyncErrorHandler(async (req, res, next) 
             });
             
             if (!lastReceiptStatus) {
-                return next(new CustomError('Receipt status not found', 404));
+                return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
             // Create an updated receipt with ordersList and replace the original receipt
@@ -826,7 +826,7 @@ const GetAllReceiptsByClientForStore = asyncErrorHandler(async (req, res, next) 
                 products: lastReceiptStatus.products  // Attach the ordersList
             };
         } else {
-            const err = new CustomError('No products found for this receipt', 400);
+            const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
             return next(err);
         }
     }
@@ -840,25 +840,25 @@ const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
     const { reciept, status, raison } = req.body;
     //check id 
     if( !reciept || !mongoose.Types.ObjectId.isValid(reciept) || !status ){
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     //check if status is valid [3 or 4]
     if(![3, 4].includes(status)){
-        return next(new CustomError('Status is not valid', 400));
+        return next(new CustomError('Le statut n\'est pas valide', 400));
     }
     //check if the status is 4 and the raison is empty
     if(status === 4 && !raison){
-        return next(new CustomError('You need to provide a reason', 400));
+        return next(new CustomError('Vous devez fournir une raison', 400));
     }
     
     //check if receipt exist
     const existingreceipt = await findReceiptByIdAndClient(reciept, id);
     if(!existingreceipt){
-        return next(new CustomError('Receipt not found', 404));
+        return next(new CustomError('Commande non trouvée', 404));
     }
     //check if the receipt is already delivered
     if(existingreceipt.delivered){
-        return next(new CustomError('This receipt is already delivered', 400));
+        return next(new CustomError('Cette commande est déjà livrée', 400));
     }
     //update 
     const updatedreceipt = await Receipt.updateOne({ _id: reciept }, { 
@@ -869,10 +869,10 @@ const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
     });
     // Check if receipt updated successfully
     if (!updatedreceipt) {
-        const err = new CustomError('Error while updating receipt, try again.', 400);
+        const err = new CustomError('Erreur lors de la mise à jour de la commande, réessayez.', 400);
         return next(err);
     }
-    res.status(200).json({ message: 'The validation was submited successfully' });
+    res.status(200).json({ message: 'La validation a été soumise avec succès' });
 });
 //update receipt expexted delivery date
 const UpdateReceiptExpextedDeliveryDate = asyncErrorHandler(async (req, res, next) => {
@@ -881,22 +881,22 @@ const UpdateReceiptExpextedDeliveryDate = asyncErrorHandler(async (req, res, nex
     //check the fields
     if( !id || !date 
         || !mongoose.Types.ObjectId.isValid(id)){
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     //check if receipt exist
     const existingreceipt = await findReceiptByIdAndStore(id, store);
     if(!existingreceipt){
-        return next(new CustomError('Receipt not found', 404));
+        return next(new CustomError('Commande non trouvée', 404));
     }
     existingreceipt.expextedDeliveryDate = date;
     //update 
     const updatedreceipt = await existingreceipt.save();
     // Check if receipt updated successfully
     if (!updatedreceipt) {
-        const err = new CustomError('Error while updating receipt, try again.', 400);
+        const err = new CustomError('Erreur lors de la mise à jour de la commande, réessayez.', 400);
         return next(err);
     }
-    res.status(200).json({ message: 'The expexted delivery date was submited successfully' });
+    res.status(200).json({ message: 'La date de livraison prévue a été soumise avec succès' });
 });
 //update specific product price in a receipt
 const UpdateReceiptProductPrice = asyncErrorHandler(async (req, res, next) => {
@@ -911,7 +911,7 @@ const UpdateReceiptProductPrice = asyncErrorHandler(async (req, res, next) => {
             !mongoose.Types.ObjectId.isValid(id) ||
             !mongoose.Types.ObjectId.isValid(stock) ||
             !validator.isNumeric(price.toString())) {
-            return next(new CustomError('All fields are required', 400));
+            return next(new CustomError('Tous les champs sont obligatoires', 400));
         }
 
         // Check if the receipt exists
@@ -919,7 +919,7 @@ const UpdateReceiptProductPrice = asyncErrorHandler(async (req, res, next) => {
         if (!existingReceipt) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Receipt not found', 404));
+            return next(new CustomError('Commande non trouvée', 404));
         }
 
         // Check if the stock exists in the receipt
@@ -927,7 +927,7 @@ const UpdateReceiptProductPrice = asyncErrorHandler(async (req, res, next) => {
         if (stockIndex === -1) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Product not found in the receipt', 404));
+            return next(new CustomError('Produit non trouvé dans la commande', 404));
         }
 
         // Update the product price in the receipt
@@ -951,13 +951,13 @@ const UpdateReceiptProductPrice = asyncErrorHandler(async (req, res, next) => {
 
         // Check if receipt updated successfully
         if (!updatedReceipt) {
-            throw new CustomError('Error while updating receipt, try again.', 400);
+            throw new CustomError('Erreur lors de la mise à jour de la commande, réessayez.', 400);
         }
 
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ message: 'The product price was submitted successfully' });
+        res.status(200).json({ message: 'Le prix du produit a été soumis avec succès' });
 
     } catch (error) {
         await session.abortTransaction();
@@ -971,12 +971,12 @@ const AddPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
     const { amount } = req.body;
     // Validate ID
     if(!id || !mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     // Check if the amount is valid
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
-        const err = new CustomError('Enter a valid positive amount', 400);
+        const err = new CustomError('Entrez un montant positif valide', 400);
         return next(err);
     }
 
@@ -986,24 +986,24 @@ const AddPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
         store: store,
     });
     if(!existingReceipt){
-        return next(new CustomError('Receipt not found', 404));
+        return next(new CustomError('Commande non trouvée', 404));
     }
 
     //check if the receipt is status between 0, 1, 2
     if([0, 1].includes(existingReceipt.status)){
-        const err =new CustomError(`This receipt is not ready for payment check the order status`, 400);
+        const err =new CustomError(`Cette commande n'est pas prête à être payée, vérifiez l'état de la commande`, 400);
         return next(err);
     }
 
     //check if already closed
     if(existingReceipt.status == 10){
-        const err =new CustomError(`This receipt is already fully paid`, 400);
+        const err =new CustomError(`Cette commande est déjà entièrement payée`, 400);
         return next(err);
     }
 
     //check if the receipt is credited
     if (existingReceipt.credit == false) {
-        const err = new CustomError('You can\'t add payment because this receipt is not credited', 400);
+        const err = new CustomError('Vous ne pouvez pas ajouter de paiement car cette commande n\'est pas créditée', 400);
         return next(err);
     }
 
@@ -1012,7 +1012,7 @@ const AddPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
 
     // Validate payment against the total
     if ((totalPaid + parseFloat(amount)) > existingReceipt.total) {
-        const err =new CustomError(`The sum of payments is greater than the total. The remaining amount to pay is ${existingReceipt.total - totalPaid}`, 400);
+        const err =new CustomError(`La somme des paiements est supérieure au total. Le montant restant à payer est ${existingReceipt.total - totalPaid}`, 400);
         return next(err);
     }
 
@@ -1020,7 +1020,7 @@ const AddPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
     if(existingReceipt.credit == false){
         // Validate payment against the total
         if ((parseFloat(amount)) != parseFloat(existingReceipt.total)) {
-            const err =new CustomError(`The payment must be equal to the total price. The remaining amount to pay is ${existingReceipt.total}`, 400);
+            const err =new CustomError(`Le paiement doit être égal au prix total. Le montant restant à payer est ${existingReceipt.total}`, 400);
             return next(err);
         }
         existingReceipt.status = 10
@@ -1042,11 +1042,11 @@ const AddPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
     // Save updated receipt
     const updatedReceipt = await existingReceipt.save();
     if (!updatedReceipt) {
-        const err = new CustomError('Error while adding payment to receipt, try again', 400);
+        const err = new CustomError('Erreur lors de l\'ajout du paiement à la commande, réessayez', 400);
         return next(err);
     }
     // Return the response
-    res.status(200).json({ message: 'The payment was submited successfully' });
+    res.status(200).json({ message: 'Le paiement a été soumis avec succès' });
 });
 //add payments tp Receipt
 const AddFullPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
@@ -1057,7 +1057,7 @@ const AddFullPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
 
     // Validate ID
     if(!id || !mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
 
@@ -1067,27 +1067,27 @@ const AddFullPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
         store: store,
     });
     if(!existingReceipt){
-        return next(new CustomError('Receipt not found', 404));
+        return next(new CustomError('Commande non trouvée', 404));
     }
     //check if the receipt is status between 0, 1, 2
     if([0, 1].includes(existingReceipt.status)){
-        const err =new CustomError(`This receipt is not ready for full payment check the order status`, 400);
+        const err =new CustomError(`Cette commande n'est pas prête pour le paiement intégral, vérifiez l'état de la commande`, 400);
         return next(err);
     }
     //check if already closed
     if(existingReceipt.status == 10){
-        const err =new CustomError(`This receipt is already fully paid`, 400);
+        const err =new CustomError(`Cette commande est déjà entièrement payée`, 400);
         return next(err);
     }
     //check if already cancelled
     if(existingReceipt.status == -2 || existingReceipt.status == -1){
-        const err =new CustomError(`This receipt is already cancelled`, 400);
+        const err =new CustomError(`Cette commande est déjà annulée`, 400);
         return next(err);
     }
 
     //check if the receipt is credited
     if (existingReceipt.credit == true) {
-        const err = new CustomError('You can\'t add full payment because this receipt is credited', 400);
+        const err = new CustomError('Vous ne pouvez pas ajouter le paiement complet car cette commande est créditée', 400);
         return next(err);
     }
 
@@ -1105,11 +1105,11 @@ const AddFullPaymentToReceipt = asyncErrorHandler(async (req, res, next) => {
 
     // Check if the Receipt was updated successfully
     if (!updatedReceipt) {
-        const err = new CustomError('Error while adding full payment, try again.', 400);
+        const err = new CustomError('Erreur lors de l\'ajout du paiement complet, réessayez.', 400);
         return next(err);
     }
 
-    res.status(200).json({ message: 'Full payment added successfully' });
+    res.status(200).json({ message: 'Paiement total ajouté avec succès' });
 });
 //make reciept status
 const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
@@ -1117,7 +1117,7 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
 
     // Validate ID
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
 
@@ -1125,7 +1125,7 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
     if (isNaN(status) || Number(status) < 0 ||
         !validator.isIn(status.toString(), ['0', '1', '2'])
     ) {
-        const err = new CustomError('Enter a valid status', 400);
+        const err = new CustomError('Entrez un statut valide', 400);
         return next(err);
     }
 
@@ -1142,32 +1142,32 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
         if (!existingReceipt) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Receipt not found', 404));
+            return next(new CustomError('Commande non trouvée', 404));
         }
 
         // Check if receipt is already closed
         if (existingReceipt.status == 10) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('This receipt is already fully paid', 400));
+            return next(new CustomError('Cette commande est déjà entièrement payée', 400));
         }
         // Check if receipt is already canceled
         if (existingReceipt.status == -2 || existingReceipt.status == -1) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('This receipt is already canceled', 400));
+            return next(new CustomError('Cette commande est déjà annulée', 400));
         }
         // Check if receipt is already delivered
         if (existingReceipt.delivered) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('This receipt is already delivered', 400));
+            return next(new CustomError('Cette commande est déjà livrée', 400));
         }
         // Check if receipt is already have same status
         if (existingReceipt.status == status) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('This receipt is already have the same status', 400));
+            return next(new CustomError('Cette commande a déjà le même statut', 400));
         }
 
         // Update receipt status
@@ -1178,7 +1178,7 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
         if (!updatedReceipt) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while updating receipt, try again.', 400));
+            return next(new CustomError('Erreur lors de la mise à jour de la commande, réessayez.', 400));
         }
 
         // Check if a notification needs to be created
@@ -1187,9 +1187,9 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
         if (orderDelivered || orderReady) {
             // message to send 
             const msg = orderReady ?
-                    `Your order from ${existingReceipt.store.storeName} is ready for pickup`
+                    `Votre commande de ${existingReceipt.store.storeName} est prête à être récupérée`
                     :
-                    `Your order from ${existingReceipt.store.storeName} has been delivered and is on its way to you`
+                    `Votre commande de ${existingReceipt.store.storeName} a été livré et est en route vers vous`
             // Create new notification
             const newNotification = await NotificationService.createNewNotificationForClient(
                 existingReceipt.client,
@@ -1201,7 +1201,7 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
             if (!newNotification || !newNotification[0]) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError('Error while creating new notification, try again', 400));
+                return next(new CustomError('Erreur lors de la création d\'une nouvelle notification, réessayez', 400));
             }
         }
 
@@ -1210,14 +1210,14 @@ const updateReceiptStatus = asyncErrorHandler(async (req, res, next) => {
         session.endSession();
 
         // Return the response
-        res.status(200).json({ message: 'The status was updated successfully' });
+        res.status(200).json({ message: 'Le statut a été mis à jour avec succès' });
     } catch (error) {
         // Abort the transaction on error
         await session.abortTransaction();
         session.endSession();
         console.error('Error updating receipt status:', error);
         // Handle other errors
-        return next(new CustomError('An error occurred while updating the receipt status.', 500));
+        return next(new CustomError('Une erreur s\'est produite lors de la mise à jour du statut de la commande.', 500));
     }
 });
 //Update Receipt credit
@@ -1226,11 +1226,11 @@ const UpdateReceiptCredited = asyncErrorHandler(async (req, res, next) => {
     const { credited } = req.body;
     if(!id || !mongoose.Types.ObjectId.isValid(id)
     ){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     if(!validator.isBoolean(credited.toString())){
-        const err = new CustomError('Enter a valid value', 400);
+        const err = new CustomError('Entrez une valeur valide', 400);
         return next(err);
     }
 
@@ -1240,30 +1240,30 @@ const UpdateReceiptCredited = asyncErrorHandler(async (req, res, next) => {
         store: store
     });
     if(!existingReceipt){
-        return next(new CustomError('Receipt not found', 404));
+        return next(new CustomError('Commande non trouvée', 404));
     }
 
     //check if already closed
     if(existingReceipt.status == 10){
-        const err =new CustomError(`This receipt is already fully paid`, 400);
+        const err =new CustomError(`Cette commande est déjà entièrement payée`, 400);
         return next(err);
     }
 
     //check if reciept is a returned receipt
     if(existingReceipt.status == 9){
-        const err =new CustomError(`This receipt is a returned receipt, you can't make it credited`, 400);
+        const err =new CustomError(`Cette commande est une commande retournée, vous ne pouvez pas la faire créditer`, 400);
         return next(err);
     }
 
     //check if already cancelled
     if(existingReceipt.status == -2 || existingReceipt.status == -1){
-        const err =new CustomError(`This receipt is already cancelled`, 400);
+        const err =new CustomError(`Cette commande est déjà annulée`, 400);
         return next(err);
     }
     
     //check if already deposit
     if(existingReceipt.deposit == true){
-        const err =new CustomError(`You can't make it credited because it's already a deposit receipt`, 400);
+        const err =new CustomError(`Vous ne pouvez pas le créditer car il s'agit déjà d'une commande deposit`, 400);
         return next(err);
     }
 
@@ -1277,22 +1277,22 @@ const UpdateReceiptCredited = asyncErrorHandler(async (req, res, next) => {
 
     const updatedReceipt = await existingReceipt.save();
     if (!updatedReceipt) {
-        const err = new CustomError('Error while updating credit to receipt, try again', 400);
+        const err = new CustomError('Erreur lors de la mise à jour du crédit de la commande, réessayez', 400);
         return next(err);
     }
     // Return the response
-    res.status(200).json({ message: `Receipt now is ${credited ? "" : "not "}credited` });
+    res.status(200).json({ message: `Commander maintenant est ${credited ? "" : "n'est pas "}créditée` });
 });
 //Update Receipt deposit
 const UpdateReceiptDiposit = asyncErrorHandler(async (req, res, next) => {
     const { id, store } = req.params;
     const { deposit } = req.body;
     if(!id || !mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     if(!validator.isBoolean(deposit.toString())){
-        const err = new CustomError('Enter a valid value', 400);
+        const err = new CustomError('Entrez une valeur valide', 400);
         return next(err);
     }
 
@@ -1302,30 +1302,30 @@ const UpdateReceiptDiposit = asyncErrorHandler(async (req, res, next) => {
         store: store
     });
     if(!existingReceipt){
-        return next(new CustomError('Receipt not found', 404));
+        return next(new CustomError('Commande non trouvée', 404));
     }
 
     //check if already closed
     if(existingReceipt.status == 10){
-        const err =new CustomError(`This receipt is already fully paid`, 400);
+        const err =new CustomError(`Cette commande est déjà entièrement payée`, 400);
         return next(err);
     }
 
     //check if reciept is a returned receipt
     if(existingReceipt.status == 9){
-        const err =new CustomError(`This receipt is a returned receipt, you can't make it deposit`, 400);
+        const err =new CustomError(`Cette commande est une commande retournée, vous ne pouvez pas le fait deposit`, 400);
         return next(err);
     }
 
     //check if already cancelled
     if(existingReceipt.status == -2 || existingReceipt.status == -1){
-        const err =new CustomError(`This receipt is already cancelled`, 400);
+        const err =new CustomError(`Cette commande est déjà annulée`, 400);
         return next(err);
     }
 
     //check if already credited
     if(existingReceipt.credit == true){
-        const err =new CustomError(`You can't make it deposit because it's already a credited receipt`, 400);
+        const err =new CustomError(`Vous ne pouvez pas le fait deposit car il s'agit déjà d'une commande créditée`, 400);
         return next(err);
     }
 
@@ -1337,30 +1337,30 @@ const UpdateReceiptDiposit = asyncErrorHandler(async (req, res, next) => {
 
     const updatedReceipt = await existingReceipt.save();
     if (!updatedReceipt) {
-        const err = new CustomError('Error while updating deposit receipt, try again', 400);
+        const err = new CustomError('Erreur lors de la mise à jour de la commande, réessayez', 400);
         return next(err);
     }
     // Return the response
-    res.status(200).json({ message: `Receipt now is ${deposit ? "" : "not "}deposit` });
+    res.status(200).json({ message: `Commander maintenant est ${deposit ? "" : "non "}deposit` });
 });
 //cancel receipt by store
 const CancelReceiptByStore = asyncErrorHandler(async (req, res, next) => {
     const { store, id } = req.params;
     // Validate ID
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
 
     // Check if the receipt exists
     const existingReceipt = await findReceiptByIdAndStore(id, store);
     if (!existingReceipt) {
-        return next(new CustomError('Receipt not found', 404));
+        return next(new CustomError('Commande non trouvée', 404));
     }
 
     // Check if the receipt is already closed
     if (existingReceipt.status != 0 || existingReceipt.credit || existingReceipt.deposit || existingReceipt.delivered) {
-        return next(new CustomError('You can only cancel new placed orders', 400));
+        return next(new CustomError('Vous ne pouvez annuler que les nouvelles commandes passées', 400));
     }
 
     // Update the receipt status
@@ -1368,30 +1368,30 @@ const CancelReceiptByStore = asyncErrorHandler(async (req, res, next) => {
     existingReceipt.delivered = true;
     const updatedReceipt = await existingReceipt.save();
     if (!updatedReceipt) {
-        return next(new CustomError('Error while cancelling receipt, try again', 400));
+        return next(new CustomError('Erreur lors de l\'annulation de la commande, réessayez', 400));
     }
 
     // Return the response
-    res.status(200).json({ message: 'The receipt was cancelled successfully' });
+    res.status(200).json({ message: 'La commande a été annulée avec succès' });
 });
 //cancel receipt by client
 const CancelReceiptByClient = asyncErrorHandler(async (req, res, next) => {
     const { receipt, id } = req.params;
     // Validate ID
     if (!receipt || !mongoose.Types.ObjectId.isValid(receipt)) {
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
 
     // Check if the receipt exists
     const existingReceipt = await findReceiptByIdAndClient(receipt, id);
     if (!existingReceipt) {
-        return next(new CustomError('Receipt not found', 404));
+        return next(new CustomError('Commande non trouvée', 404));
     }
 
     // Check if the receipt is already closed
     if (existingReceipt.status != 0 || existingReceipt.credit || existingReceipt.deposit || existingReceipt.delivered) {
-        return next(new CustomError('You can only cancel new placed orders because maybe it\'s already in preparation', 400));
+        return next(new CustomError('Vous ne pouvez annuler que les nouvelles commandes passées car elles sont peut-être déjà en préparation', 400));
     }
 
     // Update the receipt status
@@ -1399,11 +1399,11 @@ const CancelReceiptByClient = asyncErrorHandler(async (req, res, next) => {
     existingReceipt.delivered = true;
     const updatedReceipt = await existingReceipt.save();
     if (!updatedReceipt) {
-        return next(new CustomError('Error while cancelling receipt, try again', 400));
+        return next(new CustomError('Erreur lors de l\'annulation de la commande, réessayez', 400));
     }
 
     // Return the response
-    res.status(200).json({ message: 'The receipt was cancelled successfully' });
+    res.status(200).json({ message: 'La commande a été annulée avec succès' });
 });
 //get statistics receipts for specific store and client
 const GetStatisticsForStoreClient = asyncErrorHandler(async (req, res, next) => {
@@ -1412,19 +1412,19 @@ const GetStatisticsForStoreClient = asyncErrorHandler(async (req, res, next) => 
     // Validate store and Client IDs
     if (!store || !mongoose.Types.ObjectId.isValid(store) || 
         !client || !mongoose.Types.ObjectId.isValid(client)) {
-        return next(new CustomError('Invalid store or client ID provided.', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
 
     // Check if the store exists
     const existStore = await findStoreById(store);
     if (!existStore) {
-        return next(new CustomError('Store not found', 404));
+        return next(new CustomError('Magasin non trouvé', 404));
     }
 
     // Check if the Client exists for the given store
     const existClient = await checkUserStore(client, store);
     if (!existClient) {
-        return next(new CustomError('Client not found', 404));
+        return next(new CustomError('Client non trouvé', 404));
     }
 
     // Get statistics for receipt between the store and client

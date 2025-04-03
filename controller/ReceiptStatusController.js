@@ -16,25 +16,25 @@ const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next
     if (!receipt || validator.isEmpty(receipt.toString()) || !mongoose.Types.ObjectId.isValid(receipt) ||
         !store || validator.isEmpty(store.toString()) || !mongoose.Types.ObjectId.isValid(store) ||
         !products || products.length <= 0) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
 
     // Check if the receipt exists
     const existingReceipt = await ReceiptService.findReceiptByIdAndStore(receipt, store);
     if (!existingReceipt) {
-        return next(new CustomError('Receipt not found', 404));
+        return next(new CustomError('Commande non trouvée', 404));
     }
 
     //check if already cancelled
     if(existingReceipt.status == -2 || existingReceipt.status == -1){
-        const err =new CustomError(`This receipt is already cancelled`, 400);
+        const err =new CustomError(`Cette commande est déjà annulée`, 400);
         return next(err);
     }
 
     // Get the last receipt status
     const lastReceiptStatus = await ReceiptStatus.findById(existingReceipt.products[existingReceipt.products.length - 1]);
     if (!lastReceiptStatus) {
-        return next(new CustomError('Receipt status not found', 404));
+        return next(new CustomError('Statut de la commande non trouvé', 404));
     }
 
     // Get current datetime
@@ -68,7 +68,7 @@ const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next
 
         // Check if there are any changes
         if (updatedProducts.length === 0) {
-            return next(new CustomError('No changes were made to the receipt status', 400));
+            return next(new CustomError('Aucune modification n\'a été apportée au statut de la commande', 400));
         }
 
         // Create a new ReceiptStatus
@@ -81,7 +81,7 @@ const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next
         if (!newReceiptStatus) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while creating new receipt status, try again.', 400));
+            return next(new CustomError('Erreur lors de la création d\'un nouveau statut de commande, réessayez.', 400));
         }
 
         // Update receipt total and profit
@@ -128,12 +128,12 @@ const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next
         session.endSession();
 
         // Return success response
-        res.status(200).json({ message: 'New receipt status added successfully' });
+        res.status(200).json({ message: 'Nouveau statut de commande ajouté avec succès' });
     } catch (err) {
         await session.abortTransaction();
         session.endSession();
         console.error(err);
-        next(new CustomError('Error while creating new receipt status, try again.', 400));
+        next(new CustomError('Erreur lors de la création d\'un nouveau statut de commande, réessayez.', 400));
     }
 });
 //fetch last receipt status by receipt
@@ -143,12 +143,12 @@ const FetchLiveReceiptStatusByReceipt = asyncErrorHandler(async (req, res, next)
     if (!id || !mongoose.Types.ObjectId.isValid(id) ||
         !store || !mongoose.Types.ObjectId.isValid(store)
     ) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     //check if stock already exist
     const existingReceipt = await ReceiptService.findReceiptByIdAndStore(id, store);
     if(!existingReceipt){
-        const err = new CustomError('Receipt not found', 404);
+        const err = new CustomError('Commande non trouvée', 404);
         return next(err);
     }
 
@@ -167,7 +167,7 @@ const FetchLiveReceiptStatusByReceipt = asyncErrorHandler(async (req, res, next)
     );
 
     if (!lastReceiptStatus) {
-        return next(new CustomError('Receipt status not found', 404));
+        return next(new CustomError('Statut de la commande non trouvé', 404));
     }
 
     res.status(200).json(lastReceiptStatus);
@@ -179,12 +179,12 @@ const FetchAllReceiptStatusByReceipt = asyncErrorHandler(async (req, res, next) 
     if (!id || !mongoose.Types.ObjectId.isValid(id) ||
         !store || !mongoose.Types.ObjectId.isValid(store)
     ) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     //check if stock already exist
     const existingReceipt = await ReceiptService.findReceiptByIdAndStore(id, store);
     if(!existingReceipt){
-        const err = new CustomError('Receipt not found', 404);
+        const err = new CustomError('Commande non trouvée', 404);
         return next(err);
     }
 
@@ -203,7 +203,7 @@ const FetchAllReceiptStatusByReceipt = asyncErrorHandler(async (req, res, next) 
     );
 
     if (!allReceiptStatus || allReceiptStatus.length <= 0) {
-        return next(new CustomError('Receipt status not found', 404));
+        return next(new CustomError('Statut de la commande non trouvé', 404));
     }
 
     res.status(200).json(allReceiptStatus);

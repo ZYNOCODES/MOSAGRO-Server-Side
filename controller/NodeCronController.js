@@ -51,7 +51,7 @@ const checkExpiringSubscriptions = async () => {
         const notifications = subscriptionsToNotify.map(({ store, expiryDate }) => ({
             ownerModel: 'store',
             owner: store._id,
-            message: `Your subscription is expiring on ${moment(expiryDate).format('YYYY-MM-DD HH:mm:ss')}. Please renew it to continue using our services.`,
+            message: `Votre abonnement expire le ${moment(expiryDate).format('YYYY-MM-DD HH:mm:ss')}. Veuillez le renouveler pour continuer à utiliser nos services.`,
             type: 'subscription_expiry'
         }));
 

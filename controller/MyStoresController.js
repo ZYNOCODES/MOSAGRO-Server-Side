@@ -26,7 +26,7 @@ const GetAllMyStoresbyUser = asyncErrorHandler(async (req, res, next) => {
     
     //check
     if(myStores.length <= 0){
-        const err = new CustomError('No approved store found for you', 404);
+        const err = new CustomError('Aucun magasin approuvé n\'a été trouvé pour vous', 404);
         return next(err);
     }
 
@@ -64,7 +64,7 @@ const GetAllNonActiveMyStoresbyUser = asyncErrorHandler(async (req, res, next) =
     
     //check
     if(myStores.length <= 0){
-        const err = new CustomError('No approved store found for you', 404);
+        const err = new CustomError('Aucun magasin approuvé n\'a été trouvé pour vous', 404);
         return next(err);
     }
 
@@ -87,13 +87,8 @@ const GetAllNonActiveMyStoresbyUser = asyncErrorHandler(async (req, res, next) =
 //fetch all approved users by store
 const GetAllUsersByStore = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    if (!id) {
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
-    }
-    //check if ids is type of mongoose id
-    if(!mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('Invalid id', 404);
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //get all MyStores by id user and get only stores.status == 'approved' 
@@ -108,7 +103,7 @@ const GetAllUsersByStore = asyncErrorHandler(async (req, res, next) => {
 
     //check if myUsers is empty
     if(myUsers.length <= 0){
-        const err = new CustomError('No user found for this store', 404);
+        const err = new CustomError('Aucun client trouvé pour ce magasin', 404);
         return next(err);
     }
     
@@ -132,7 +127,7 @@ const GetAllUsersByStore = asyncErrorHandler(async (req, res, next) => {
 const GetAllNotApprovedUsersByStore = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //get all MyStores by id user and get only stores.status == 'approved' || 'rejected'
@@ -146,7 +141,7 @@ const GetAllNotApprovedUsersByStore = asyncErrorHandler(async (req, res, next) =
     });
     //check if myUsers is empty
     if(myUsers.length <= 0){
-        const err = new CustomError('No user found for this store', 404);
+        const err = new CustomError('Aucun client trouvé pour ce magasin', 404);
         return next(err);
     }
     
@@ -169,13 +164,8 @@ const GetAllNotApprovedUsersByStore = asyncErrorHandler(async (req, res, next) =
 //fetch all sellers users by store
 const GetAllSellersUsersByStore = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    if (!id) {
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
-    }
-    //check if ids is type of mongoose id
-    if(!mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('Invalid id', 404);
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //get all MyStores by id user and get only stores.status == 'approved' 
@@ -189,7 +179,7 @@ const GetAllSellersUsersByStore = asyncErrorHandler(async (req, res, next) => {
     });
     //check if myUsers is empty
     if(myUsers.length <= 0){
-        const err = new CustomError('No seller found', 404);
+        const err = new CustomError('Aucun vendeur trouvé', 404);
         return next(err);
     }
     
@@ -216,13 +206,13 @@ const AddStoreToMyList = asyncErrorHandler(async (req, res, next) => {
 
     // Check if all fields are filled and store ID is valid
     if (!store || !mongoose.Types.ObjectId.isValid(store)) {
-        return next(new CustomError('Please fill all fields', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
 
     // Check if store exists
     const existingStore = await StoreService.findStoreById(store);
     if (!existingStore) {
-        return next(new CustomError('Store not found', 404));
+        return next(new CustomError('Magasin non trouvé', 404));
     }
 
     // Check if store is already in the user's list
@@ -231,7 +221,7 @@ const AddStoreToMyList = asyncErrorHandler(async (req, res, next) => {
         store: existingStore._id
     });
     if (myStore) {
-        return next(new CustomError('Store already exists in your list', 400));
+        return next(new CustomError('Le magasin existe déjà dans votre liste', 400));
     }
 
     // Start a session for transaction
@@ -247,10 +237,10 @@ const AddStoreToMyList = asyncErrorHandler(async (req, res, next) => {
         }], { session });
 
         if (!newMyStore || !newMyStore[0]) {
-            throw new CustomError('Error while adding store', 400);
+            throw new CustomError('Erreur lors de l\'ajout du magasin à la liste des clients', 400);
         }
         //message to send
-        const msg = 'You have a new client access request check it out in your user authentication page';
+        const msg = 'Vous avez une nouvelle demande d\'accès client, vérifiez-la dans votre page d\'authentification utilisateur';
         // Create new notification
         const newNotification = await NotificationService.createNewNotificationForStore(
             existingStore._id,
@@ -260,7 +250,7 @@ const AddStoreToMyList = asyncErrorHandler(async (req, res, next) => {
         );
 
         if (!newNotification || !newNotification[0]) {
-            throw new CustomError('Error while creating new notification, try again', 400);
+            throw new CustomError('Erreur lors de la création d\'une nouvelle notification, réessayez', 400);
         }
 
         // Commit the transaction
@@ -268,14 +258,14 @@ const AddStoreToMyList = asyncErrorHandler(async (req, res, next) => {
         session.endSession();
 
         res.status(200).json({ 
-            message: 'Store added to your list successfully, wait for it to be approved by the owner.' 
+            message: 'Le magasin a été ajouté à votre liste avec succès, attendez qu\'il soit approuvé par le propriétaire.' 
         });
 
     } catch (error) {
         // Abort transaction on error
         await session.abortTransaction();
         session.endSession();
-        next(new CustomError('Error while adding store to client list', 500));
+        next(new CustomError('Erreur lors de l\'ajout du magasin à la liste des clients', 500));
         console.log(error);
     }
 });
@@ -284,7 +274,7 @@ const ApproveUserToAccessStore = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const { user } = req.body;
     if (!id || !user || !mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(user)) {
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //check if store already exists
@@ -296,12 +286,12 @@ const ApproveUserToAccessStore = asyncErrorHandler(async (req, res, next) => {
         select: 'storeName'
     });
     if(!myStore){
-        const err = new CustomError('User not found in your list', 400);
+        const err = new CustomError('Client non trouvé dans votre liste', 400);
         return next(err);
     }
     //check if user is already approved in store
     if(myStore.status == 'approved'){
-        const err = new CustomError('User already approved', 400);
+        const err = new CustomError('Client déjà approuvé', 400);
         return next(err);
     }
     // Start a session for transaction
@@ -314,11 +304,11 @@ const ApproveUserToAccessStore = asyncErrorHandler(async (req, res, next) => {
         if(!updatedMyStore){
             await session.abortTransaction();
             session.endSession();
-            const err = new CustomError('Error while approving user', 400);
+            const err = new CustomError('Erreur lors de l\'approbation du client', 400);
             return next(err);
         }
         // message to send 
-        const msg = `You have been approved to access ${myStore.store.storeName} store`;
+        const msg = `Vous avez été autorisé à accéder à le magasin ${myStore.store.storeName}`;
         // Create new notification
         const newNotification = await NotificationService.createNewNotificationForClient(
             user,
@@ -329,19 +319,19 @@ const ApproveUserToAccessStore = asyncErrorHandler(async (req, res, next) => {
         if (!newNotification || !newNotification[0]) {
             await session.abortTransaction();
             session.endSession();
-            const err = new CustomError('Error while creating new notification, try again', 400);
+            const err = new CustomError('Erreur lors de la création d\'une nouvelle notification, réessayez', 400);
             return next(err);
         }
         // Commit the transaction
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({message: 'User approved successfully'});
+        res.status(200).json({message: 'Client approuvé avec succès'});
     }catch (error) {
         // Abort transaction on error
         await session.abortTransaction();
         session.endSession();
-        next(new CustomError('Error while approving user', 500));
+        next(new CustomError('Erreur lors de l\'approbation du client', 500));
         console.log(error);
     }
 });
@@ -350,7 +340,7 @@ const RejectUserToAccessStore = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const { user } = req.body;
     if (!id || !user || !mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(user)) {
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //check if store already exists
@@ -359,22 +349,22 @@ const RejectUserToAccessStore = asyncErrorHandler(async (req, res, next) => {
         store: id
     });
     if(!myStore){
-        const err = new CustomError('User not found in your list', 400);
+        const err = new CustomError('Client non trouvé dans votre liste', 400);
         return next(err);
     }
     //check if user is already approved in store
     if(myStore.status == 'rejected'){
-        const err = new CustomError('User already rejected', 400);
+        const err = new CustomError('Le client a déjà été rejeté', 400);
         return next(err);
     }
     //approve user to access store
     myStore.status = 'rejected';
     const updatedMyStore = await myStore.save();
     if(!updatedMyStore){
-        const err = new CustomError('Error while rejecting user', 400);
+        const err = new CustomError('Erreur lors du rejet du client', 400);
         return next(err);
     }
-    res.status(200).json({message: 'User rejected successfully'});
+    res.status(200).json({message: 'Client rejeté avec succès'});
 });
 //make a user a seller
 const MakeUserSeller = asyncErrorHandler(async (req, res, next) => {
@@ -385,7 +375,7 @@ const MakeUserSeller = asyncErrorHandler(async (req, res, next) => {
         !mongoose.Types.ObjectId.isValid(user) ||
         !validator.isBoolean(isSeller.toString())
     ) {
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //check if store already exists
@@ -395,15 +385,15 @@ const MakeUserSeller = asyncErrorHandler(async (req, res, next) => {
         status: 'approved'
     });
     if(!myStore){
-        const err = new CustomError('Client not found in your list', 400);
+        const err = new CustomError('Client non trouvé dans votre liste', 400);
         return next(err);
     }
     //check if user is already approved in store
     if(myStore.isSeller == true && isSeller == true){
-        const err = new CustomError('Client already a seller', 400);
+        const err = new CustomError('Client déjà vendeur', 400);
         return next(err);
     }else if(myStore.isSeller == false && isSeller == false){
-        const err = new CustomError('Client already not a seller', 400);
+        const err = new CustomError('Le client n\'est déjà pas vendeur', 400);
         return next(err);
     }
 
@@ -411,12 +401,12 @@ const MakeUserSeller = asyncErrorHandler(async (req, res, next) => {
     myStore.isSeller = isSeller;
     const updatedMyStore = await myStore.save();
     if(!updatedMyStore){
-        const err = new CustomError('Error while updating client selling option', 400);
+        const err = new CustomError('Erreur lors de la mise à jour de l\'option du vendeur du client', 400);
         return next(err);
     }
     res.status(200).json({message: `${myStore.isSeller ? 
-        'Client is now a seller' :
-        'Client is now a simple customer'
+        'Le client est désormais un vendeur' :
+        'Le client est désormais un simple client'
     }`});
 });
 //add addresse to a user
@@ -427,14 +417,14 @@ const AddNewAddressToUser = asyncErrorHandler(async (req, res, next) => {
         !mongoose.Types.ObjectId.isValid(user) ||
         validator.isEmpty(address.toString())
     ) {
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
 
     //check if user already exists
     const existingUser = await ClientService.findClientById(user);
     if(!existingUser){
-        const err = new CustomError('User not found', 404);
+        const err = new CustomError('Client non trouvé', 404);
         return next(err);
     }
 
@@ -444,7 +434,7 @@ const AddNewAddressToUser = asyncErrorHandler(async (req, res, next) => {
         store: store,
     });
     if(!myStore){
-        const err = new CustomError('Client not found in your list', 400);
+        const err = new CustomError('Client non trouvé dans votre liste', 400);
         return next(err);
     }
 
@@ -453,7 +443,7 @@ const AddNewAddressToUser = asyncErrorHandler(async (req, res, next) => {
         add.address == address && add.name == name
     );
     if(addressExists){
-        const err = new CustomError('Address already exists with this name and address', 400);
+        const err = new CustomError('L\'adresse existe déjà avec ce nom et cette adresse', 400);
         return next(err);
     }
     //push new address to user
@@ -466,22 +456,17 @@ const AddNewAddressToUser = asyncErrorHandler(async (req, res, next) => {
     //save user
     const updatedUser = await existingUser.save();
     if(!updatedUser){
-        const err = new CustomError('Error while adding address to user', 400);
+        const err = new CustomError('Erreur lors de l\'ajout de l\'adresse au client', 400);
         return next(err);
     }
-    res.status(200).json({message: 'Address added successfully'});
+    res.status(200).json({message: 'Adresse ajoutée avec succès'});
 });
 //delete store from myStores
 const DeleteStoreFromMyStores = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     const { client } = req.body;
-    if (!client || !store) {
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
-    }
-    //check if ids is type of mongoose id
-    if(!mongoose.Types.ObjectId.isValid(client) || !mongoose.Types.ObjectId.isValid(store)){
-        const err = new CustomError('Invalid id', 404);
+    if (!client || !store || !mongoose.Types.ObjectId.isValid(client) || !mongoose.Types.ObjectId.isValid(store)) {
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //check if store already exists
@@ -490,17 +475,17 @@ const DeleteStoreFromMyStores = asyncErrorHandler(async (req, res, next) => {
         store: store
     });
     if(!myStore){
-        const err = new CustomError('Store not found in your list', 400);
+        const err = new CustomError('Magasin non trouvé dans votre liste', 400);
         return next(err);
     }
     //delete store from stores array
     const deletedMyStore = await myStore.deleteOne();
     if(!deletedMyStore){
-        const err = new CustomError('Error while deleting store', 400);
+        const err = new CustomError('Erreur lors de la suppression du magasin', 400);
         return next(err);
     }
     
-    res.status(200).json({message: 'Store deleted successfully'});
+    res.status(200).json({message: 'Le magasin a été supprimé avec succès'});
 });
 
 module.exports = {

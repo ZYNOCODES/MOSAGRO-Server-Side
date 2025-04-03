@@ -10,7 +10,6 @@ const StockStatusService = require('../service/StockStatusService.js');
 const FavoriteService = require('../service/FavoriteService.js');
 const moment = require('../util/Moment.js');
 
-
 //Create a new stock
 const CreateStock = asyncErrorHandler(async (req, res, next) => {
     const { Product, Store, BuyingPrice, SellingPrice, Quantity, QuantityUnity,

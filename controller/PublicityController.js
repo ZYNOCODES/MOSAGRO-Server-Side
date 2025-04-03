@@ -13,9 +13,9 @@ const fetchAllAdminPublicPublicities = asyncErrorHandler(async (req, res, next) 
         distination: 'public',
         displayPublic: true
     });
-    //check if no publicities found
+    //check if Aucune publicité trouvée
     if (!publicities || publicities.length <= 0) {
-        const err = new CustomError('No publicities found', 404);
+        const err = new CustomError('Aucune publicité trouvée', 404);
         return next(err);
     }
     res.status(200).json(publicities);
@@ -31,9 +31,9 @@ const fetchAllStorePublicPublicities = asyncErrorHandler(async (req, res, next) 
         path: 'owner',
         select: 'firstName lastName phoneNumber'
     });
-    //check if no publicities found
+    //check if Aucune publicité trouvée
     if (!publicities || publicities.length <= 0) {
-        const err = new CustomError('No publicities found', 404);
+        const err = new CustomError('Aucune publicité trouvée', 404);
         return next(err);
     }
     res.status(200).json(publicities);
@@ -43,16 +43,16 @@ const fetchAllStorePublicPublicities = asyncErrorHandler(async (req, res, next) 
 const fetchAllStorePublicitiesFromAdmin = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     if (!store || !mongoose.Types.ObjectId.isValid(store)) {
-        const err = new CustomError('Invalid store id', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     const publicities = await Publicity.find({
         owner: store,
         ownerModel: 'store',
     });
-    //check if no publicities found
+    //check if Aucune publicité trouvée
     if (!publicities || publicities.length <= 0) {
-        const err = new CustomError('No publicities found', 404);
+        const err = new CustomError('Aucune publicité trouvée', 404);
         return next(err);
     }
 
@@ -63,16 +63,16 @@ const fetchAllStorePublicitiesFromAdmin = asyncErrorHandler(async (req, res, nex
 const fetchAllStorePublicities = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
     if (!store || !mongoose.Types.ObjectId.isValid(store)) {
-        const err = new CustomError('Invalid store id', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     const publicities = await Publicity.find({
         owner: store,
         ownerModel: 'store',
     });
-    //check if no publicities found
+    //check if Aucune publicité trouvée
     if (!publicities || publicities.length <= 0) {
-        const err = new CustomError('No publicities found', 404);
+        const err = new CustomError('Aucune publicité trouvée', 404);
         return next(err);
     }
 
@@ -85,9 +85,9 @@ const fetchAllPublicPublicities = asyncErrorHandler(async (req, res, next) => {
         distination: 'public',
         displayPublic: true
     });
-    //check if no publicities found
+    //check if Aucune publicité trouvée
     if (!publicities || publicities.length <= 0) {
-        const err = new CustomError('No publicities found', 404);
+        const err = new CustomError('Aucune publicité trouvée', 404);
         return next(err);
     }
     res.status(200).json(publicities);
@@ -99,12 +99,12 @@ const createPublicityFromStore = asyncErrorHandler(async (req, res, next) => {
     const { distination } = req.body;
     if (!store || !mongoose.Types.ObjectId.isValid(store) ||
         !distination || !validator.isIn(distination, ['private', 'public'])) {
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //check if image is provided
     if(!req.file || req.file == undefined){
-        const err = new CustomError('Image is required', 400);
+        const err = new CustomError('L\'image est requise', 400);
         return next(err);
     }
     const filename = req.file.filename;
@@ -118,10 +118,10 @@ const createPublicityFromStore = asyncErrorHandler(async (req, res, next) => {
     });
     //check if publicity not created
     if (!publicity) {
-        const err = new CustomError('Publicity not created, try again', 400);
+        const err = new CustomError('Erreur lors de la creation d\'une publicité, réessayez', 400);
         return next(err);
     }
-    res.status(200).json({ message: 'Publicity created successfully' });
+    res.status(200).json({ message: 'Publicité créée avec succès' });
 });
 
 //create publicity from admin
@@ -129,12 +129,12 @@ const createPublicityFromAdmin = asyncErrorHandler(async (req, res, next) => {
     //check if user is admin
     const admin = req.user._id;
     if (!admin) {
-        const err = new CustomError('Invalid user id', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     //check if image is provided
     if(!req.file || req.file == undefined){
-        const err = new CustomError('Image is required', 400);
+        const err = new CustomError('L\'image est requise', 400);
         return next(err);
     }
     const filename = req.file.filename;
@@ -148,42 +148,42 @@ const createPublicityFromAdmin = asyncErrorHandler(async (req, res, next) => {
     });
     //check if publicity not created
     if (!publicity) {
-        const err = new CustomError('Publicity not created, try again', 400);
+        const err = new CustomError('Erreur lors de la creation d\'une publicité, réessayez', 400);
         return next(err);
     }
-    res.status(200).json({ message: 'Publicity created successfully' });
+    res.status(200).json({ message: 'Publicité créée avec succès' });
 });
 
 //update publicity by id from admin to public
 const makePublicityPublic = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        const err = new CustomError('Invalid publicity id', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     const publicity = await Publicity.findByIdAndUpdate(id, {
         distination: 'public',
         displayPublic: true
     });
-    //check if publicity not found
+    //check if Publicité non trouvée
     if (!publicity) {
-        const err = new CustomError('Publicity not found', 404);
+        const err = new CustomError('Publicité non trouvée', 404);
         return next(err);
     }
-    res.status(200).json({ message: 'Publicity updated successfully' });
+    res.status(200).json({ message: 'Publicité mise à jour avec succès' });
 });
 
 //delete publicity by id from admin
 const deletePublicityFromAdmin = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        const err = new CustomError('Invalid publicity id', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     const publicity = await Publicity.findByIdAndDelete(id);
-    //check if publicity not found
+    //check if Publicité non trouvée
     if (!publicity) {
-        const err = new CustomError('Publicity not found', 404);
+        const err = new CustomError('Publicité non trouvée', 404);
         return next(err);
     }
 
@@ -201,7 +201,7 @@ const deletePublicityFromAdmin = asyncErrorHandler(async (req, res, next) => {
         }
     });
 
-    res.status(200).json({ message: 'Publicity deleted successfully' });
+    res.status(200).json({ message: 'Publicité supprimée avec succès' });
 });
 
 //delete publicity by id from store
@@ -210,13 +210,13 @@ const deletePublicityFromStore = asyncErrorHandler(async (req, res, next) => {
     if (!id || !mongoose.Types.ObjectId.isValid(id) ||
         !store || !mongoose.Types.ObjectId.isValid(store)
     ) {
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     const publicity = await Publicity.findByIdAndDelete(id);
-    //check if publicity not found
+    //check if Publicité non trouvée
     if (!publicity) {
-        const err = new CustomError('Publicity not found', 404);
+        const err = new CustomError('Publicité non trouvée', 404);
         return next(err);
     }
 
@@ -235,7 +235,7 @@ const deletePublicityFromStore = asyncErrorHandler(async (req, res, next) => {
         }
     });
 
-    res.status(200).json({ message: 'Publicity deleted successfully' });
+    res.status(200).json({ message: 'Publicité supprimée avec succès' });
 });
 
 

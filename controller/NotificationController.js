@@ -14,7 +14,7 @@ const getNewNotificationsByStore = asyncErrorHandler(async (req, res, next) => {
     }).sort({createdAt: -1});
     //check if there are any notifications
     if (!notifications || notifications.length <= 0) {
-        return next(new CustomError('No notifications found', 404));
+        return next(new CustomError('Aucune notification trouvée', 404));
     }
     res.status(200).json(notifications);
 });
@@ -28,7 +28,7 @@ const getOldNotificationsByStore = asyncErrorHandler(async (req, res, next) => {
     }).sort({createdAt: -1});
     //check if there are any notifications
     if (!notifications || notifications.length <= 0) {
-        return next(new CustomError('No notifications found', 404));
+        return next(new CustomError('Aucune notification trouvée', 404));
     }
     res.status(200).json(notifications);
 });
@@ -42,7 +42,7 @@ const getNonReadedNotificationsByClient = asyncErrorHandler(async (req, res, nex
     }).sort({createdAt: -1});
     //check if there are any notifications
     if (!notifications || notifications.length <= 0) {
-        return next(new CustomError('No notifications found', 404));
+        return next(new CustomError('Aucune notification trouvée', 404));
     }
     res.status(200).json(notifications);
 });
@@ -56,7 +56,7 @@ const getReadedNotificationsByClient = asyncErrorHandler(async (req, res, next) 
     }).sort({createdAt: -1});
     //check if there are any notifications
     if (!notifications || notifications.length <= 0) {
-        return next(new CustomError('No notifications found', 404));
+        return next(new CustomError('Aucune notification trouvée', 404));
     }
     res.status(200).json(notifications);
 });
@@ -69,7 +69,7 @@ const getNonReadedNotificationsByAdmin = asyncErrorHandler(async (req, res, next
     }).sort({createdAt: -1});
     //check if there are any notifications
     if (!notifications || notifications.length <= 0) {
-        return next(new CustomError('No notifications found', 404));
+        return next(new CustomError('Aucune notification trouvée', 404));
     }
     res.status(200).json(notifications);
 });
@@ -82,7 +82,7 @@ const getReadedNotificationsByAdmin = asyncErrorHandler(async (req, res, next) =
     }).sort({createdAt: -1});
     //check if there are any notifications
     if (!notifications || notifications.length <= 0) {
-        return next(new CustomError('No notifications found', 404));
+        return next(new CustomError('Aucune notification trouvée', 404));
     }
     res.status(200).json(notifications);
 });
@@ -92,15 +92,15 @@ const markNotificationAsRead = asyncErrorHandler(async (req, res, next) => {
     const notification = await Notification.findById(id);
     //check if notification exists
     if (!notification) {
-        return next(new CustomError('Notification not found', 404));
+        return next(new CustomError('Notification non trouvée', 404));
     }
     notification.read = true;
     const updatedNotification = await notification.save();
     //check if notification was updated
     if (!updatedNotification) {
-        return next(new CustomError('Could not mark notification as read, try again', 400));
+        return next(new CustomError('Impossible de marquer la notification comme lue, veuillez réessayer', 400));
     }
-    res.status(200).json({ message: 'Notification marked as read successfully' });
+    res.status(200).json({ message: 'Notification marquée comme lue avec succès' });
 });
 //mark all notifications as read
 const markAllNotificationsAsRead = asyncErrorHandler(async (req, res, next) => {
@@ -108,9 +108,9 @@ const markAllNotificationsAsRead = asyncErrorHandler(async (req, res, next) => {
     const notifications = await Notification.updateMany({owner: id}, {read: true});
     //check if notifications were updated
     if (!notifications) {
-        return next(new CustomError('Could not mark notifications as read, try again', 400));
+        return next(new CustomError('Impossible de marquer les notifications comme lues, réessayez', 400));
     }
-    res.status(200).json({ message: 'Notifications marked as read successfully' });
+    res.status(200).json({ message: 'Notifications marquées comme lues avec succès' });
 });
 
 module.exports = {
