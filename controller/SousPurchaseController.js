@@ -20,13 +20,13 @@ const CreateNewSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next)
         !clientSousStocks || clientSousStocks.length <= 0 
         
     ) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
 
     // Check if Purchase already exists in the store
     const existingPurchase = await PurchaseService.findPurchaseByIdAndStore(purchase, store);
     if (!existingPurchase) {
-        return next(new CustomError('Purchase not found', 404));
+        return next(new CustomError('Achat non trouvé', 404));
     }
 
     //get last sous Purchase
@@ -34,7 +34,7 @@ const CreateNewSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next)
         existingPurchase.sousPurchases[existingPurchase.sousPurchases.length - 1]
     );
     if (!lastSousPurchase) {
-        return next(new CustomError('Sous purchase not found', 404));
+        return next(new CustomError('Sous-achat non trouvé', 404));
     }
 
     //get current datetime
@@ -72,12 +72,12 @@ const CreateNewSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next)
         });
 
         if (!updatedSousPurchase[0] || updatedSousPurchase.length <= 0) {
-            return next(new CustomError('No changes were made to the purchase', 400));
+            return next(new CustomError('Aucune modification n\'a été apportée à l\'achat', 400));
         }
 
         //check if all sousStocks were not changed
         if (noChangeCount === lastSousPurchase.sousStocks.length) {
-            return next(new CustomError('No changes were made to the purchase', 400));
+            return next(new CustomError('Aucune modification n\'a été apportée à l\'achat', 400));
         }
 
         // If changes exist, create a new sous purchase
@@ -91,7 +91,7 @@ const CreateNewSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next)
         if (!newSousPurchase || !newSousPurchase[0]) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while creating new receipt status, try again.', 400));
+            return next(new CustomError('Erreur lors de la création d\'un nouveau sous-achat, veuillez réessayer.', 400));
         }
 
         //update Purchase total
@@ -126,7 +126,7 @@ const CreateNewSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next)
         if (!updatedPurchase) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while updating receipt, try again.', 400));
+            return next(new CustomError('Erreur lors de la mise à jour de l\'achat, réessayez.', 400));
         }
 
         //update sous stock
@@ -134,7 +134,7 @@ const CreateNewSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next)
         if (!updatedSousStock) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while updating sous stock, try again.', 400));
+            return next(new CustomError('Erreur lors de la mise à jour du sous-stock, réessayez.', 400));
         }
 
         // Commit the transaction
@@ -142,12 +142,12 @@ const CreateNewSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next)
         session.endSession();
 
         // Return the newly created receipt status
-        res.status(200).json({message: 'New sous purchase created successfully'});
+        res.status(200).json({message: 'Nouveau sous-achat créé avec succès'});
     }catch(err){
         await session.abortTransaction();
         session.endSession();
         console.log(err);
-        next(new CustomError('Error while creating new receipt status, try again.', 400));
+        next(new CustomError('Erreur lors de la création d\'un nouveau sous-achat, réessayez.', 400));
     }
 
 });
@@ -158,12 +158,12 @@ const FetchLiveSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next)
     if (!id || !mongoose.Types.ObjectId.isValid(id) ||
         !store || !mongoose.Types.ObjectId.isValid(store)
     ) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     //check if purchase already exist
     const existingPurchase = await PurchaseService.findPurchaseByIdAndStore(id, store);
     if (!existingPurchase) {
-        return next(new CustomError('Purchase not found', 404));
+        return next(new CustomError('Achat non trouvé', 404));
     }
 
     //get last Sous Purchase
@@ -193,7 +193,7 @@ const FetchLiveSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next)
     );
 
     if (!lastSousPurchase) {
-        return next(new CustomError('Sous purchase not found', 404));
+        return next(new CustomError('Sous-achat non trouvé', 404));
     }
 
     res.status(200).json(lastSousPurchase);
@@ -205,12 +205,12 @@ const FetchAllSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next) 
     if (!id || !mongoose.Types.ObjectId.isValid(id) ||
         !store || !mongoose.Types.ObjectId.isValid(store)
     ) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     //check if purchase already exist
     const existingPurchase = await PurchaseService.findPurchaseByIdAndStore(id, store);
     if (!existingPurchase) {
-        return next(new CustomError('Purchase not found', 404));
+        return next(new CustomError('Achat non trouvé', 404));
     }
 
     //get all sous Purchases
@@ -240,7 +240,7 @@ const FetchAllSousPurchaseByPurchase = asyncErrorHandler(async (req, res, next) 
     );
 
     if (!allSousPurchases || allSousPurchases.length <= 0) {
-        return next(new CustomError('Sous purchases not found', 404));
+        return next(new CustomError('Sous-achats non trouvés', 404));
     }
 
     res.status(200).json(allSousPurchases);
