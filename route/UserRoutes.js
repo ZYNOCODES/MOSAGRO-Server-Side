@@ -6,18 +6,24 @@ const {
     GetClientByIdForStore,
     BlockClient,
     UnblockClient,
-    VerifyClient
+    VerifyClient,
+    UpdateUserProfile
 } = require('../controller/UserController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
 const checkAdminOwnership = require('../middleware/CheckAdminOwnership');
+const checkClientOwnership = require('../middleware/CheckClientOwnership');
 const checkSubscription = require('../middleware/CheckSubscription');
 
 //secure routes below
 router.use(requireAuth);
 router.use(checkSubscription);
+
+//CLIENT_API routes below
+//update client profile
+router.patch('/update/profile/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, UpdateUserProfile);
 
 // STORE_API routes below
 //fetch specific user by id for specific store
