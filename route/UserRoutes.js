@@ -7,7 +7,10 @@ const {
     BlockClient,
     UnblockClient,
     VerifyClient,
-    UpdateUserProfile
+    UpdateUserProfile,
+    AddNewAddress,
+    UpdateAddress,
+    DeleteAddress
 } = require('../controller/UserController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
@@ -24,6 +27,12 @@ router.use(checkSubscription);
 //CLIENT_API routes below
 //update client profile
 router.patch('/update/profile/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, UpdateUserProfile);
+//add new address
+router.post('/add/address/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, AddNewAddress);
+//update address
+router.patch('/update/address/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, UpdateAddress);
+//delete address
+router.delete('/delete/address/:id', checkAuthrozation([process.env.CLIENT_TYPE]), checkClientOwnership, DeleteAddress);
 
 // STORE_API routes below
 //fetch specific user by id for specific store

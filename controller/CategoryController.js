@@ -4,7 +4,7 @@ const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const CategoryService = require('../service/CategoryService.js');
 const StoreService = require('../service/StoreService.js');
-
+const ProductService = require('../service/ProductService.js');
 
 //create a new Category
 const CreateCategory = asyncErrorHandler(async (req, res, next) => {
@@ -149,20 +149,71 @@ const UpdateCategoryName = asyncErrorHandler(async (req, res, next) => {
 //delete Category
 const DeleteCategory = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
-    //check if Category exist
-    const Category = await CategoryService.findCategoryById(id);
-    if(!Category){
-        const err = new CustomError('Catégorie non trouvée', 400);
-        return next(err);
+    
+    // Input validation
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        return next(new CustomError('ID de catégorie invalide', 400));
     }
-    //delete Category
-    const deletedCategory = await Category.deleteOne({_id: id});
-    //check if Category deleted successfully
-    if(!deletedCategory){
-        const err = new CustomError('Erreur lors de la suppression d\'une catégorie, veuillez réessayer.', 400);
-        return next(err);
+
+    // Start a MongoDB session for transaction
+    const session = await mongoose.startSession();
+    
+    try {
+        // Begin transaction
+        session.startTransaction();
+        
+        // Check if category exists
+        const category = await CategoryService.findCategoryById(id);
+        if (!category) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Catégorie non trouvée', 404));
+        }
+        
+        // Check if the category is used in any product
+        const productsWithCategory = await ProductService.findProductByCategory(id);
+        if (productsWithCategory && productsWithCategory.length > 0) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Impossible de supprimer la catégorie, car elle est utilisée dans des produits.', 400));
+        }
+        
+        // Delete category
+        const deleteResult = await Category.deleteOne({ _id: id }, { session });
+        if (deleteResult.deletedCount !== 1) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Erreur lors de la suppression de la catégorie', 500));
+        }
+        
+        // Remove category from all stores in parallel
+        const stores = await StoreService.findStoresByCategory(id, { session });
+        if (stores && stores.length > 0) {
+            const updatePromises = stores.map(store => {
+                store.categories = store.categories.filter(cat => cat.toString() !== id);
+                return store.save({ session });
+            });
+            
+            await Promise.all(updatePromises);
+        }
+        
+        // Commit transaction
+        await session.commitTransaction();
+        session.endSession();
+        
+        res.status(200).json({ 
+            success: true,
+            message: 'Catégorie supprimée avec succès'
+        });
+        
+    } catch (error) {
+        // If any error occurs, abort transaction
+        await session.abortTransaction();
+        session.endSession();
+        
+        console.error('Transaction error:', error);
+        return next(new CustomError('Une erreur est survenue lors de la suppression de la catégorie', 500));
     }
-    res.status(200).json({message: 'Catégorie supprimée avec succès'});
 });
 
 //delete Category from store

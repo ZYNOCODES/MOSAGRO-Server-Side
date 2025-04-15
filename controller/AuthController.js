@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
 const Admin = require('../model/AdminModel.js');
 const User = require('../model/UserModel.js');
 const Store = require('../model/StoreModel.js');

@@ -293,6 +293,141 @@ const UpdateUserProfile = asyncErrorHandler(async (req, res, next) => {
         message: 'Profil mis à jour avec succès',
     });
 });
+//add new address 
+const AddNewAddress = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const { name, addr, location } = req.body;    
+    // Check if all fields are provided
+    if(!id || !mongoose.Types.ObjectId.isValid(id) ||
+        !name || validator.isEmpty(name) ||
+        !addr || validator.isEmpty(addr)
+    ){
+        const err = new CustomError('Tout les champs sont requis', 400);
+        return next(err);
+    }
+    
+    // Create new address object
+    const newAddress = {
+        name: name,
+        address: addr,
+        location: location || null
+    };
+    
+    // Update user by pushing new address to storeAddresses array
+    const updatedUser = await User.findByIdAndUpdate(
+        id,
+        { $push: { storeAddresses: newAddress } },
+        { new: true, runValidators: true }
+    );
+    
+    if (!updatedUser) {
+        return next(new CustomError('Une erreur s\'est produite lors de l\'ajout de l\'adresse. Réessayez plus tard.', 400));
+    }
+
+    // Return the newly added address in the response
+    const addedAddress = updatedUser.storeAddresses[updatedUser.storeAddresses.length - 1];
+
+    res.status(200).json({
+        message: 'Adresse ajoutée avec succès',
+        address: addedAddress
+    });
+});
+//update an address
+const UpdateAddress = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const { addressId, name, addr, location } = req.body;
+    //check if all fields are provided
+    if (!id || !mongoose.Types.ObjectId.isValid(id) || 
+        !addressId || !mongoose.Types.ObjectId.isValid(addressId)) {
+        return next(new CustomError('Identifiants invalides', 400));
+    }
+    
+    // Check if at least one update field is provided
+    if ((!name || validator.isEmpty(name)) && 
+        (!addr || validator.isEmpty(addr)) && 
+        (!location || validator.isEmpty(location))) {
+        return next(new CustomError('Au moins un champ est requis pour la mise à jour', 400));
+    }
+
+    // Check if user exists
+    const existingUser = await UserService.findUserById(id);
+    if (!existingUser) {
+        return next(new CustomError('Client introuvable', 404));
+    }
+    
+    // Find address by ID and check if it exists
+    const addressIndex = existingUser.storeAddresses.findIndex(
+        address => address._id.toString() === addressId
+    );
+    
+    if (addressIndex === -1) {
+        return next(new CustomError('Adresse introuvable', 404));
+    }
+    
+    // Update fields if provided
+    const address = existingUser.storeAddresses[addressIndex];
+    
+    if (name && !validator.isEmpty(name)) address.name = name;
+    if (addr && !validator.isEmpty(addr)) address.address = addr;
+    if (location && !validator.isEmpty(location)) address.location = location;
+    
+    // Save the updated user document
+    const updatedUser = await existingUser.save();
+
+    if (!updatedUser) {
+        return next(new CustomError('Une erreur s\'est produite lors de la mise à jour de l\'adresse. Réessayez plus tard.', 400));
+    }
+
+    res.status(200).json({
+        message: 'Adresse mise à jour avec succès',
+    });
+});
+// Delete an address
+const DeleteAddress = asyncErrorHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const { addressId } = req.body;
+    
+    // Validate required IDs
+    if (!id || !mongoose.Types.ObjectId.isValid(id) || 
+        !addressId || !mongoose.Types.ObjectId.isValid(addressId)) {
+        return next(new CustomError('Identifiants invalides', 400));
+    }
+    
+    // Check if user exists
+    const existingUser = await UserService.findUserById(id);
+    if (!existingUser) {
+        return next(new CustomError('Client introuvable', 404));
+    }
+    
+    // Check if the address exists in the user's addresses
+    const addressExists = existingUser.storeAddresses.some(
+        address => address._id.toString() === addressId
+    );
+    
+    if (!addressExists) {
+        return next(new CustomError('Adresse introuvable', 404));
+    }
+    
+    // Remove the address using MongoDB's $pull operator
+    const updatedUser = await User.findByIdAndUpdate(
+        id,
+        { 
+            $pull: { 
+                storeAddresses: { _id: addressId } 
+            } 
+        },
+        { new: true }
+    );
+    
+    if (!updatedUser) {
+        return next(new CustomError('Une erreur s\'est produite lors de la suppression de l\'adresse. Réessayez plus tard.', 400));
+    }
+    
+    // Return success response
+    res.status(200).json({
+        message: 'Adresse supprimée avec succès'
+    });
+});
 
 module.exports = {
     GetAllClientsVerified,
@@ -302,5 +437,8 @@ module.exports = {
     BlockClient,
     UnblockClient,
     VerifyClient,
-    UpdateUserProfile
+    UpdateUserProfile,
+    AddNewAddress,
+    UpdateAddress,
+    DeleteAddress
 }

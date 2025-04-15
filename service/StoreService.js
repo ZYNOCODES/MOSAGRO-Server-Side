@@ -17,8 +17,16 @@ const findStoreByPhone = async (Phone) => {
         phoneNumber: Phone
     });
 };
+const findStoresByCategory = async (categoryId, options = {}) => {
+    return await Store.find(
+        { categories: { $in: [categoryId] } },
+        {},
+        { session: options.session }
+    );
+};
 module.exports = {
     findStoreById,
     findStoreByEmail,
     findStoreByPhone,
+    findStoresByCategory
 }

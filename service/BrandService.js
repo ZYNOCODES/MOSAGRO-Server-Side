@@ -14,6 +14,7 @@ const findBrandByCode = async (Code) => {
         code: Code
     });
 };
+
 module.exports = {
     findBrandById,
     findBrandByName,

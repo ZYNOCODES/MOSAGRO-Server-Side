@@ -12,6 +12,7 @@ const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
 const checkStoreOwnership = require('../middleware/CheckStoreOwnership');
+const CheckadminOwnership = require('../middleware/CheckAdminOwnership');
 const checkSubscription = require('../middleware/CheckSubscription');
 
 //get all Categorys
