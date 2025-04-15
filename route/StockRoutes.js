@@ -34,9 +34,9 @@ router.post('/create', checkAuthrozation([process.env.STORE_TYPE]), CreateStock)
 router.patch('/update/:id', checkAuthrozation([process.env.STORE_TYPE]), UpdateStock);
 //update stock quantity limitation
 router.patch('/update/basic/:store/:id', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, UpdateStockBasicInformation);
-//delete stock
-router.delete('/delete/:store', checkAuthrozation([process.env.STORE_TYPE]), DeleteStock);
 //fetch stock by store
 router.get('/store/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, FetchStockByStore);
+//delete stock
+// router.delete('/delete/:store', checkAuthrozation([process.env.STORE_TYPE]), DeleteStock);
 
 module.exports = router;

@@ -26,30 +26,30 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
     }
     //check if Quantity is a positive number
     if(Number(QuantityUnity) <= 0 && Number(Quantity) <= 0){
-        return next(new CustomError('Quantity must be a positive number > 0', 400));
+        return next(new CustomError('La quantité doit être un nombre positif', 400));
     }
 
     //check if BuyingPrice and SellingPrice is a positive number
     if(Number(BuyingPrice) <= 0 || Number(SellingPrice) <= 0){
-        return next(new CustomError('Buying and Selling price must be a positive number > 0', 400));
+        return next(new CustomError('Prix d\'achat et prix de vente doivent être des nombres positifs', 400));
     }
     //check if buying price is greater than selling price
     if(Number(BuyingPrice) >= Number(SellingPrice)){
-        return next(new CustomError('Buying price must be less than or equal to selling price', 400));
+        return next(new CustomError('Prix d\'achat doit être inférieur au prix de vente', 400));
     }
     //check if BuyingMathode is provided
     if(!BuyingMathode.buyingByUnit && !BuyingMathode.buyingByBox){
-        return next(new CustomError('Buying Mathode is required', 400));
+        return next(new CustomError('La méthode d\'achat doit être fournie', 400));
     }
     //check if LimitedQuantity and Destocking is valid
     if((!validator.isEmpty(LimitedQuantity.toString()) && !validator.isNumeric(LimitedQuantity.toString())) ||
         (!validator.isEmpty(Destocking.toString()) && !validator.isNumeric(Destocking.toString()))
     ){
-        return next(new CustomError('Limited Quantity and Destocking must be a number', 400));
+        return next(new CustomError('La limitation de quantité et le destockage doivent être des nombres', 400));
     }
     //check if ExparationDate is valid
     if(ExparationDate && !validator.isDate(ExparationDate)){
-        return next(new CustomError('Exparation Date must be a date', 400));
+        return next(new CustomError('La date d\'expiration doit être une date valide', 400));
     }
 
     //get current datetime
@@ -63,7 +63,7 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
         if (!product) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Product not found', 404));
+            return next(new CustomError('Produit non trouvé', 404));
         }
 
         // Check if store already exists
@@ -71,14 +71,14 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
         if (!store) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Store not found', 404));
+            return next(new CustomError('Magasin non trouvé', 404));
         }
 
         //if product category is in store category list
         if(!store.categories.includes(product.category.toString())){
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Product category is not in your store category accessiblity list', 400));
+            return next(new CustomError('La catégorie du produit n\'est pas dans la liste des catégories du magasin', 400));
         }
         // recalculate the quantity 
         const newQuantity = (Number(Quantity) * Number(product.boxItems)) + Number(QuantityUnity);
@@ -100,7 +100,7 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
             if (!stockStatus[0]) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError('Error while creating stock status, try again.', 400));
+                return next(new CustomError('Une erreur s\'est produite lors de la création du statut de stock, réessayez.', 400));
             }
             //
             const buyingMathode = BuyingMathode.buyingByUnit && BuyingMathode.buyingByBox 
@@ -120,19 +120,19 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
 
             await session.commitTransaction();
             session.endSession();
-            return res.status(200).json({ message: 'Stock already exists, new stock status added successfully' });
+            return res.status(200).json({ message: 'Le stock est déjà existant, le statut de stock a été mis à jour avec succès' });
         }else{
             //check if Quantity is greater than LimitedQuantity
             if(Number(LimitedQuantity) > 0 && Number(newQuantity) < Number(LimitedQuantity)){
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError('Unity quantity must be greater than or equal to Limited Quantity', 400));
+                return next(new CustomError('La quantité doit être supérieure ou égale à la quantité limitée', 400));
             }
             //check if Quantity is greater than Destocking
             if(Number(Destocking) > 0 && Number(newQuantity) < Number(Destocking)){
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError('Unity quantity must be greater than or equal to Destocking Quantity', 400));
+                return next(new CustomError('La quantité doit être supérieure ou égale au destockage', 400));
             }
 
             const buyingMathode = BuyingMathode.buyingByUnit && BuyingMathode.buyingByBox 
@@ -156,7 +156,7 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
             if (!newStock[0]) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError('Error while creating stock, try again.', 400));
+                return next(new CustomError('Erreur lors de la création du stock, réessayez.', 400));
             }
 
             // Create a new stock status
@@ -172,19 +172,19 @@ const CreateStock = asyncErrorHandler(async (req, res, next) => {
             if (!stockStatus[0]) {
                 await session.abortTransaction();
                 session.endSession();
-                return next(new CustomError('Error while creating stock status, try again.', 400));
+                return next(new CustomError('Erreur lors de la création du statut de stock, réessayez.', 400));
             }
 
             await session.commitTransaction();
             session.endSession();
 
-            res.status(200).json({ message: 'Stock created successfully' });
+            res.status(200).json({ message: 'Le stock a été créé avec succès' });
         }
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
         console.log(error);
-        next(new CustomError('Error while creating stock, try again.', 400));
+        next(new CustomError('Erreur lors de la création du stock, réessayez.', 400));
     }
 });
 //fetch stock by id
@@ -192,7 +192,7 @@ const FetchStockByID = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     //check if id is valid
     if(!mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('Invalid stock id', 400);
+        const err = new CustomError('Tout les champs obligatoires doivent être remplis', 400);
         return next(err);
     }
     //check if stock already exist
@@ -213,7 +213,7 @@ const FetchStockByID = asyncErrorHandler(async (req, res, next) => {
         }
     );
     if(!stock){
-        const err = new CustomError('Stock not found', 404);
+        const err = new CustomError('Stock non trouvé', 404);
         return next(err);
     }
     res.status(200).json(stock);
@@ -233,7 +233,7 @@ const FetchStockByStore = asyncErrorHandler(async (req, res, next) => {
         }
     });
     if(!stocks){
-        const err = new CustomError('No stock found', 404);
+        const err = new CustomError('Aucun stock trouvé', 404);
         return next(err);
     }
     res.status(200).json(stocks);
@@ -243,7 +243,7 @@ const FetchStockByStoreClient = asyncErrorHandler(async (req, res, next) => {
     const { id, store } = req.params;
     //check if id is valid
     if(!mongoose.Types.ObjectId.isValid(store)){
-        const err = new CustomError('Invalid store id', 400);
+        const err = new CustomError('Tout les champs obligatoires doivent être remplis', 400);
         return next(err);
     }
     //fetch all stock by store
@@ -258,7 +258,7 @@ const FetchStockByStoreClient = asyncErrorHandler(async (req, res, next) => {
         }
     });
     if(!stocks || stocks.length <= 0){
-        const err = new CustomError('No stock found', 404);
+        const err = new CustomError('Aucun stock trouvé', 404);
         return next(err);
     }
     //check every stock if is a favorite stock by client
@@ -276,7 +276,7 @@ const FetchStockByStoreClient = asyncErrorHandler(async (req, res, next) => {
         })
     );
     if(!updatedStocks || updatedStocks.length <= 0){
-        const err = new CustomError('No stock found', 404);
+        const err = new CustomError('Aucun stock trouvé', 404);
         return next(err);
     }
     res.status(200).json(updatedStocks);
@@ -287,18 +287,18 @@ const UpdateStock = asyncErrorHandler(async (req, res, next) => {
     const { BuyingPrice, SellingPrice, Quantity } = req.body;
     // check if one required fields are provided
     if((!BuyingPrice && !SellingPrice) && !Quantity){
-        const err = new CustomError('Price or Quantity is required to update', 400);
+        const err = new CustomError('Le prix d\'achat, le prix de vente ou la quantité est requis', 400);
         return next(err);
     }
     // check if price is provided
     if((BuyingPrice && !SellingPrice) || (!BuyingPrice && SellingPrice)){
-        const err = new CustomError('Buying and Selling price is required to update', 400);
+        const err = new CustomError('Le prix d\'achat et le prix de vente sont requis', 400);
         return next(err);
     }
     //check if stock already exist
     const stock = await StockService.findStockById(id);
     if(!stock){
-        const err = new CustomError('Stock not found', 404);
+        const err = new CustomError('Stock non trouvé', 404);
         return next(err);
     }
     //update stock
@@ -308,10 +308,10 @@ const UpdateStock = asyncErrorHandler(async (req, res, next) => {
     //save updated stock
     const updatedStock = await stock.save();
     if(!updatedStock){
-        const err = new CustomError('Error while updating stock try again.', 400);
+        const err = new CustomError('Erreur lors de la mise à jour du stock, réessayez.', 400);
         return next(err);
     }
-    res.status(200).json({message: 'Stock updated successfully'});
+    res.status(200).json({message: 'Stock mis à jour avec succès'});
 });
 //update stock quantity limitation
 const UpdateStockBasicInformation = asyncErrorHandler(async (req, res, next) => {
@@ -356,16 +356,16 @@ const DeleteStock = asyncErrorHandler(async (req, res, next) => {
     //check if stock already exist
     const stock = await StockService.findStockById(id);
     if(!stock){
-        const err = new CustomError('Stock not found', 404);
+        const err = new CustomError('Stock non trouvé', 404);
         return next(err);
     }
     //delete stock
     const deletedStock = await Stock.deleteOne({_id: id});
     if(!deletedStock){
-        const err = new CustomError('Error while deleting stock try again.', 400);
+        const err = new CustomError('Erreur lors de la suppression du stock, réessayez.', 400);
         return next(err);
     }
-    res.status(200).json({message: 'Stock deleted successfully'});
+    res.status(200).json({message: 'Stock supprimé avec succès'});
 });
 
 module.exports = {

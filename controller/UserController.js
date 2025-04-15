@@ -15,7 +15,7 @@ const GetAllClientsUnverified = asyncErrorHandler(async (req, res, next) => {
         isBlocked: false
     }).select('firstName lastName phoneNumber wilaya commune r_commerce email isRCVerified isBlocked');
     if(!Users || Users.length <= 0){
-        const err = new CustomError('No client found', 404);
+        const err = new CustomError('Aucun client trouvé', 404);
         return next(err);
     }
     //for each user, get the wilaya and commune
@@ -35,7 +35,7 @@ const GetAllClientsBlocked = asyncErrorHandler(async (req, res, next) => {
         isBlocked: true
     }).select('firstName lastName phoneNumber wilaya commune r_commerce email isRCVerified isBlocked');
     if(!Users || Users.length <= 0){
-        const err = new CustomError('No client found', 404);
+        const err = new CustomError('Aucun client trouvé', 404);
         return next(err);
     }
     //for each user, get the wilaya and commune
@@ -56,7 +56,7 @@ const GetAllClientsVerified = asyncErrorHandler(async (req, res, next) => {
         isBlocked: false
     }).select('firstName lastName phoneNumber wilaya commune r_commerce email isRCVerified isBlocked');
     if(!Users || Users.length <= 0){
-        const err = new CustomError('No client found', 404);
+        const err = new CustomError('Aucun client trouvé', 404);
         return next(err);
     }
     //for each user, get the wilaya and commune
@@ -74,56 +74,55 @@ const GetAllClientsVerified = asyncErrorHandler(async (req, res, next) => {
 const BlockClient = asyncErrorHandler(async (req, res, next) => {
     const { client } = req.body;
     if(!client || !mongoose.Types.ObjectId.isValid(client)){
-        const err = new CustomError('All fields are required', 400);
-        return next(err);
-    }
+            return next(new CustomError('Tous les champs sont obligatoires', 400));
+        }
     const existingClient = await User.findById(client);
     if(!existingClient){
-        const err = new CustomError('Client not found', 404);
+        const err = new CustomError('Client non trouvé', 404);
         return next(err);
     }
     existingClient.isBlocked = true;
     const updatedClient = await existingClient.save();
     if(!updatedClient){
-        const err = new CustomError('Error while blocking client', 500);
+        const err = new CustomError('Erreur lors du blocage du client', 500);
         return next(err);
     }
-    res.status(200).json({message: 'Client blocked successfully'});
+    res.status(200).json({message: 'Client bloqué avec succès'});
 });
 //unblock specific client
 const UnblockClient = asyncErrorHandler(async (req, res, next) => {
     const { client } = req.body;
     if(!client || !mongoose.Types.ObjectId.isValid(client)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     const existingClient = await User.findById(client);
     if(!existingClient){
-        const err = new CustomError('Client not found', 404);
+        const err = new CustomError('Client non trouvé', 404);
         return next(err);
     }
     existingClient.isBlocked = false;
     const updatedClient = await existingClient.save();
     if(!updatedClient){
-        const err = new CustomError('Error while unblocking client', 500);
+        const err = new CustomError('Erreur lors du déblocage du client', 500);
         return next(err);
     }
-    res.status(200).json({message: 'Client unblocked successfully'});
+    res.status(200).json({message: 'Client débloqué avec succès'});
 });
 //verify specific client
 const VerifyClient = asyncErrorHandler(async (req, res, next) => {
     const { client, RC } = req.body;
     if(!client || !mongoose.Types.ObjectId.isValid(client)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
     if(!RC || validator.isEmpty(RC)){
-        const err = new CustomError('Commercial register number is required', 400);
+        const err = new CustomError('Le numéro de registre de commerce est requis', 400);
         return next(err);
     }
     const existingClient = await User.findById(client);
     if(!existingClient){
-        const err = new CustomError('Client not found', 404);
+        const err = new CustomError('Client non trouvé', 404);
         return next(err);
     }
 
@@ -133,19 +132,24 @@ const VerifyClient = asyncErrorHandler(async (req, res, next) => {
 
     const updatedClient = await existingClient.save();
     if(!updatedClient){
-        const err = new CustomError('Error while verifying client', 500);
+        const err = new CustomError('Erreur lors de la vérification du client', 500);
         return next(err);
     }
-    res.status(200).json({message: 'Client verified successfully'});
+    res.status(200).json({message: 'Client vérifié avec succès'});
 });
 //fetch specific user by id
 const GetClientByIdForStore = asyncErrorHandler(async (req, res, next) => {
     const { id, store } = req.params;
     if(!id || !mongoose.Types.ObjectId.isValid(id)){
-        const err = new CustomError('All fields are required', 400);
+        const err = new CustomError('Tous les champs sont obligatoires', 400);
         return next(err);
     }
-
+    const user = await User.findById(id);
+    if(!user){
+        const err = new CustomError('Client non trouvé', 404);
+        return next(err);
+    }
+    
     //check if store already exists
     const myStore = await MyStores.findOne({ 
         user: id,
@@ -153,13 +157,7 @@ const GetClientByIdForStore = asyncErrorHandler(async (req, res, next) => {
     });
 
     if(!myStore){
-        const err = new CustomError('Client not found in your list', 400);
-        return next(err);
-    }
-
-    const user = await User.findById(id);
-    if(!user){
-        const err = new CustomError('User not found', 404);
+        const err = new CustomError('Client non trouvé dans votre magasin', 404);
         return next(err);
     }
     

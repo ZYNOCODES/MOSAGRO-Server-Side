@@ -20,26 +20,26 @@ const CreateNewStockStatusForStock = asyncErrorHandler(async (req, res, next) =>
         validator.isEmpty(SellingPrice.toString()) ||
         validator.isEmpty(Quantity.toString())
     ) {
-        return next(new CustomError('All fields are required', 400));
+        return next(new CustomError('Tout les champs obligatoires doivent être remplis', 400));
     }
     //check if Quantity is a positive number
     if(!Quantity || Number(Quantity) <= 0 || !validator.isNumeric(Quantity.toString())){
-        return next(new CustomError('Quantity must be a positive number > 0', 400));
+        return next(new CustomError('La quantité doit être un nombre positif > 0', 400));
     }
     //check if BuyingPrice and SellingPrice is a positive number
     if(!validator.isNumeric(BuyingPrice.toString()) || 
         !validator.isNumeric(SellingPrice.toString()) ||
         Number(BuyingPrice) <= 0 || Number(SellingPrice) <= 0
     ){
-        return next(new CustomError('Buying and Selling price must be a positive number > 0', 400));
+        return next(new CustomError('Le prix d\'achat et le prix de vente doivent être des nombres positifs > 0', 400));
     }
     //check if buying price is greater than selling price
     if(Number(BuyingPrice) >= Number(SellingPrice)){
-        return next(new CustomError('Buying price must be less than or equal to selling price', 400));
+        return next(new CustomError('Le prix d\'achat doit être inférieur au prix de vente', 400));
     }
     //check if ExparationDate is valid
     if(ExparationDate && !validator.isDate(ExparationDate)){
-        return next(new CustomError('Exparation Date must be a date', 400));
+        return next(new CustomError('La date d\'expiration doit être une date valide', 400));
     }
 
     //get current datetime
@@ -54,7 +54,7 @@ const CreateNewStockStatusForStock = asyncErrorHandler(async (req, res, next) =>
         if (!existingStock) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Stock not found', 404));
+            return next(new CustomError('Stock non trouvé', 404));
         }
 
         //get product
@@ -62,7 +62,7 @@ const CreateNewStockStatusForStock = asyncErrorHandler(async (req, res, next) =>
         if (!product) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Product not found', 404));
+            return next(new CustomError('Product non trouvé', 404));
         }
 
         // recalculate the quantity 
@@ -81,7 +81,7 @@ const CreateNewStockStatusForStock = asyncErrorHandler(async (req, res, next) =>
         if (!stockStatus) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while creating stock status, try again.', 400));
+            return next(new CustomError('Erreur lors de la création du statut de stock, essayez à nouveau.', 400));
         }
 
         existingStock.buying = Number(BuyingPrice);
@@ -93,12 +93,12 @@ const CreateNewStockStatusForStock = asyncErrorHandler(async (req, res, next) =>
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ message: 'New stock status added successfully' });
+        res.status(200).json({ message: 'Nouveau statut de stock créé avec succès' });
     }catch(err){
         await session.abortTransaction();
         session.endSession();
         console.log(err);
-        next(new CustomError('Error while creating new stock status, try again.', 400));
+        next(new CustomError('Erreur lors de la création du statut de stock, essayez à nouveau.', 400));
     }
 
 });
@@ -107,12 +107,12 @@ const FetchLiveStockStatusByStock = asyncErrorHandler(async (req, res, next) => 
     const { id } = req.params;
     //validate required fields
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        return next(new CustomError('Invalid stock id', 400));
+        return next(new CustomError('Tous les champs obligatoires doivent être remplis', 400));
     }
     //check if stock already exist
     const stock = await StockService.findStockById(id);
     if(!stock){
-        const err = new CustomError('Stock not found', 404);
+        const err = new CustomError('Stock non trouvé', 404);
         return next(err);
     }
 
@@ -121,7 +121,7 @@ const FetchLiveStockStatusByStock = asyncErrorHandler(async (req, res, next) => 
     });
 
     if (!stockStatus || stockStatus.length < 1) {
-        return next(new CustomError('Stock status not found', 404));
+        return next(new CustomError('Stock status non trouvé', 404));
     }
     res.status(200).json(stockStatus);
 });
@@ -132,7 +132,7 @@ const UpdateStockStatus = asyncErrorHandler(async (req, res, next) => {
 
     // Validate required fields
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        return next(new CustomError('Status and valid IDs are required to update', 400));
+        return next(new CustomError('Tous les champs obligatoires doivent être remplis', 400));
     }
 
     const session = await mongoose.startSession();
@@ -143,7 +143,7 @@ const UpdateStockStatus = asyncErrorHandler(async (req, res, next) => {
         if (!stockStatus) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Stock status not found', 404));
+            return next(new CustomError('Stock status non trouvé', 404));
         }
         
         // Update stock status
@@ -164,12 +164,12 @@ const UpdateStockStatus = asyncErrorHandler(async (req, res, next) => {
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ message: 'Stock status updated successfully' });
+        res.status(200).json({ message: 'Status de stock mis à jour avec succès' });
     } catch (error) {
         // Rollback the transaction on error
         await session.abortTransaction();
         session.endSession();
-        next(new CustomError('Error while updating stock status, try again.', 400));
+        next(new CustomError('Erreur lors de la mise à jour du statut de stock, essayez à nouveau.', 400));
     }
 });
 //delete status information of stock
@@ -177,7 +177,7 @@ const DeleteStockStatus = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     // Validate required fields
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        return next(new CustomError('Status ID is required to delete', 400));
+        return next(new CustomError('Tous les champs obligatoires doivent être remplis', 400));
     }
 
     const session = await mongoose.startSession();
@@ -188,20 +188,20 @@ const DeleteStockStatus = asyncErrorHandler(async (req, res, next) => {
         if (!stockStatus) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Stock status not found', 404));
+            return next(new CustomError('Stock status non trouvé', 404));
         }
         // get stock
         const existingStock = await StockService.findStockById(stockStatus.stock);
         if (!existingStock) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Stock not found', 404));
+            return next(new CustomError('Stock non trouvé', 404));
         }
         //check if the quantity is greater than the stock quantity
         if(Number(stockStatus.quantity) > Number(existingStock.quantity)){
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Current stock quantity is less than the deleted stock quantity', 400));
+            return next(new CustomError('La quantité de statut de stock est supérieure à la quantité de stock', 400));
         }
         //Update stock quantity
         existingStock.quantity -= Number(stockStatus.quantity);
@@ -209,7 +209,7 @@ const DeleteStockStatus = asyncErrorHandler(async (req, res, next) => {
         if (!updatedStock) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while updating stock quantity, try again.', 400));
+            return next(new CustomError('Erreur lors de la mise à jour de la quantité de stock, essayez à nouveau.', 400));
         }
 
         // Delete stock status
@@ -217,21 +217,21 @@ const DeleteStockStatus = asyncErrorHandler(async (req, res, next) => {
         if (!deletedStatus) {
             await session.abortTransaction();
             session.endSession();
-            return next(new CustomError('Error while deleting stock status, try again.', 400));
+            return next(new CustomError('Erreur lors de la suppression du statut de stock, essayez à nouveau.', 400));
         }
 
         // Commit the transaction
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ message: 'Stock status deleted successfully' });
+        res.status(200).json({ message: 'Stock status supprimé avec succès' });
     } catch (error) {
         console.log(error);
         
         // Rollback the transaction on error
         await session.abortTransaction();
         session.endSession();
-        next(new CustomError('Error while deleting stock status, try again.', 400));
+        next(new CustomError('Erreur lors de la suppression du statut de stock, essayez à nouveau.', 400));
     }
 });
 
