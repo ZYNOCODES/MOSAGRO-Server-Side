@@ -16,6 +16,7 @@ const EmailOTPVerification = require('../model/EmailOTPVerification.js');
 const NodeMailer = require('../util/NodeMailer.js');
 const SubscriptionStoreService = require('../service/SubscriptionStoreService.js');
 const NotificationService = require('../service/NotificationService.js');
+const PasswordResetOTP = require('../model/PasswordResetOTP.js');
 const {
     createToken
 } = require('../util/JWT.js');
@@ -810,6 +811,262 @@ const UpdateStoreEmail = asyncErrorHandler(async (req, res, next) => {
     // Return success response
     res.status(200).json({ message: 'Votre email a été mis à jour avec succès' });
 });
+//forget password for client
+const ForgetPasswordForClient = asyncErrorHandler(async (req, res, next) => {
+    const { PhoneNumber } = req.body;
+    try {
+        // Validation
+        if (!PhoneNumber || validator.isEmpty(PhoneNumber)) {
+            return next(new CustomError('Veuillez fournir votre numéro de téléphone', 400));
+        }
+        
+        // Check if phone number is valid algerian phone number
+        if (!validator.isMobilePhone(PhoneNumber, 'ar-DZ')) {
+            return next(new CustomError('Numéro de téléphone non valide', 400));
+        }
+        
+        // Check if store with this phone number exists
+        const existingClient = await UserService.findUserByPhone(PhoneNumber);
+        
+        if (!existingClient) {
+            return next(new CustomError('Aucun compte trouvé avec ce numéro de téléphone', 404));
+        }
+        
+        // Generate a 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000);
+        
+        // Hash the OTP
+        const hashedOTP = await bcrypt.hashPassword(otp.toString());
+        
+        // Set to UTC time zone
+        const currentTime = UtilMoment.getCurrentDateTime();
+        
+        // Store OTP with expiry time (1 hour)
+        const otpData = {
+            otp: hashedOTP,
+            phoneNumber: PhoneNumber,
+            userId: existingClient._id,
+            accountType: 'client',
+            createdAt: currentTime.toDate(),
+            expiresAt: currentTime.add(1, 'hour').toDate(),
+        };
+        
+        // Check if an OTP already exists for this user
+        const existingOTP = await PasswordResetOTP.findOne({ 
+            phoneNumber: PhoneNumber 
+        });
+        
+        if (existingOTP) {
+            // Update existing OTP
+            await PasswordResetOTP.updateOne(
+                { phoneNumber: PhoneNumber },
+                otpData
+            );
+        } else {
+            // Create new OTP record
+            await PasswordResetOTP.create(otpData);
+        }
+
+        // Send OTP via Twilio
+        const twilio = require('twilio')(
+            process.env.TWILIO_ACCOUNT_SID,
+            process.env.TWILIO_AUTH_TOKEN
+        );
+        
+        await twilio.messages.create({
+            body: `Votre code de vérification pour réinitialiser votre mot de passe est: ${otp}. Ce code est valable pendant 1 heure.`,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: PhoneNumber
+        });
+        
+        res.status(200).json({ 
+            message: 'Un code de vérification a été envoyé à votre numéro de téléphone.'
+        });
+    } catch (error) {
+        console.log('Twilio Error:', error);
+        return next(new CustomError('Erreur lors de l\'envoi du SMS. Veuillez réessayer.', 400));
+    }
+});
+// forget password for store
+const ForgetPasswordForStore = asyncErrorHandler(async (req, res, next) => {
+    const { PhoneNumber } = req.body;
+    try {
+        // Validation
+        if (!PhoneNumber || validator.isEmpty(PhoneNumber)) {
+            return next(new CustomError('Veuillez fournir votre numéro de téléphone', 400));
+        }
+        
+        // Check if phone number is valid algerian phone number
+        if (!validator.isMobilePhone(PhoneNumber, 'ar-DZ')) {
+            return next(new CustomError('Numéro de téléphone non valide', 400));
+        }
+        
+        // Check if store with this phone number exists
+        const existingStore = await StoreService.findStoreByPhone(PhoneNumber);
+        
+        if (!existingStore) {
+            return next(new CustomError('Aucun compte trouvé avec ce numéro de téléphone', 404));
+        }
+        
+        // Generate a 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000);
+        
+        // Hash the OTP
+        const hashedOTP = await bcrypt.hashPassword(otp.toString());
+        
+        // Set to UTC time zone
+        const currentTime = UtilMoment.getCurrentDateTime();
+        
+        // Store OTP with expiry time (1 hour)
+        const otpData = {
+            otp: hashedOTP,
+            phoneNumber: PhoneNumber,
+            userId: existingStore._id,
+            accountType: 'store',
+            createdAt: currentTime.toDate(),
+            expiresAt: currentTime.add(1, 'hour').toDate(),
+        };
+        
+        // Check if an OTP already exists for this user
+        const existingOTP = await PasswordResetOTP.findOne({ 
+            phoneNumber: PhoneNumber 
+        });
+        
+        if (existingOTP) {
+            // Update existing OTP
+            await PasswordResetOTP.updateOne(
+                { phoneNumber: PhoneNumber },
+                otpData
+            );
+        } else {
+            // Create new OTP record
+            await PasswordResetOTP.create(otpData);
+        }
+
+        // Send OTP via Twilio
+        const twilio = require('twilio')(
+            process.env.TWILIO_ACCOUNT_SID,
+            process.env.TWILIO_AUTH_TOKEN
+        );
+        
+        await twilio.messages.create({
+            body: `Votre code de vérification pour réinitialiser votre mot de passe est: ${otp}. Ce code est valable pendant 1 heure.`,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: PhoneNumber
+        });
+        
+        res.status(200).json({ 
+            message: 'Un code de vérification a été envoyé à votre numéro de téléphone.'
+        });
+    } catch (error) {
+        console.log('Twilio Error:', error);
+        return next(new CustomError('Erreur lors de l\'envoi du SMS. Veuillez réessayer.', 400));
+    }
+});
+// Verify OTP for password reset
+const VerifyResetOTP = asyncErrorHandler(async (req, res, next) => {
+    const { PhoneNumber, VerificationCode } = req.body;
+    
+    // Validation
+    if (!PhoneNumber || !VerificationCode) {
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
+    }
+    
+    // Find the OTP record
+    const otpRecord = await PasswordResetOTP.findOne({ phoneNumber: PhoneNumber });
+    
+    if (!otpRecord) {
+        return next(new CustomError('Code de vérification introuvable ou expiré', 400));
+    }
+    
+    // Check if OTP is expired
+    const currentTime = UtilMoment.getCurrentDateTime();
+    if (currentTime.isAfter(otpRecord.expiresAt)) {
+        // Delete expired OTP
+        await PasswordResetOTP.deleteOne({ phoneNumber: PhoneNumber });
+        return next(new CustomError('Code de vérification expiré. Veuillez générer un nouveau code', 400));
+    }
+    
+    // Verify OTP
+    const isValid = await bcrypt.comparePassword(VerificationCode.toString(), otpRecord.otp);
+    
+    if (!isValid) {
+        return next(new CustomError('Code de vérification incorrect', 400));
+    }
+    
+    // OTP is valid - Mark as verified but don't delete yet (we'll need it for reset)
+    await PasswordResetOTP.updateOne(
+        { phoneNumber: PhoneNumber },
+        { verified: true }
+    );
+    
+    res.status(200).json({ 
+        message: 'Code de vérification validé. Vous pouvez maintenant réinitialiser votre mot de passe.'
+    });
+});
+// Reset password
+const ResetPassword = asyncErrorHandler(async (req, res, next) => {
+    const { PhoneNumber, VerificationCode, NewPassword } = req.body;
+    
+    // Validation
+    if (!PhoneNumber || !VerificationCode || !NewPassword) {
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
+    }
+    
+    // Check password strength
+    if (!validator.isStrongPassword(NewPassword)) {
+        return next(new CustomError('Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial', 400));
+    }
+    
+    // Find the OTP record
+    const otpRecord = await PasswordResetOTP.findOne({ 
+        phoneNumber: PhoneNumber,
+        verified: true
+    });
+    
+    if (!otpRecord) {
+        return next(new CustomError('Veuillez vérifier votre code avant de réinitialiser votre mot de passe', 400));
+    }
+    
+    // Double check if OTP is expired
+    const currentTime = UtilMoment.getCurrentDateTime();
+    if (currentTime.isAfter(otpRecord.expiresAt)) {
+        await PasswordResetOTP.deleteOne({ phoneNumber: PhoneNumber });
+        return next(new CustomError('Session expirée. Veuillez recommencer le processus', 400));
+    }
+    
+    // Verify OTP again for security
+    const isValid = await bcrypt.comparePassword(VerificationCode.toString(), otpRecord.otp);
+    
+    if (!isValid) {
+        return next(new CustomError('Code de vérification incorrect', 400));
+    }
+    
+    // Hash the new password
+    const hashedPassword = await bcrypt.hashPassword(NewPassword);
+    
+    // Update password based on account type
+    if (otpRecord.accountType === 'client') {
+        await User.updateOne(
+            { _id: otpRecord.userId },
+            { password: hashedPassword }
+        );
+    } else if (otpRecord.accountType === 'store') {
+        await Store.updateOne(
+            { _id: otpRecord.userId },
+            { password: hashedPassword }
+        );
+    } else {
+        return next(new CustomError('Type de compte non reconnu', 400));
+    }
+    
+    // Delete the OTP record
+    await PasswordResetOTP.deleteOne({ phoneNumber: PhoneNumber });
+    
+    res.status(200).json({ 
+        message: 'Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter.'
+    });
+});
 
 module.exports = {
     SignInAdmin,
@@ -823,5 +1080,9 @@ module.exports = {
     CreateNewClientForAStore,
     CreateNewSellerForAStore,
     UpdateStorePassword,
-    UpdateStoreEmail
+    UpdateStoreEmail,
+    ForgetPasswordForStore,
+    ForgetPasswordForClient,
+    VerifyResetOTP,
+    ResetPassword,
 }

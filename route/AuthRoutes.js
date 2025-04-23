@@ -12,7 +12,11 @@ const {
     CreateNewClientForAStore,
     CreateNewSellerForAStore,
     UpdateStorePassword,
-    UpdateStoreEmail
+    UpdateStoreEmail,
+    ForgetPasswordForStore,
+    ForgetPasswordForClient,
+    VerifyResetOTP,
+    ResetPassword,
 } = require('../controller/AuthController.js');
 const requireAuth = require('../middleware/RequireAuth');
 const checkAuthrozation = require('../middleware/Authorization');
@@ -38,6 +42,15 @@ router.post('/signup/store/verify', VerifyStoreOTP);
 router.post('/signin/client', SignInClient);
 //sign up a client
 router.post('/signup/client', SignUpClient);
+
+//Forget password for store
+router.post('/forgetPassword/store', ForgetPasswordForStore);
+//Forget password for client
+router.post('/forgetPassword/client', ForgetPasswordForClient);
+//Verify reset OTP
+router.patch('/verifyResetOTP', VerifyResetOTP);
+//Reset password
+router.patch('/resetPassword', ResetPassword);
 
 //secure routes below
 router.use(requireAuth);
