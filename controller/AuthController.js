@@ -17,6 +17,8 @@ const NodeMailer = require('../util/NodeMailer.js');
 const SubscriptionStoreService = require('../service/SubscriptionStoreService.js');
 const NotificationService = require('../service/NotificationService.js');
 const PasswordResetOTP = require('../model/PasswordResetOTP.js');
+const SubscriptionStore = require('../model/SubscriptionStoreModel.js');
+const SubscriptionService = require('../service/SubscriptionService.js');
 const {
     createToken
 } = require('../util/JWT.js');
@@ -417,11 +419,39 @@ const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
         existingStore.commune = Commune;
         existingStore.r_commerce = R_Commerce;
         existingStore.categories = Category;
+        existingStore.status = "Active"
 
         // Save the updated store
         const updatedStore = await existingStore.save({ session });
         if (!updatedStore) {
-            throw new CustomError('Erreur lors de la mise à jour du magasin', 500);
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Erreur lors de la mise à jour du magasin', 500));
+        }
+
+        //create a new subscription for this store for one month
+        const existingBasicSubscription = await SubscriptionService.findBasicSubscription();
+        if(!existingBasicSubscription){
+            await session.abortTransaction();
+            session.endSession();
+            const err = new CustomError('Abonnement non trouvé', 404);
+            return next(err);
+        }
+        const currentTime = UtilMoment.getCurrentDateTime();
+        const ExpiryDate = currentTime.clone().add(1, 'months');
+        const newSubscription = await SubscriptionStore.create([{
+            store: existingStore._id,
+            subscription: existingBasicSubscription._id,
+            amount: Number(existingBasicSubscription.amount) * 1,
+            validation: true,
+            startDate: currentTime,
+            expiryDate: ExpiryDate,
+        }], { session });
+
+        if (!newSubscription || !newSubscription[0]) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Erreur lors de la création de l\'abonnement', 500));
         }
 
         // Send notification to admin
@@ -434,7 +464,9 @@ const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
         );
 
         if (!newNotification || !newNotification[0]) {
-            throw new CustomError('Erreur lors de la création de la notification', 500);
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Erreur lors de la création de la notification', 500));
         }
 
         // Commit the transaction
