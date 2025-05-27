@@ -5,6 +5,7 @@ const CustomError = require('../util/CustomError.js');
 const asyncErrorHandler = require('../util/asyncErrorHandler.js');
 const StockService = require('../service/StockService.js');
 const StockStatusService = require('../service/StockStatusService.js');
+const SousPurchaseService = require('../service/SousPurchaseService.js');
 const ProductService = require('../service/ProductService.js');
 const moment = require('../util/Moment.js');
 
@@ -210,6 +211,15 @@ const DeleteStockStatus = asyncErrorHandler(async (req, res, next) => {
             await session.abortTransaction();
             session.endSession();
             return next(new CustomError('Erreur lors de la mise à jour de la quantité de stock, essayez à nouveau.', 400));
+        }
+
+        //if the stock status is linked to an existing purchase, we should not delete it
+        const isLinkedToPurchase = await SousPurchaseService.checkIfThereIsOneSousPurchaseLinkedToSousStock(stockStatus._id);
+        if (isLinkedToPurchase) {
+            // If it is linked, we should not delete it
+            await session.abortTransaction();
+            session.endSession();
+            return next(new CustomError('Ce statut de stock est lié à une achat et ne peut pas être supprimé.', 400));
         }
 
         // Delete stock status

@@ -34,8 +34,15 @@ const findLastSousPurchaseByPurchasePopulated = async (id) => {
     });
 }
 
+const checkIfThereIsOneSousPurchaseLinkedToSousStock = async (sousStockId) => {    
+    return await SousPurchase.exists({ 
+        'sousStocks.sousStock': sousStockId 
+    });
+}
+
 module.exports = {
     createSousPurchase, 
     findLastSousPurchaseByPurchase,
-    findLastSousPurchaseByPurchasePopulated
+    findLastSousPurchaseByPurchasePopulated,
+    checkIfThereIsOneSousPurchaseLinkedToSousStock
 }

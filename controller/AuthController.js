@@ -680,7 +680,7 @@ const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
         // Create the MyStore entry
         await MyStores.create([{
             user: newUser[0]._id,
-            store: store._id,
+            store: store,
             status: 'approved',
         }], { session });
 
@@ -694,6 +694,7 @@ const CreateNewClientForAStore = asyncErrorHandler(async (req, res, next) => {
         // Abort the transaction in case of any errors
         await session.abortTransaction();
         next(new CustomError('Une erreur s\'est produite lors de la création du profil client, veuillez réessayer.', 500));
+        console.error('Error creating client profile:', error);
     } finally {
         // End the session
         session.endSession();
@@ -752,7 +753,11 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
             firstName: FirstName,
             lastName: LastName,
             phoneNumber: PhoneNumber,
-            storeAddresses: [Address],
+            storeAddresses: [{
+                name: 'default address',
+                address: Address,
+                location: null
+            }],
             wilaya: existWilaya.codeW,
             commune: existWilaya.codeC,
             r_commerce: RC.toString()
@@ -764,7 +769,7 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
         // Create the MyStore entry
         await MyStores.create([{
             user: newUser[0]._id,
-            store: store._id,
+            store: store,
             status: 'approved',
             isSeller: true
         }], { session });
@@ -779,6 +784,7 @@ const CreateNewSellerForAStore = asyncErrorHandler(async (req, res, next) => {
         // Abort the transaction in case of any errors
         await session.abortTransaction();
         next(new CustomError('Une erreur s\'est produite lors de la création du profil vendeur, veuillez réessayer.', 500));
+        console.error('Error creating seller profile:', error);
     } finally {
         // End the session
         session.endSession();
