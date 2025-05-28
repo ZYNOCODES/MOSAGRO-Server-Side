@@ -40,9 +40,26 @@ const receiptSchema = new mongoose.Schema({
         required: true
     },
     deliveredLocation: {
-        type: String,
+        type: {
+          name: {
+            type: String,
+            default: null,
+            required: function() {
+              return this.deliveredLocation != null;
+            },
+          },
+          address: {
+            type: String,
+            required: function() {
+              return this.deliveredLocation != null; 
+            },
+          },
+          location: {
+            type: String,
+            default: null,
+          },
+        },
         required: false,
-        default: null 
     },
     expextedDeliveryDate:{
         type: String,

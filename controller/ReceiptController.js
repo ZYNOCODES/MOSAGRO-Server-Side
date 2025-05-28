@@ -184,6 +184,18 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
     ) {
         return next(new CustomError('Le lieu de livraison, le montant et la date prévue sont requis', 400));
     }
+    if (type == 'delivery' && deliveredLocation) {
+        // Parse JSON string to object if needed
+        const parsedLocation = JSON.parse(deliveredLocation)
+        
+        // Simple validation - check structure and address
+        if (!parsedLocation ||
+            !parsedLocation.address || 
+            parsedLocation.address.trim() === '') {
+            return next(new CustomError('Adresse de livraison invalide', 400));
+        }
+    }
+
     if (products.length <= 0) {
         return next(new CustomError('Vous devez choisir au moins un produit', 400));
     }
@@ -304,7 +316,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
             profit: totalProfit,
             date: currentDateTime,
             type: type,
-            deliveredLocation: type != 'delivery' ? null : deliveredLocation,
+            deliveredLocation: type != 'delivery' ? null : JSON.parse(deliveredLocation),
             expextedDeliveryDate: type != 'delivery' ? null : deliveredExpectedDate,
             delivered: false,
             status: 0
