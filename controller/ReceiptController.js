@@ -179,7 +179,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
         return next(new CustomError('Tous les champs sont obligatoires', 400));
     }
     if (type === 'delivery' && (
-        !deliveredLocation || !deliveredAmount || !deliveredExpectedDate
+        !deliveredLocation || !validator.isNumeric(deliveredAmount.toString()) || !deliveredExpectedDate
     )
     ) {
         return next(new CustomError('Le lieu de livraison, le montant et la date prévue sont requis', 400));
