@@ -363,11 +363,11 @@ const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
         }
 
         // Check if password is strong
-        if (!validator.isStrongPassword(Password)) {
-            await session.abortTransaction();
-            session.endSession();
-            return next(new CustomError('Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial', 400));
-        }
+        // if (!validator.isStrongPassword(Password)) {
+        //     await session.abortTransaction();
+        //     session.endSession();
+        //     return next(new CustomError('Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial', 400));
+        // }
 
         // Check if the store exists
         const existingStore = await Store.findOne({ 
@@ -1052,9 +1052,9 @@ const ResetPassword = asyncErrorHandler(async (req, res, next) => {
     }
     
     // Check password strength
-    if (!validator.isStrongPassword(NewPassword)) {
-        return next(new CustomError('Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial', 400));
-    }
+    // if (!validator.isStrongPassword(NewPassword)) {
+    //     return next(new CustomError('Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial', 400));
+    // }
     
     // Find the OTP record
     const otpRecord = await PasswordResetOTP.findOne({ 
