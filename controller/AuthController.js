@@ -480,6 +480,7 @@ const SignUpUpdateStore = asyncErrorHandler(async (req, res, next) => {
         // If any error occurs, abort the transaction
         await session.abortTransaction();
         session.endSession();
+        console.log(error);
         return next(new CustomError('Une erreur est survenue lors de la création de votre compte. Veuillez réessayer.', 500));
     }
 });

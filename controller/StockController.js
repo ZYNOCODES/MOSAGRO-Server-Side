@@ -254,7 +254,7 @@ const FetchStockByStoreClient = asyncErrorHandler(async (req, res, next) => {
         select: '_id code name size image brand boxItems',
         populate: {
             path: 'brand',
-            select: 'name'
+            select: 'name image'
         }
     });
     if(!stocks || stocks.length <= 0){

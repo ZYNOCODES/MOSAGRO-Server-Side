@@ -81,10 +81,10 @@ app.use(ErrorHandler);
 
 //serve static files
 app.use("/files", express.static("./files"))
-app.use(express.static("./public/build"));
-app.get("*", (req, res) => {
-    res.sendFile(path.resolve(__dirname, "public","build", "index.html"));
-});
+// app.use(express.static("./public/build"));
+// app.get("*", (req, res) => {
+//     res.sendFile(path.resolve(__dirname, "public","build", "index.html"));
+// });
 
 
 //connect to db
