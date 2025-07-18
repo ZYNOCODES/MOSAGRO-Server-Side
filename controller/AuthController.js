@@ -557,7 +557,7 @@ const SignUpClient = asyncErrorHandler(async (req, res, next) => {
     const {Email, Password, FirstName, LastName, PhoneNumber,
         Wilaya, Commune, R_Commerce} = req.body;
     //check if all required fields are provide
-    if([Password, FirstName, LastName, PhoneNumber, Wilaya, Commune, R_Commerce].some(field => !field)) {
+    if([Password, FirstName, LastName, PhoneNumber, Wilaya, Commune].some(field => !field)) {
         const err = new CustomError('Vous devez fournir tous les champs obligatoires', 400);
         return next(err);
     }
