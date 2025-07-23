@@ -194,7 +194,7 @@ const FetchAllReceiptStatusByReceipt = asyncErrorHandler(async (req, res, next) 
     }).populate(
         {
             path: 'products.product',
-            select: 'name size brand boxItems',
+            select: 'name size brand boxItems image',
             populate: {
                 path: 'brand',
                 select: 'name'
