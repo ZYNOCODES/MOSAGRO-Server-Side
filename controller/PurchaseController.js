@@ -320,7 +320,7 @@ const GetPurchaseByID = asyncErrorHandler(async (req, res, next) => {
           select: "product",
           populate: {
             path: "product",
-            select: "name size brand boxItems",
+            select: "name size brand boxItems image",
             populate: {
               path: "brand",
               select: "name",
