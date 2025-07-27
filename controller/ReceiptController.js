@@ -400,52 +400,122 @@ const GetReceiptByIDForClient = asyncErrorHandler(async (req, res, next) => {
     }
     res.status(200).json(returnObject);
 });
-//get all none delivered receipts by store
+//get all none delivered receipts by store with pagination, search, and date filtering
 const GetAllLatestReceiptsByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    const receipts = await Receipt.find({
+    const { 
+        page = 1, 
+        limit = 15, 
+        search = '', 
+        startDate = '', 
+        endDate = '' 
+    } = req.query;
+
+    // Validate pagination parameters
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+    const skip = (pageNum - 1) * limitNum;
+    
+    // Build the base query
+    let query = {
         store: store,
         status: 0,
         credit: false,
         deposit: false,
         delivered: false
-    }).populate({
-        path: 'client',
-        select: 'firstName lastName phoneNumber'
-    });
+    };
 
-    if(receipts.length <= 0){
-        const err = new CustomError('Aucune commande trouvée pour vous', 400);
+    // Add date range filtering if provided (using createdAt from timestamps)
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        // Set end date to end of day (23:59:59)
+        end.setHours(23, 59, 59, 999);
+        
+        query.createdAt = {
+            $gte: start,
+            $lte: end
+        };
+    } else if (startDate) {
+        const start = new Date(startDate);
+        query.createdAt = { $gte: start };
+    } else if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt = { $lte: end };
+    }
+
+    // Get all receipts first (without pagination for search)
+    let receiptsQuery = Receipt.find(query)
+        .populate({
+            path: 'client',
+            select: 'firstName lastName phoneNumber'
+        })
+        .sort({ createdAt: 1 });
+
+    const allReceipts = await receiptsQuery.exec();
+
+    // Check if any receipts were found
+    const totalCount = allReceipts.length;
+    if (totalCount <= 0) {
+        const err = new CustomError('Aucune commande trouvée pour vous', 404);
         return next(err);
     }
 
-    // For each receipt, fetch the last receipt status
-    for (let i = 0; i < receipts.length; i++) {
-        let receipt = receipts[i];  // Access receipt using index
+    // Get total price for all receipts
+    const totalPrice = allReceipts.reduce((acc, receipt) => acc + (receipt.total || 0), 0);
+    
+    // Apply client-side search filtering if search term is provided
+    let filteredReceipts = allReceipts;
+    if (search && search.trim() !== '') {
+        const searchRegex = new RegExp(search.trim(), 'i');
+        filteredReceipts = allReceipts.filter(receipt => {
+            if (!receipt.client) return false;
+            
+            const firstName = receipt.client.firstName || '';
+            const lastName = receipt.client.lastName || '';
+            const fullName = `${firstName} ${lastName}`.trim();
+            const phoneNumber = receipt.client.phoneNumber || '';
+            const montant = receipt.total || 0;
+
+            return searchRegex.test(firstName) || 
+                   searchRegex.test(lastName) || 
+                   searchRegex.test(fullName) || 
+                   searchRegex.test(phoneNumber) ||
+                   searchRegex.test(montant.toString());
+        });
+    }
+
+    // Apply pagination to filtered results
+    const paginatedReceipts = filteredReceipts.slice(skip, skip + limitNum);
+    
+    // For each receipt, populate the products (receiptStatus references)
+    for (let i = 0; i < paginatedReceipts.length; i++) {
+        let receipt = paginatedReceipts[i];
 
         if (receipt.products && receipt.products.length > 0) {
-            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            // Get the latest receiptStatus (last item in products array)
+            const latestReceiptStatusId = receipt.products[receipt.products.length - 1];
             
-            // Find the last product's receipt status
-            const lastReceiptStatus = await ReceiptStatus.findOne({
-                _id: lastProductId
-            }).populate({
-                path: 'products.product',
-                select: 'name size brand boxItems',
-                populate:{
-                    path: 'brand',
-                    select: 'name'
-                }
-            });
+            const latestReceiptStatus = await ReceiptStatus.findById(latestReceiptStatusId)
+                .populate({
+                    path: 'products.product',
+                    select: 'name size brand boxItems',
+                    populate: {
+                        path: 'brand',
+                        select: 'name'
+                    }
+                });
             
-            if (!lastReceiptStatus) {
+            if (!latestReceiptStatus) {
                 return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
-            // Create an updated receipt with ordersList and replace the original receipt
-            receipts[i] = {
-                ...receipt.toObject(),  // Copy the original receipt's properties
-                products: lastReceiptStatus.products  // Attach the ordersList
+            // Update the receipt with the populated products from receiptStatus
+            paginatedReceipts[i] = {
+                ...receipt.toObject(),
+                products: latestReceiptStatus.products,
+                receiptStatusId: latestReceiptStatus._id
             };
         } else {
             const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
@@ -453,42 +523,131 @@ const GetAllLatestReceiptsByStore = asyncErrorHandler(async (req, res, next) => 
         }
     }
 
-    res.status(200).json(receipts);
+    res.status(200).json({
+        success: true,
+        data: paginatedReceipts,
+        pagination: {
+            current_page: pageNum,
+            total_pages: Math.ceil(totalCount / limitNum),
+            total_items: totalCount,
+            total_price: totalPrice,
+            items_per_page: limitNum,
+            has_next_page: pageNum < Math.ceil(totalCount / limitNum),
+            has_prev_page: pageNum > 1
+        },
+        filters: {
+            search: search,
+            startDate: startDate,
+            endDate: endDate
+        }
+    });
 });
-//get all in pregress receipts by store
+//get all in progress receipts by store with pagination, search, and date filtering
 const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    const receipts = await Receipt.find({
+    const { 
+        page = 1, 
+        limit = 15, 
+        search = '', 
+        startDate = '', 
+        endDate = '' 
+    } = req.query;
+
+    // Validate pagination parameters
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build the base query
+    let query = {
         store: store,
         status: { 
             $nin: [-2, -1, 0, 4, 10]
         },
         credit: false,
         deposit: false,
-    }).populate({
-        path: 'client',
-        select: 'firstName lastName phoneNumber'
-    });
+    };
 
-    if(receipts.length <= 0){
+    // Add date range filtering if provided (using createdAt from timestamps)
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        // Set end date to end of day (23:59:59)
+        end.setHours(23, 59, 59, 999);
+        
+        query.createdAt = {
+            $gte: start,
+            $lte: end
+        };
+    } else if (startDate) {
+        const start = new Date(startDate);
+        query.createdAt = { $gte: start };
+    } else if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt = { $lte: end };
+    }
+
+    // Get all receipts first (without pagination for search)
+    let receiptsQuery = Receipt.find(query)
+        .populate({
+            path: 'client',
+            select: 'firstName lastName phoneNumber'
+        })
+        .sort({ createdAt: 1 });
+
+    const allReceipts = await receiptsQuery.exec();
+
+    const totalCount = allReceipts.length;
+    if (totalCount <= 0) {
         const err = new CustomError('Aucune commande trouvée pour vous', 400);
         return next(err);
     }
 
+    // Get total price for all receipts
+    const totalPrice = allReceipts.reduce((acc, receipt) => acc + (receipt.total || 0), 0);
+    // Get total count for all receipts by status
+    const totalCountStatus1 = allReceipts.filter(receipt => receipt.status === 1).length;
+    const totalCountStatus2 = allReceipts.filter(receipt => receipt.status === 2).length;
+    const totalCountStatus3 = allReceipts.filter(receipt => receipt.status === 3).length;
+    
+    // Apply client-side search filtering if search term is provided
+    let filteredReceipts = allReceipts;
+    if (search && search.trim() !== '') {
+        const searchRegex = new RegExp(search.trim(), 'i');
+        filteredReceipts = allReceipts.filter(receipt => {
+            if (!receipt.client) return false;
+            
+            const firstName = receipt.client.firstName || '';
+            const lastName = receipt.client.lastName || '';
+            const fullName = `${firstName} ${lastName}`.trim();
+            const phoneNumber = receipt.client.phoneNumber || '';
+            const montant = receipt.total || 0;
+
+            return searchRegex.test(firstName) || 
+                   searchRegex.test(lastName) || 
+                   searchRegex.test(fullName) || 
+                   searchRegex.test(phoneNumber) ||
+                   searchRegex.test(montant.toString());
+        });
+    }
+
+    // Apply pagination to filtered results
+    const paginatedReceipts = filteredReceipts.slice(skip, skip + limitNum);
+
     // For each receipt, fetch the last receipt status
-    for (let i = 0; i < receipts.length; i++) {
-        let receipt = receipts[i];  // Access receipt using index
+    for (let i = 0; i < paginatedReceipts.length; i++) {
+        let receipt = paginatedReceipts[i];
 
         if (receipt.products && receipt.products.length > 0) {
-            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            const lastProductId = receipt.products[receipt.products.length - 1];
             
-            // Find the last product's receipt status
             const lastReceiptStatus = await ReceiptStatus.findOne({
                 _id: lastProductId
             }).populate({
                 path: 'products.product',
                 select: 'name size brand boxItems',
-                populate:{
+                populate: {
                     path: 'brand',
                     select: 'name'
                 }
@@ -498,10 +657,11 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
                 return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
-            // Create an updated receipt with ordersList and replace the original receipt
-            receipts[i] = {
-                ...receipt.toObject(),  // Copy the original receipt's properties
-                products: lastReceiptStatus.products  // Attach the ordersList
+            // Update the receipt with the populated products from receiptStatus
+            paginatedReceipts[i] = {
+                ...receipt.toObject(),
+                products: lastReceiptStatus.products,
+                receiptStatusId: lastReceiptStatus._id
             };
         } else {
             const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
@@ -509,40 +669,127 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
         }
     }
 
-    res.status(200).json(receipts);
+    res.status(200).json({
+        success: true,
+        data: paginatedReceipts,
+        pagination: {
+            current_page: pageNum,
+            total_pages: Math.ceil(totalCount / limitNum),
+            total_items: totalCount,
+            total_price: totalPrice,
+            total_count_status_1: totalCountStatus1,
+            total_count_status_2: totalCountStatus2,
+            total_count_status_3: totalCountStatus3,
+            items_per_page: limitNum,
+            has_next_page: pageNum < Math.ceil(totalCount / limitNum),
+            has_prev_page: pageNum > 1
+        },
+        filters: {
+            search: search,
+            startDate: startDate,
+            endDate: endDate
+        }
+    });
 });
-//get all delivered receipts by store
+//get all delivered receipts by store with pagination, search, and date filtering
 const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    const receipts = await Receipt.find({
+    const { 
+        page = 1, 
+        limit = 15, 
+        search = '', 
+        startDate = '', 
+        endDate = '' 
+    } = req.query;
+
+    // Validate pagination parameters
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build the base query
+    let query = {
         store: store,
-        delivered: true,
         status: {
             $in: [-2, -1, 10]
         }
-    }).populate({
-        path: 'client',
-        select: 'firstName lastName phoneNumber'
-    });
-    if(receipts.length <= 0){
+    };
+
+    // Add date range filtering if provided (using createdAt from timestamps)
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        // Set end date to end of day (23:59:59)
+        end.setHours(23, 59, 59, 999);
+        
+        query.createdAt = {
+            $gte: start,
+            $lte: end
+        };
+    } else if (startDate) {
+        const start = new Date(startDate);
+        query.createdAt = { $gte: start };
+    } else if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt = { $lte: end };
+    }
+
+    // Get all receipts first (without pagination for search)
+    let receiptsQuery = Receipt.find(query)
+        .populate({
+            path: 'client',
+            select: 'firstName lastName phoneNumber'
+        })
+        .sort({ createdAt: 1 });
+
+    const allReceipts = await receiptsQuery.exec();
+
+
+    // Check if any receipts were found
+    const totalCount = allReceipts.length;
+    if (totalCount <= 0) {
         const err = new CustomError('Aucune commande livrée trouvée pour vous', 400);
         return next(err);
     }
 
+    // Apply client-side search filtering if search term is provided
+    let filteredReceipts = allReceipts;
+    if (search && search.trim() !== '') {
+        const searchRegex = new RegExp(search.trim(), 'i');
+        filteredReceipts = allReceipts.filter(receipt => {
+            if (!receipt.client) return false;
+            
+            const firstName = receipt.client.firstName || '';
+            const lastName = receipt.client.lastName || '';
+            const fullName = `${firstName} ${lastName}`.trim();
+            const phoneNumber = receipt.client.phoneNumber || '';
+            const montant = receipt.total || 0;
+
+            return searchRegex.test(firstName) || 
+                   searchRegex.test(lastName) || 
+                   searchRegex.test(fullName) || 
+                   searchRegex.test(phoneNumber) ||
+                   searchRegex.test(montant.toString());
+        });
+    }
+
+    // Apply pagination to filtered results
+    const paginatedReceipts = filteredReceipts.slice(skip, skip + limitNum);
+
     // For each receipt, fetch the last receipt status
-    for (let i = 0; i < receipts.length; i++) {
-        let receipt = receipts[i];  // Access receipt using index
+    for (let i = 0; i < paginatedReceipts.length; i++) {
+        let receipt = paginatedReceipts[i];
 
         if (receipt.products && receipt.products.length > 0) {
-            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            const lastProductId = receipt.products[receipt.products.length - 1];
             
-            // Find the last product's receipt status
             const lastReceiptStatus = await ReceiptStatus.findOne({
                 _id: lastProductId
             }).populate({
                 path: 'products.product',
                 select: 'name size brand boxItems',
-                populate:{
+                populate: {
                     path: 'brand',
                     select: 'name'
                 }
@@ -552,10 +799,11 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
                 return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
-            // Create an updated receipt with ordersList and replace the original receipt
-            receipts[i] = {
-                ...receipt.toObject(),  // Copy the original receipt's properties
-                products: lastReceiptStatus.products  // Attach the ordersList
+            // Update the receipt with the populated products from receiptStatus
+            paginatedReceipts[i] = {
+                ...receipt.toObject(),
+                products: lastReceiptStatus.products,
+                receiptStatusId: lastReceiptStatus._id
             };
         } else {
             const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
@@ -563,43 +811,128 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
         }
     }
 
-    res.status(200).json(receipts);
+    res.status(200).json({
+        success: true,
+        data: paginatedReceipts,
+        pagination: {
+            current_page: pageNum,
+            total_pages: Math.ceil(totalCount / limitNum),
+            total_items: totalCount,
+            items_per_page: limitNum,
+            has_next_page: pageNum < Math.ceil(totalCount / limitNum),
+            has_prev_page: pageNum > 1
+        },
+        filters: {
+            search: search,
+            startDate: startDate,
+            endDate: endDate
+        }
+    });
 });
-//get all delivered receipts by store which are credited by the client
+//get all delivered receipts by store which are credited by the client with pagination, search, and date filtering
 const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    const receipts = await Receipt.find({
+    const { 
+        page = 1, 
+        limit = 15, 
+        search = '', 
+        startDate = '', 
+        endDate = '' 
+    } = req.query;
+
+    // Validate pagination parameters
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build the base query
+    let query = {
         store: store,
         $or: [
             { credit: true },
             { deposit: true }
         ]
-    }).populate({
-        path: 'client',
-        select: 'firstName lastName phoneNumber'
-    }).populate({
-        path: 'products.product',
-        select: 'name size'
-    });
-    if(receipts.length <= 0){
+    };
+
+    // Add date range filtering if provided (using createdAt from timestamps)
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        // Set end date to end of day (23:59:59)
+        end.setHours(23, 59, 59, 999);
+        
+        query.createdAt = {
+            $gte: start,
+            $lte: end
+        };
+    } else if (startDate) {
+        const start = new Date(startDate);
+        query.createdAt = { $gte: start };
+    } else if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt = { $lte: end };
+    }
+
+    // Get all receipts first (without pagination for search)
+    let receiptsQuery = Receipt.find(query)
+        .populate({
+            path: 'client',
+            select: 'firstName lastName phoneNumber'
+        })
+        .sort({ createdAt: 1 });
+
+    const allReceipts = await receiptsQuery.exec();
+
+    // Check if any receipts were found
+    const totalCount = allReceipts.length;
+    if (totalCount <= 0) {
         const err = new CustomError('Aucune commande livrée créditée trouvée pour vous', 400);
         return next(err);
     }
 
+    // Get total price for all receipts
+    const totalPrice = allReceipts.reduce((acc, receipt) => acc + (receipt.total || 0), 0);
+    // Get total payment for all receipts
+    const totalPayment = allReceipts.reduce((acc, order) => acc + order.payment.reduce((acc, payment) => acc + Number(payment.amount), 0), 0);
+    
+    // Apply client-side search filtering if search term is provided
+    let filteredReceipts = allReceipts;
+    if (search && search.trim() !== '') {
+        const searchRegex = new RegExp(search.trim(), 'i');
+        filteredReceipts = allReceipts.filter(receipt => {
+            if (!receipt.client) return false;
+            
+            const firstName = receipt.client.firstName || '';
+            const lastName = receipt.client.lastName || '';
+            const fullName = `${firstName} ${lastName}`.trim();
+            const phoneNumber = receipt.client.phoneNumber || '';
+            const montant = receipt.total || 0;
+
+            return searchRegex.test(firstName) || 
+                   searchRegex.test(lastName) || 
+                   searchRegex.test(fullName) || 
+                   searchRegex.test(phoneNumber) ||
+                   searchRegex.test(montant.toString());
+        });
+    }
+
+    // Apply pagination to filtered results
+    const paginatedReceipts = filteredReceipts.slice(skip, skip + limitNum);
+
     // For each receipt, fetch the last receipt status
-    for (let i = 0; i < receipts.length; i++) {
-        let receipt = receipts[i];  // Access receipt using index
+    for (let i = 0; i < paginatedReceipts.length; i++) {
+        let receipt = paginatedReceipts[i];
 
         if (receipt.products && receipt.products.length > 0) {
-            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            const lastProductId = receipt.products[receipt.products.length - 1];
             
-            // Find the last product's receipt status
             const lastReceiptStatus = await ReceiptStatus.findOne({
                 _id: lastProductId
             }).populate({
                 path: 'products.product',
                 select: 'name size brand boxItems',
-                populate:{
+                populate: {
                     path: 'brand',
                     select: 'name'
                 }
@@ -609,10 +942,11 @@ const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res
                 return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
-            // Create an updated receipt with ordersList and replace the original receipt
-            receipts[i] = {
-                ...receipt.toObject(),  // Copy the original receipt's properties
-                products: lastReceiptStatus.products  // Attach the ordersList
+            // Update the receipt with the populated products from receiptStatus
+            paginatedReceipts[i] = {
+                ...receipt.toObject(),
+                products: lastReceiptStatus.products,
+                receiptStatusId: lastReceiptStatus._id
             };
         } else {
             const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
@@ -620,41 +954,123 @@ const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res
         }
     }
 
-    res.status(200).json(receipts);
+    res.status(200).json({
+        success: true,
+        data: paginatedReceipts,
+        pagination: {
+            current_page: pageNum,
+            total_pages: Math.ceil(totalCount / limitNum),
+            total_items: totalCount,
+            total_price: totalPrice,
+            total_payment: totalPayment,
+            items_per_page: limitNum,
+            has_next_page: pageNum < Math.ceil(totalCount / limitNum),
+            has_prev_page: pageNum > 1
+        },
+        filters: {
+            search: search,
+            startDate: startDate,
+            endDate: endDate
+        }
+    });
 });
-//fetch all returned receipts by store
+//fetch all returned receipts by store with pagination, search, and date filtering
 const GetAllReturnedReceiptsByStore = asyncErrorHandler(async (req, res, next) => {
     const { store } = req.params;
-    const receipts = await Receipt.find({
+    const { 
+        page = 1, 
+        limit = 15, 
+        search = '', 
+        startDate = '', 
+        endDate = '' 
+    } = req.query;
+
+    // Validate pagination parameters
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build the base query
+    let query = {
         store: store,
         status: 4,
         delivered: true
-    }).populate({
-        path: 'client',
-        select: 'firstName lastName phoneNumber'
-    }).populate({
-        path: 'products.product',
-        select: 'name size'
-    });
-    if(receipts.length <= 0){
+    };
+
+    // Add date range filtering if provided (using createdAt from timestamps)
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        // Set end date to end of day (23:59:59)
+        end.setHours(23, 59, 59, 999);
+        
+        query.createdAt = {
+            $gte: start,
+            $lte: end
+        };
+    } else if (startDate) {
+        const start = new Date(startDate);
+        query.createdAt = { $gte: start };
+    } else if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt = { $lte: end };
+    }
+
+    // Get all receipts first (without pagination for search)
+    let receiptsQuery = Receipt.find(query)
+        .populate({
+            path: 'client',
+            select: 'firstName lastName phoneNumber'
+        })
+        .sort({ createdAt: 1 });
+
+    const allReceipts = await receiptsQuery.exec();
+    
+    // Check if any receipts were found
+    const totalCount = allReceipts.length;
+    if (totalCount <= 0) {
         const err = new CustomError('Aucune commande retournée trouvée pour vous', 400);
         return next(err);
     }
 
+    // Apply client-side search filtering if search term is provided
+    let filteredReceipts = allReceipts;
+    if (search && search.trim() !== '') {
+        const searchRegex = new RegExp(search.trim(), 'i');
+        filteredReceipts = allReceipts.filter(receipt => {
+            if (!receipt.client) return false;
+            
+            const firstName = receipt.client.firstName || '';
+            const lastName = receipt.client.lastName || '';
+            const fullName = `${firstName} ${lastName}`.trim();
+            const phoneNumber = receipt.client.phoneNumber || '';
+            const montant = receipt.total || 0;
+
+            return searchRegex.test(firstName) || 
+                   searchRegex.test(lastName) || 
+                   searchRegex.test(fullName) || 
+                   searchRegex.test(phoneNumber) ||
+                   searchRegex.test(montant.toString());
+        });
+    }
+
+    // Apply pagination to filtered results
+    const paginatedReceipts = filteredReceipts.slice(skip, skip + limitNum);
+
     // For each receipt, fetch the last receipt status
-    for (let i = 0; i < receipts.length; i++) {
-        let receipt = receipts[i];  // Access receipt using index
+    for (let i = 0; i < paginatedReceipts.length; i++) {
+        let receipt = paginatedReceipts[i];
 
         if (receipt.products && receipt.products.length > 0) {
-            const lastProductId = receipt.products[receipt.products.length - 1];  // Get last product ID
+            const lastProductId = receipt.products[receipt.products.length - 1];
             
-            // Find the last product's receipt status
             const lastReceiptStatus = await ReceiptStatus.findOne({
                 _id: lastProductId
             }).populate({
                 path: 'products.product',
                 select: 'name size brand boxItems',
-                populate:{
+                populate: {
                     path: 'brand',
                     select: 'name'
                 }
@@ -664,10 +1080,11 @@ const GetAllReturnedReceiptsByStore = asyncErrorHandler(async (req, res, next) =
                 return next(new CustomError('Statut de la commande non trouvé', 404));
             }
 
-            // Create an updated receipt with ordersList and replace the original receipt
-            receipts[i] = {
-                ...receipt.toObject(),  // Copy the original receipt's properties
-                products: lastReceiptStatus.products  // Attach the ordersList
+            // Update the receipt with the populated products from receiptStatus
+            paginatedReceipts[i] = {
+                ...receipt.toObject(),
+                products: lastReceiptStatus.products,
+                receiptStatusId: lastReceiptStatus._id
             };
         } else {
             const err = new CustomError('Aucun produit trouvé pour cette commande', 400);
@@ -675,7 +1092,23 @@ const GetAllReturnedReceiptsByStore = asyncErrorHandler(async (req, res, next) =
         }
     }
 
-    res.status(200).json(receipts);
+    res.status(200).json({
+        success: true,
+        data: paginatedReceipts,
+        pagination: {
+            current_page: pageNum,
+            total_pages: Math.ceil(totalCount / limitNum),
+            total_items: totalCount,
+            items_per_page: limitNum,
+            has_next_page: pageNum < Math.ceil(totalCount / limitNum),
+            has_prev_page: pageNum > 1
+        },
+        filters: {
+            search: search,
+            startDate: startDate,
+            endDate: endDate
+        }
+    });
 });
 //get all receipts by client
 const GetAllReceiptsByClient = asyncErrorHandler(async (req, res, next) => {
