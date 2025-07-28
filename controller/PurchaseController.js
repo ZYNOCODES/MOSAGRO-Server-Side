@@ -359,25 +359,85 @@ const GetPurchaseByID = asyncErrorHandler(async (req, res, next) => {
 //fetch all Purchases
 const GetAllClosedPurchases = asyncErrorHandler(async (req, res, next) => {
   const { store } = req.params;
+  const { 
+    page = 1, 
+    limit = 15, 
+    search = '', 
+    startDate = '', 
+    endDate = '' 
+  } = req.query;
 
-  //get all purchases by store
-  const purchases = await Purchase.find({
+  // Validate pagination parameters
+  const pageNum = Math.max(1, parseInt(page));
+  const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+  const skip = (pageNum - 1) * limitNum;
+
+  // Build the base query
+  let query = {
     store: store,
     closed: true,
-  }).populate({
-    path: "fournisseur",
-    select: "firstName lastName",
-  });
+  };
 
+  // Add date range filtering if provided
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    
+    query.createdAt = {
+      $gte: start,
+      $lte: end
+    };
+  } else if (startDate) {
+    const start = new Date(startDate);
+    query.createdAt = { $gte: start };
+  } else if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    query.createdAt = { $lte: end };
+  }
+
+  //get all purchases by store
+  const allPurchases = await Purchase.find(query)
+    .populate({
+      path: "fournisseur",
+      select: "firstName lastName",
+    })
+    .sort({ createdAt: -1 });
+
+    
   //check if purchases found
-  if (!purchases || purchases.length < 1) {
+  const totalCount = allPurchases.length;
+  if (totalCount <= 0) {
     const err = new CustomError("Aucun achat trouvé", 400);
     return next(err);
   }
 
+  // Apply client-side search filtering if search term is provided
+  let filteredPurchases = allPurchases;
+  if (search && search.trim() !== '') {
+    const searchRegex = new RegExp(search.trim(), 'i');
+    filteredPurchases = allPurchases.filter(purchase => {
+      if (!purchase.fournisseur) return false;
+      
+      const firstName = purchase.fournisseur.firstName || '';
+      const lastName = purchase.fournisseur.lastName || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      const totalAmount = purchase.totalAmount || 0;
+
+      return searchRegex.test(firstName) || 
+             searchRegex.test(lastName) || 
+             searchRegex.test(fullName) || 
+             searchRegex.test(totalAmount.toString());
+    });
+  }
+
+  // Apply pagination to filtered results
+  const paginatedPurchases = filteredPurchases.slice(skip, skip + limitNum);
+
   // For each purchase, fetch the last sous purchase
-  for (let i = 0; i < purchases.length; i++) {
-    let purchase = purchases[i];
+  for (let i = 0; i < paginatedPurchases.length; i++) {
+    let purchase = paginatedPurchases[i];
 
     if (purchase.sousPurchases && purchase.sousPurchases.length > 0) {
       const lastSousPurchase =
@@ -389,7 +449,7 @@ const GetAllClosedPurchases = asyncErrorHandler(async (req, res, next) => {
         return next(new CustomError("Sous-achat non trouvé", 404));
       }
 
-      purchases[i] = {
+      paginatedPurchases[i] = {
         ...purchase.toObject(),
         sousPurchases: lastSousPurchase.sousStocks,
       };
@@ -402,31 +462,110 @@ const GetAllClosedPurchases = asyncErrorHandler(async (req, res, next) => {
     }
   }
 
-  res.status(200).json(purchases);
+  res.status(200).json({
+    success: true,
+    data: paginatedPurchases,
+    pagination: {
+      current_page: pageNum,
+      total_pages: Math.ceil(totalCount / limitNum),
+      total_items: totalCount,
+      items_per_page: limitNum,
+      has_next_page: pageNum < Math.ceil(totalCount / limitNum),
+      has_prev_page: pageNum > 1
+    },
+    filters: {
+      search: search,
+      startDate: startDate,
+      endDate: endDate
+    }
+  });
 });
 
-//fetch all credited Purchases
+//fetch all credited Purchases with pagination, search, and date filtering
 const GetAllCreditedPurchases = asyncErrorHandler(async (req, res, next) => {
   const { store } = req.params;
-  //get all purchases by store
-  const purchases = await Purchase.find({
+  const { 
+    page = 1, 
+    limit = 15, 
+    search = '', 
+    startDate = '', 
+    endDate = '' 
+  } = req.query;
+
+  // Validate pagination parameters
+  const pageNum = Math.max(1, parseInt(page));
+  const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+  const skip = (pageNum - 1) * limitNum;
+
+  // Build the base query
+  let query = {
     store: store,
     $or: [{ credit: true }, { deposit: true }],
     closed: false,
-  }).populate({
-    path: "fournisseur",
-    select: "firstName lastName",
-  });
+  };
+
+  // Add date range filtering if provided
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    
+    query.createdAt = {
+      $gte: start,
+      $lte: end
+    };
+  } else if (startDate) {
+    const start = new Date(startDate);
+    query.createdAt = { $gte: start };
+  } else if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    query.createdAt = { $lte: end };
+  }
+
+  //get all purchases by store
+  const allPurchases = await Purchase.find(query)
+    .populate({
+      path: "fournisseur",
+      select: "firstName lastName",
+    })
+    .sort({ createdAt: -1 });
 
   //check if purchases found
-  if (!purchases || purchases.length < 1) {
+  const totalCount = allPurchases.length;
+  if (totalCount <= 0) {
     const err = new CustomError("Aucun achat trouvé", 400);
     return next(err);
   }
 
+  // Get total price for all purchases
+  const totalPrice = allPurchases.reduce((acc, purchase) => acc + (purchase.totalAmount || 0), 0);
+
+  // Apply client-side search filtering if search term is provided
+  let filteredPurchases = allPurchases;
+  if (search && search.trim() !== '') {
+    const searchRegex = new RegExp(search.trim(), 'i');
+    filteredPurchases = allPurchases.filter(purchase => {
+      if (!purchase.fournisseur) return false;
+      
+      const firstName = purchase.fournisseur.firstName || '';
+      const lastName = purchase.fournisseur.lastName || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      const totalAmount = purchase.totalAmount || 0;
+
+      return searchRegex.test(firstName) || 
+             searchRegex.test(lastName) || 
+             searchRegex.test(fullName) || 
+             searchRegex.test(totalAmount.toString());
+    });
+  }
+
+  // Apply pagination to filtered results
+  const paginatedPurchases = filteredPurchases.slice(skip, skip + limitNum);
+
   // For each purchase, fetch the last sous purchase
-  for (let i = 0; i < purchases.length; i++) {
-    let purchase = purchases[i];
+  for (let i = 0; i < paginatedPurchases.length; i++) {
+    let purchase = paginatedPurchases[i];
 
     if (purchase.sousPurchases && purchase.sousPurchases.length > 0) {
       const lastSousPurchase =
@@ -438,7 +577,7 @@ const GetAllCreditedPurchases = asyncErrorHandler(async (req, res, next) => {
         return next(new CustomError("Sous-achat non trouvé", 404));
       }
 
-      purchases[i] = {
+      paginatedPurchases[i] = {
         ...purchase.toObject(),
         sousPurchases: lastSousPurchase.sousStocks,
       };
@@ -451,31 +590,111 @@ const GetAllCreditedPurchases = asyncErrorHandler(async (req, res, next) => {
     }
   }
 
-  res.status(200).json(purchases);
+  res.status(200).json({
+    success: true,
+    data: paginatedPurchases,
+    pagination: {
+      current_page: pageNum,
+      total_pages: Math.ceil(totalCount / limitNum),
+      total_items: totalCount,
+      total_price: totalPrice,
+      items_per_page: limitNum,
+      has_next_page: pageNum < Math.ceil(totalCount / limitNum),
+      has_prev_page: pageNum > 1
+    },
+    filters: {
+      search: search,
+      startDate: startDate,
+      endDate: endDate
+    }
+  });
 });
 
-//fetch all returned Purchases
+//fetch all returned Purchases with pagination, search, and date filtering
 const GetAllReturnedPurchases = asyncErrorHandler(async (req, res, next) => {
   const { store } = req.params;
-  //get all purchases by store
-  const purchases = await Purchase.find({
+  const { 
+    page = 1, 
+    limit = 15, 
+    search = '', 
+    startDate = '', 
+    endDate = '' 
+  } = req.query;
+
+  // Validate pagination parameters
+  const pageNum = Math.max(1, parseInt(page));
+  const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+  const skip = (pageNum - 1) * limitNum;
+
+  // Build the base query
+  let query = {
     store: store,
     sousPurchases: { $exists: true },
     $expr: { $gt: [{ $size: "$sousPurchases" }, 1] },
-  }).populate({
-    path: "fournisseur",
-    select: "firstName lastName",
-  });
+  };
+
+  // Add date range filtering if provided
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    
+    query.createdAt = {
+      $gte: start,
+      $lte: end
+    };
+  } else if (startDate) {
+    const start = new Date(startDate);
+    query.createdAt = { $gte: start };
+  } else if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    query.createdAt = { $lte: end };
+  }
+
+  //get all purchases by store
+  const allPurchases = await Purchase.find(query)
+    .populate({
+      path: "fournisseur",
+      select: "firstName lastName",
+    })
+    .sort({ createdAt: -1 });
 
   //check if purchases found
-  if (!purchases || purchases.length < 1) {
+  const totalCount = allPurchases.length;
+  if (totalCount <= 0) {
     const err = new CustomError("Aucun achat retourné trouvé", 400);
     return next(err);
   }
 
+  // Get total price for all purchases
+  const totalPrice = allPurchases.reduce((acc, purchase) => acc + (purchase.totalAmount || 0), 0);
+
+  // Apply client-side search filtering if search term is provided
+  let filteredPurchases = allPurchases;
+  if (search && search.trim() !== '') {
+    const searchRegex = new RegExp(search.trim(), 'i');
+    filteredPurchases = allPurchases.filter(purchase => {
+      if (!purchase.fournisseur) return false;
+      
+      const firstName = purchase.fournisseur.firstName || '';
+      const lastName = purchase.fournisseur.lastName || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      const totalAmount = purchase.totalAmount || 0;
+
+      return searchRegex.test(firstName) || 
+             searchRegex.test(lastName) || 
+             searchRegex.test(fullName) || 
+             searchRegex.test(totalAmount.toString());
+    });
+  }
+
+  // Apply pagination to filtered results
+  const paginatedPurchases = filteredPurchases.slice(skip, skip + limitNum);
+
   // For each purchase, fetch the last sous purchase
-  for (let i = 0; i < purchases.length; i++) {
-    let purchase = purchases[i];
+  for (let i = 0; i < paginatedPurchases.length; i++) {
+    let purchase = paginatedPurchases[i];
 
     if (purchase.sousPurchases && purchase.sousPurchases.length > 0) {
       const lastSousPurchase =
@@ -487,7 +706,7 @@ const GetAllReturnedPurchases = asyncErrorHandler(async (req, res, next) => {
         return next(new CustomError("Sous-achat non trouvé", 404));
       }
 
-      purchases[i] = {
+      paginatedPurchases[i] = {
         ...purchase.toObject(),
         sousPurchases: lastSousPurchase.sousStocks,
       };
@@ -500,33 +719,113 @@ const GetAllReturnedPurchases = asyncErrorHandler(async (req, res, next) => {
     }
   }
 
-  res.status(200).json(purchases);
+  res.status(200).json({
+    success: true,
+    data: paginatedPurchases,
+    pagination: {
+      current_page: pageNum,
+      total_pages: Math.ceil(totalCount / limitNum),
+      total_items: totalCount,
+      total_price: totalPrice,
+      items_per_page: limitNum,
+      has_next_page: pageNum < Math.ceil(totalCount / limitNum),
+      has_prev_page: pageNum > 1
+    },
+    filters: {
+      search: search,
+      startDate: startDate,
+      endDate: endDate
+    }
+  });
 });
 
-//fetch all new Purchases
+//fetch all new Purchases with pagination, search, and date filtering
 const GetAllNewPurchases = asyncErrorHandler(async (req, res, next) => {
   const { store } = req.params;
-  //get all purchases by store
-  const purchases = await Purchase.find({
+  const { 
+    page = 1, 
+    limit = 15, 
+    search = '', 
+    startDate = '', 
+    endDate = '' 
+  } = req.query;
+
+  // Validate pagination parameters
+  const pageNum = Math.max(1, parseInt(page));
+  const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+  const skip = (pageNum - 1) * limitNum;
+
+  // Build the base query
+  let query = {
     store: store,
     credit: false,
     deposit: false,
     closed: false,
     payment: { $size: 0 },
-  }).populate({
-    path: "fournisseur",
-    select: "firstName lastName",
-  });
+  };
+
+  // Add date range filtering if provided
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    
+    query.createdAt = {
+      $gte: start,
+      $lte: end
+    };
+  } else if (startDate) {
+    const start = new Date(startDate);
+    query.createdAt = { $gte: start };
+  } else if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    query.createdAt = { $lte: end };
+  }
+
+  //get all purchases by store
+  const allPurchases = await Purchase.find(query)
+    .populate({
+      path: "fournisseur",
+      select: "firstName lastName",
+    })
+    .sort({ createdAt: -1 });
 
   //check if purchases found
-  if (!purchases || purchases.length < 1) {
+  const totalCount = allPurchases.length;
+  if (totalCount <= 0) {
     const err = new CustomError("Aucun achat trouvé", 400);
     return next(err);
   }
 
+  // Get total price for all purchases
+  const totalPrice = allPurchases.reduce((acc, purchase) => acc + (purchase.totalAmount || 0), 0);
+
+  // Apply client-side search filtering if search term is provided
+  let filteredPurchases = allPurchases;
+  if (search && search.trim() !== '') {
+    const searchRegex = new RegExp(search.trim(), 'i');
+    filteredPurchases = allPurchases.filter(purchase => {
+      if (!purchase.fournisseur) return false;
+      
+      const firstName = purchase.fournisseur.firstName || '';
+      const lastName = purchase.fournisseur.lastName || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      const totalAmount = purchase.totalAmount || 0;
+
+      return searchRegex.test(firstName) || 
+             searchRegex.test(lastName) || 
+             searchRegex.test(fullName) || 
+             searchRegex.test(totalAmount.toString());
+    });
+  }
+
+  // Apply pagination to filtered results
+  const paginatedPurchases = filteredPurchases.slice(skip, skip + limitNum);
+
   // For each purchase, fetch the last sous purchase
-  for (let i = 0; i < purchases.length; i++) {
-    let purchase = purchases[i];
+  for (let i = 0; i < paginatedPurchases.length; i++) {
+    let purchase = paginatedPurchases[i];
 
     if (purchase.sousPurchases && purchase.sousPurchases.length > 0) {
       const lastSousPurchase =
@@ -538,7 +837,7 @@ const GetAllNewPurchases = asyncErrorHandler(async (req, res, next) => {
         return next(new CustomError("Sous-achat non trouvé", 404));
       }
 
-      purchases[i] = {
+      paginatedPurchases[i] = {
         ...purchase.toObject(),
         sousPurchases: lastSousPurchase.sousStocks,
       };
@@ -551,68 +850,151 @@ const GetAllNewPurchases = asyncErrorHandler(async (req, res, next) => {
     }
   }
 
-  res.status(200).json(purchases);
+  res.status(200).json({
+    success: true,
+    data: paginatedPurchases,
+    pagination: {
+      current_page: pageNum,
+      total_pages: Math.ceil(totalCount / limitNum),
+      total_items: totalCount,
+      total_price: totalPrice,
+      items_per_page: limitNum,
+      has_next_page: pageNum < Math.ceil(totalCount / limitNum),
+      has_prev_page: pageNum > 1
+    },
+    filters: {
+      search: search,
+      startDate: startDate,
+      endDate: endDate
+    }
+  });
 });
 
-//fetch all purchases by fournisseur
-const GetAllPurchasesByFournisseurForSpecificStore = asyncErrorHandler(
-  async (req, res, next) => {
-    const { store, fournisseur } = req.params;
-    if (!fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur)) {
-      const err = new CustomError("Tous les champs sont obligatoires", 400);
-      return next(err);
-    }
+//fetch all purchases by fournisseur with pagination, search, and date filtering
+const GetAllPurchasesByFournisseurForSpecificStore = asyncErrorHandler(async (req, res, next) => {
+  const { store, fournisseur } = req.params;
+  const { 
+    page = 1, 
+    limit = 15, 
+    search = '', 
+    startDate = '', 
+    endDate = '' 
+  } = req.query;
 
-    //check if the fournisseur exist
-    const existFournisseur =
-      await FournisseurService.findFournisseurByIdANDStore(fournisseur, store);
-    if (!existFournisseur) {
-      const err = new CustomError("Fournisseur non trouvé", 404);
-      return next(err);
-    }
-
-    //get all purchases by store
-    const purchases = await Purchase.find({
-      store: store,
-      fournisseur: fournisseur,
-    });
-    //check if purchases found
-    if (!purchases || purchases.length < 1) {
-      const err = new CustomError("Aucun achat trouvé", 400);
-      return next(err);
-    }
-
-    // For each purchase, fetch the last sous purchase
-    for (let i = 0; i < purchases.length; i++) {
-      let purchase = purchases[i];
-
-      if (purchase.sousPurchases && purchase.sousPurchases.length > 0) {
-        const lastSousPurchase =
-          await SousPurchaseService.findLastSousPurchaseByPurchasePopulated(
-            purchase.sousPurchases[purchase.sousPurchases.length - 1]
-          );
-
-        if (!lastSousPurchase) {
-          return next(new CustomError("Sous-achat non trouvé", 404));
-        }
-
-        purchases[i] = {
-          ...purchase.toObject(),
-          sousPurchases: lastSousPurchase.sousStocks,
-        };
-      } else {
-        const err = new CustomError(
-          "Aucun sous-achat trouvé pour cet achat",
-          400
-        );
-        return next(err);
-      }
-    }
-
-    //return the purchases
-    res.status(200).json(purchases);
+  if (!fournisseur || !mongoose.Types.ObjectId.isValid(fournisseur)) {
+    const err = new CustomError("Tous les champs sont obligatoires", 400);
+    return next(err);
   }
-);
+
+  //check if the fournisseur exist
+  const existFournisseur = await FournisseurService.findFournisseurByIdANDStore(fournisseur, store);
+  if (!existFournisseur) {
+    const err = new CustomError("Fournisseur non trouvé", 404);
+    return next(err);
+  }
+
+  // Validate pagination parameters
+  const pageNum = Math.max(1, parseInt(page));
+  const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+  const skip = (pageNum - 1) * limitNum;
+
+  // Build the base query
+  let query = {
+    store: store,
+    fournisseur: fournisseur,
+  };
+
+  // Add date range filtering if provided
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    
+    query.createdAt = {
+      $gte: start,
+      $lte: end
+    };
+  } else if (startDate) {
+    const start = new Date(startDate);
+    query.createdAt = { $gte: start };
+  } else if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    query.createdAt = { $lte: end };
+  }
+
+  //get all purchases by store and fournisseur
+  const allPurchases = await Purchase.find(query).sort({ createdAt: -1 });
+    
+  //check if purchases found
+  const totalCount = allPurchases.length;
+  if (totalCount <= 0) {
+    const err = new CustomError("Aucun achat trouvé", 400);
+    return next(err);
+  }
+
+  // Apply client-side search filtering if search term is provided
+  let filteredPurchases = allPurchases;
+  if (search && search.trim() !== '') {
+    const searchRegex = new RegExp(search.trim(), 'i');
+    filteredPurchases = allPurchases.filter(purchase => {
+      const totalAmount = purchase.totalAmount || 0;
+      const date = purchase.date || '';
+
+      return searchRegex.test(totalAmount.toString()) || 
+              searchRegex.test(date);
+    });
+  }
+
+  // Apply pagination to filtered results
+  const paginatedPurchases = filteredPurchases.slice(skip, skip + limitNum);
+
+  // For each purchase, fetch the last sous purchase
+  for (let i = 0; i < paginatedPurchases.length; i++) {
+    let purchase = paginatedPurchases[i];
+
+    if (purchase.sousPurchases && purchase.sousPurchases.length > 0) {
+      const lastSousPurchase =
+        await SousPurchaseService.findLastSousPurchaseByPurchasePopulated(
+          purchase.sousPurchases[purchase.sousPurchases.length - 1]
+        );
+
+      if (!lastSousPurchase) {
+        return next(new CustomError("Sous-achat non trouvé", 404));
+      }
+
+      paginatedPurchases[i] = {
+        ...purchase.toObject(),
+        sousPurchases: lastSousPurchase.sousStocks,
+      };
+    } else {
+      const err = new CustomError(
+        "Aucun sous-achat trouvé pour cet achat",
+        400
+      );
+      return next(err);
+    }
+  }
+
+  //return the purchases
+  res.status(200).json({
+    success: true,
+    data: paginatedPurchases,
+    pagination: {
+      current_page: pageNum,
+      total_pages: Math.ceil(totalCount / limitNum),
+      total_items: totalCount,
+      items_per_page: limitNum,
+      has_next_page: pageNum < Math.ceil(totalCount / limitNum),
+      has_prev_page: pageNum > 1
+    },
+    filters: {
+      search: search,
+      startDate: startDate,
+      endDate: endDate
+    }
+  });
+});
 
 //update Purchase Credit
 const UpdatePurchaseCredited = asyncErrorHandler(async (req, res, next) => {
