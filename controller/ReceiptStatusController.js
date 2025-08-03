@@ -46,25 +46,24 @@ const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next
     try {
         // Adjust product quantities based on the difference from the last receipt status
         const updatedProducts = lastReceiptStatus.products.map((product) => {
-                const matchingProduct = products.find(
-                    (newProduct) => newProduct.product.toString() === product.product.toString() &&
-                                   newProduct.stock.toString() === product.stock.toString()
-                );
+            const matchingProduct = products.find(
+                (newProduct) => newProduct.product.toString() === product.product.toString() &&
+                                newProduct.stock.toString() === product.stock.toString()
+            );
 
-                if (matchingProduct) {
-                    const adjustedQuantity = Number(product.quantity) - Number(matchingProduct.quantity);
-                    if (adjustedQuantity <= 0 || adjustedQuantity === Number(product.quantity)) {
-                        return null; // Skip if no change or quantity is invalid
-                    }
-                    return { 
-                        ...product, 
-                        quantity: adjustedQuantity,
-                        price: product.price
-                    };
+            if (matchingProduct) {
+                const adjustedQuantity = Number(product.quantity) - Number(matchingProduct.quantity);
+                if (adjustedQuantity < 0 || adjustedQuantity === Number(product.quantity)) {
+                    return null; // Skip if no change or quantity is invalid
                 }
-                return product;
-            })
-            .filter(Boolean); // Remove null values
+                return { 
+                    ...product, 
+                    quantity: adjustedQuantity,
+                    price: product.price
+                };
+            }
+            return product;
+        }).filter(Boolean); // Remove null values
 
         // Check if there are any changes
         if (updatedProducts.length === 0) {
