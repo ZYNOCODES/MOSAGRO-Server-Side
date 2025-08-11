@@ -27,7 +27,7 @@ const validateRequest = asyncErrorHandler(async (req, res, next) => {
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        const err = new CustomError('Validation failed', 400);
+        const err = new CustomError('La validation a échoué', 400);
         err.details = errors.array();
         return next(err);
     }

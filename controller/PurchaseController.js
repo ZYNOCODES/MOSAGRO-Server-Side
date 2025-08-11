@@ -369,7 +369,7 @@ const GetAllClosedPurchases = asyncErrorHandler(async (req, res, next) => {
 
   // Validate pagination parameters
   const pageNum = Math.max(1, parseInt(page));
-  const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const skip = (pageNum - 1) * limitNum;
 
   // Build the base query
@@ -494,7 +494,7 @@ const GetAllCreditedPurchases = asyncErrorHandler(async (req, res, next) => {
 
   // Validate pagination parameters
   const pageNum = Math.max(1, parseInt(page));
-  const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const skip = (pageNum - 1) * limitNum;
 
   // Build the base query
@@ -623,7 +623,7 @@ const GetAllReturnedPurchases = asyncErrorHandler(async (req, res, next) => {
 
   // Validate pagination parameters
   const pageNum = Math.max(1, parseInt(page));
-  const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const skip = (pageNum - 1) * limitNum;
 
   // Build the base query
@@ -752,7 +752,7 @@ const GetAllNewPurchases = asyncErrorHandler(async (req, res, next) => {
 
   // Validate pagination parameters
   const pageNum = Math.max(1, parseInt(page));
-  const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const skip = (pageNum - 1) * limitNum;
 
   // Build the base query
@@ -895,7 +895,7 @@ const GetAllPurchasesByFournisseurForSpecificStore = asyncErrorHandler(async (re
 
   // Validate pagination parameters
   const pageNum = Math.max(1, parseInt(page));
-  const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const skip = (pageNum - 1) * limitNum;
 
   // Build the base query

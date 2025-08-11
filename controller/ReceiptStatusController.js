@@ -72,7 +72,6 @@ const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next
 
         // Create a new ReceiptStatus
         const [newReceiptStatus] = await ReceiptStatus.create([{
-            receipt: existingReceipt._id,
             products: updatedProducts,
             date: currentDateTime
         }], { session });
@@ -88,6 +87,9 @@ const CreateNewReceiptStatusForReceipt = asyncErrorHandler(async (req, res, next
         const newProfit = (newTotal * Number(existingReceipt.profit)) / Number(existingReceipt.total);
         
         existingReceipt.total = newTotal;
+        if (newTotal == 0) {
+            existingReceipt.status = -1;
+        }
         existingReceipt.profit = newProfit;
         existingReceipt.products.push(newReceiptStatus._id);
 

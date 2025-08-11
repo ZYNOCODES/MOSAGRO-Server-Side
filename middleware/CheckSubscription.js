@@ -16,13 +16,13 @@ const checkSubscription = asyncErrorHandler(async (req, res, next) => {
     //check if subscription still valid
     const existSubscription = await SubscriptionStoreService.findLastSubscriptionStoreByStore(req.user._id);
     if (!existSubscription) {
-        const err = new CustomError('You do not have an active subscription', 400);
+        const err = new CustomError('Vous n\'avez pas d\'abonnement actif', 400);
         return next(err);
     }
     if (currentTime.isSameOrAfter(moment(existSubscription.expiryDate))) {
         //update Store status to suspended
         await Store.updateOne({ _id: id }, { status: 'Suspended' });
-        const err = new CustomError('Your subscription has expired', 400);
+        const err = new CustomError('Votre abonnement a expiré', 400);
         return next(err);
     }
 

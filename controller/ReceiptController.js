@@ -313,6 +313,7 @@ const CreateReceiptFromStore = asyncErrorHandler(async (req, res, next) => {
             client: client,
             products: [newReceiptStatus[0]._id],
             total: Number(total) + Number(deliveredAmount),
+            deliveryCost: type != 'delivery' ? null : Number(deliveredAmount),
             profit: totalProfit,
             date: currentDateTime,
             type: type,
@@ -413,7 +414,7 @@ const GetAllLatestReceiptsByStore = asyncErrorHandler(async (req, res, next) => 
 
     // Validate pagination parameters
     const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const skip = (pageNum - 1) * limitNum;
     
     // Build the base query
@@ -555,7 +556,7 @@ const GetAllNonedeliveredReceiptsByStore = asyncErrorHandler(async (req, res, ne
 
     // Validate pagination parameters
     const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const skip = (pageNum - 1) * limitNum;
 
     // Build the base query
@@ -704,7 +705,7 @@ const GetAlldeliveredReceiptsByStore = asyncErrorHandler(async (req, res, next) 
 
     // Validate pagination parameters
     const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const skip = (pageNum - 1) * limitNum;
 
     // Build the base query
@@ -842,7 +843,7 @@ const GetAlldeliveredReceiptsByStoreCredited = asyncErrorHandler(async (req, res
 
     // Validate pagination parameters
     const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const skip = (pageNum - 1) * limitNum;
 
     // Build the base query
@@ -987,7 +988,7 @@ const GetAllReturnedReceiptsByStore = asyncErrorHandler(async (req, res, next) =
 
     // Validate pagination parameters
     const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const skip = (pageNum - 1) * limitNum;
 
     // Build the base query
@@ -1320,7 +1321,7 @@ const ValidateMyReceipt = asyncErrorHandler(async (req, res, next) => {
     res.status(200).json({ message: 'La validation a été soumise avec succès' });
 });
 //update receipt expexted delivery date
-const UpdateReceiptExpextedDeliveryDate = asyncErrorHandler(async (req, res, next) => {
+const UpdateReceiptExpectedDeliveryDate = asyncErrorHandler(async (req, res, next) => {
     const { id, store } = req.params;
     const { date } = req.body;
     //check the fields
@@ -1342,6 +1343,46 @@ const UpdateReceiptExpextedDeliveryDate = asyncErrorHandler(async (req, res, nex
         return next(err);
     }
     res.status(200).json({ message: 'La date de livraison prévue a été soumise avec succès' });
+});
+//update receipt delivery cost
+const UpdateReceiptDelivryCost = asyncErrorHandler(async (req, res, next) => {
+    const { id, store } = req.params;
+    const { deliveredAmount } = req.body;
+    //check the fields
+    if( !id || !validator.isNumeric(deliveredAmount.toString())
+        || !mongoose.Types.ObjectId.isValid(id)){
+        return next(new CustomError('Tous les champs sont obligatoires', 400));
+    }
+    // check if deliveredAmount is positive
+    if (deliveredAmount < 0) {
+        return next(new CustomError('Le montant de livraison doit être positif >= 0', 400));
+    }
+    //check if receipt exist
+    const existingreceipt = await findReceiptByIdAndStore(id, store);
+    if(!existingreceipt){
+        return next(new CustomError('Commande non trouvée', 404));
+    }
+
+    //Check receipt status must be 0, 1 or 2
+    if (![0, 1, 2].includes(existingreceipt.status)) {
+        return next(new CustomError('Vous ne pouvez pas modifier une commande qui n\'est pas en cours', 400));
+    }
+    
+    if(!existingreceipt.deliveryCost){
+        existingreceipt.total = Number(existingreceipt.total) + Number(deliveredAmount);
+    } else{
+        existingreceipt.total = (Number(existingreceipt.total) - Number(existingreceipt.deliveryCost)) + Number(deliveredAmount);
+    }
+    existingreceipt.deliveryCost = Number(deliveredAmount);
+
+    //update 
+    const updatedreceipt = await existingreceipt.save();
+    // Check if receipt updated successfully
+    if (!updatedreceipt) {
+        const err = new CustomError('Erreur lors de la mise à jour de la commande, réessayez.', 400);
+        return next(err);
+    }
+    res.status(200).json({ message: 'Le coût de livraison a été soumis avec succès' });
 });
 //update specific product price in a receipt
 const UpdateReceiptProductPrice = asyncErrorHandler(async (req, res, next) => {
@@ -1900,7 +1941,7 @@ module.exports = {
     GetAllReceiptsByClient,
     GetAllArchiveReceiptsByClient,
     ValidateMyReceipt,
-    UpdateReceiptExpextedDeliveryDate,
+    UpdateReceiptExpectedDeliveryDate,
     GetAllReceiptsByClientForStore,
     UpdateReceiptProductPrice,
     GetAlldeliveredReceiptsByStoreCredited,
@@ -1911,5 +1952,6 @@ module.exports = {
     UpdateReceiptCredited,
     CancelReceiptByClient,
     CancelReceiptByStore,
-    UpdateReceiptDiposit
+    UpdateReceiptDiposit,
+    UpdateReceiptDelivryCost
 }

@@ -11,7 +11,7 @@ const {
     GetAllReceiptsByClient,
     GetAllArchiveReceiptsByClient,
     ValidateMyReceipt,
-    UpdateReceiptExpextedDeliveryDate,
+    UpdateReceiptExpectedDeliveryDate,
     GetAllReceiptsByClientForStore,
     UpdateReceiptProductPrice,
     GetAlldeliveredReceiptsByStoreCredited,
@@ -23,6 +23,7 @@ const {
     updateReceiptStatus,
     CancelReceiptByClient,
     CancelReceiptByStore,
+    UpdateReceiptDelivryCost
 } = require('../controller/ReceiptController');
 const router = express.Router();
 const requireAuth = require('../middleware/RequireAuth');
@@ -52,7 +53,9 @@ router.get('/returned/all/:store', checkAuthorization([process.env.STORE_TYPE]),
 //get all receipts by client for store
 router.get('/clientForStore/:client/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, GetAllReceiptsByClientForStore);
 //update expected delivery date
-router.patch('/updateExpectedDeliveryDate/:id/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, UpdateReceiptExpextedDeliveryDate);
+router.patch('/updateExpectedDeliveryDate/:id/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, UpdateReceiptExpectedDeliveryDate);
+//update expected delivery cost
+router.patch('/updateExpectedDeliveryCost/:id/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, UpdateReceiptDelivryCost);
 //update product price
 router.patch('/updateProductPrice/:store', checkAuthorization([process.env.STORE_TYPE]), checkStoreOwnership, UpdateReceiptProductPrice);
 //add payment to receipt credit

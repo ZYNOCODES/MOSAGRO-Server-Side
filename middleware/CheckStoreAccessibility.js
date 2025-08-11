@@ -10,27 +10,27 @@ const CheckStoreAccessibility = asyncErrorHandler(async (req, res, next) => {
     //check if the store id is provided
     if (!store || !mongoose.Types.ObjectId.isValid(store) ||
         !client || !mongoose.Types.ObjectId.isValid(client)) {
-        const err = new CustomError('Invalid store id or client id', 400);
+        const err = new CustomError('ID de magasin ou ID client non valide', 400);
         return next(err);
     }
 
     //check if the store exist
     const existStore = await StoreService.findStoreById(store);
     if (!existStore) {
-        const err = new CustomError('Store not found', 401);
+        const err = new CustomError('Magasin non trouvé', 401);
         return next(err);
     }
     //check if the client exist
     const existClient = await ClientService.findClientById(client);
     if (!existClient) {
-        const err = new CustomError('Store not found', 401);
+        const err = new CustomError('Magasin non trouvé', 401);
         return next(err);
     }
 
     //check if the client is a member of the store
     const isMember = await MyStoreService.checkUserStore(client, store);
     if (!isMember) {
-        const err = new CustomError('You are not a member of this store you cannot access it', 401);
+        const err = new CustomError('Vous n\'êtes pas membre de ce magasin, vous ne pouvez pas y accéder', 401);
         return next(err);
     }
 

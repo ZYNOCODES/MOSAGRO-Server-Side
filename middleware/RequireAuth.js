@@ -51,12 +51,12 @@ const requireAuth = asyncErrorHandler(async (req, res, next) => {
             req.user = await Store.findById(id);
             break;
         default:
-            const err = new CustomError('Authentication rejected', 404);
+            const err = new CustomError('Authentification rejetée', 404);
             return next(err);
     }
     // Check if the user was found
     if(!req.user){
-        const err = new CustomError('Authentication rejected', 404);
+        const err = new CustomError('Authentification rejetée', 404);
         return next(err);
     }
     // Continue to next middleware
