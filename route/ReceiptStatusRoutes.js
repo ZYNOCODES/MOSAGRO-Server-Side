@@ -20,6 +20,6 @@ router.post('/create/:receipt/:store', checkAuthrozation([process.env.STORE_TYPE
 //fetch receipt status by receipt
 router.get('/:id/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, FetchLiveReceiptStatusByReceipt);
 //fetch all receipt status by receipt
-router.get('/all/:id/:store', checkAuthrozation([process.env.STORE_TYPE]), checkStoreOwnership, FetchAllReceiptStatusByReceipt);
+router.get('/all/:id/:store', checkAuthrozation([process.env.STORE_TYPE, process.env.CLIENT_TYPE]), FetchAllReceiptStatusByReceipt);
 
 module.exports = router;
